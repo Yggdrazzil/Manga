@@ -1,4 +1,4 @@
-import type { Manga, PaginatedResult, MediaType, OngoingStatus } from '../types';
+import type { Manga, MangaChapter, PaginatedResult, MediaType, OngoingStatus } from '../types';
 
 const BASE = 'https://api.mangadex.org';
 const WEBTOON_TAG_ID = '3e2b8dae-350e-4ab8-a3ac-3a6f9a58f83b'; // Long Strip tag
@@ -54,6 +54,29 @@ interface MDSingleResponse {
   result: string;
   response: string;
   data: MDManga;
+}
+
+interface MDChapter {
+  id: string;
+  type: 'chapter';
+  attributes: {
+    volume?: string | null;
+    chapter?: string | null;
+    title?: string | null;
+    translatedLanguage: string;
+    pages: number;
+    publishAt: string;
+    readableAt: string;
+  };
+  relationships: MDRelationship[];
+}
+
+interface MDChapterFeedResponse {
+  result: string;
+  data: MDChapter[];
+  total: number;
+  limit: number;
+  offset: number;
 }
 
 function pickTitle(title: MDTitle): string {
@@ -210,4 +233,74 @@ export async function searchManga(
 export async function getMangaById(id: string): Promise<Manga> {
   const data = await fetchMD<MDSingleResponse>(`/manga/${id}`, { includes: INCLUDES });
   return normalize(data.data);
+}
+
+function normalizeChapter(ch: MDChapter): MangaChapter {
+  const mangaRel = ch.relationships.find(r => r.type === 'manga');
+  return {
+    id: ch.id,
+    mangaId: mangaRel?.id ?? '',
+    chapter: ch.attributes.chapter ?? '0',
+    volume: ch.attributes.volume ?? undefined,
+    title: ch.attributes.title ?? undefined,
+    pages: ch.attributes.pages,
+    publishAt: ch.attributes.publishAt,
+    translatedLanguage: ch.attributes.translatedLanguage,
+  };
+}
+
+export async function getMangaChapters(
+  mangaId: string,
+  opts?: { lang?: string[]; page?: number; perPage?: number }
+): Promise<{ chapters: MangaChapter[]; total: number; hasNext: boolean }> {
+  const lang = opts?.lang ?? ['en', 'fr'];
+  const perPage = opts?.perPage ?? 100;
+  const page = opts?.page ?? 1;
+
+  const data = await fetchMD<MDChapterFeedResponse>(`/manga/${mangaId}/feed`, {
+    limit: perPage,
+    offset: (page - 1) * perPage,
+    translatedLanguage: lang,
+    'order[chapter]': 'desc',
+    'order[publishAt]': 'desc',
+    contentRating: CONTENT_RATINGS,
+  });
+
+  const seen = new Set<string>();
+  const deduped: MDChapter[] = [];
+  for (const ch of data.data) {
+    const num = ch.attributes.chapter ?? 'none';
+    if (!seen.has(num)) {
+      seen.add(num);
+      deduped.push(ch);
+    }
+  }
+
+  return {
+    chapters: deduped.map(normalizeChapter),
+    total: data.total,
+    hasNext: data.offset + data.limit < data.total,
+  };
+}
+
+export async function getChaptersForLibrary(
+  mangaIds: string[],
+  lang?: string[]
+): Promise<MangaChapter[]> {
+  if (mangaIds.length === 0) return [];
+
+  const since = new Date();
+  since.setDate(since.getDate() - 14);
+
+  const data = await fetchMD<MDChapterFeedResponse>('/chapter', {
+    manga: mangaIds,
+    translatedLanguage: lang ?? ['en', 'fr'],
+    'publishAt[gte]': since.toISOString(),
+    'order[publishAt]': 'desc',
+    limit: 100,
+    contentRating: CONTENT_RATINGS,
+    includeExternalUrl: 0,
+  });
+
+  return data.data.map(normalizeChapter);
 }

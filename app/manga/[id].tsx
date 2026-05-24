@@ -26,6 +26,7 @@ import { GlassCard } from '@/components/ui/GlassCard';
 import { GlassButton } from '@/components/ui/GlassButton';
 import { TypeBadge } from '@/components/ui/TypeBadge';
 import { Typography } from '@/components/ui/Typography';
+import { ChapterList } from '@/components/manga/ChapterList';
 import { COLORS, FONTS, RADIUS, SPACING, STATUS_LABELS } from '@/constants/theme';
 import type { Manga, ReadingStatus } from '@/lib/types';
 
@@ -354,6 +355,23 @@ export default function MangaDetailScreen() {
           >
             <TrackingPanel manga={manga} />
           </MotiView>
+
+          {(() => {
+            const mdId = manga.source === 'mangadex' ? manga.id : manga.mangadexId;
+            return mdId ? (
+              <MotiView
+                from={{ opacity: 0, translateY: 16 }}
+                animate={{ opacity: 1, translateY: 0 }}
+                transition={{ type: 'spring', stiffness: 280, damping: 25, delay: 420 }}
+              >
+                <ChapterList
+                  mangadexId={mdId}
+                  entryMangaId={manga.id}
+                  source={manga.source}
+                />
+              </MotiView>
+            ) : null;
+          })()}
         </View>
       </ScrollView>
     </View>

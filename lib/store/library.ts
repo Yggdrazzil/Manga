@@ -14,6 +14,7 @@ interface LibraryState {
   getEntry: (mangaId: string, source: string) => LibraryEntry | undefined;
   entriesByStatus: (status: ReadingStatus) => LibraryEntry[];
   getStats: () => ReadingStats;
+  toggleChapterRead: (mangaId: string, source: string, chapterId: string, chapterNum: number) => void;
 }
 
 export const useLibraryStore = create<LibraryState>()(
@@ -89,6 +90,19 @@ export const useLibraryStore = create<LibraryState>()(
 
       getEntry: (mangaId, source) => {
         return get().entries.find(e => e.mangaId === mangaId && e.source === source);
+      },
+
+      toggleChapterRead: (mangaId, source, chapterId, chapterNum) => {
+        set(state => ({
+          entries: state.entries.map(e => {
+            if (e.mangaId !== mangaId || e.source !== source) return e;
+            const ids = e.readChapterIds ?? [];
+            const isRead = ids.includes(chapterId);
+            const newIds = isRead ? ids.filter(id => id !== chapterId) : [...ids, chapterId];
+            const newProgress = isRead ? e.progress : Math.max(e.progress, Math.floor(chapterNum));
+            return { ...e, readChapterIds: newIds, progress: newProgress, updatedAt: new Date().toISOString() };
+          }),
+        }));
       },
 
       entriesByStatus: (status) => {

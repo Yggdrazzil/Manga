@@ -30,6 +30,7 @@ export interface Manga {
   authors: string[];
   countryOfOrigin?: string;
   accentColor?: string;
+  mangadexId?: string;
 }
 
 export interface LibraryEntry {
@@ -44,6 +45,18 @@ export interface LibraryEntry {
   notes?: string;
   updatedAt: string;
   manga: Manga;
+  readChapterIds?: string[];
+}
+
+export interface MangaChapter {
+  id: string;
+  mangaId: string;
+  chapter: string;
+  volume?: string;
+  title?: string;
+  pages: number;
+  publishAt: string;
+  translatedLanguage: string;
 }
 
 export interface SearchFilters {
