@@ -1,0 +1,1576 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>MangaTrack — Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@400;500;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+/* ───────── TOKENS ───────── */
+:root {
+  --bg:               hsl(228 20% 7%);
+  --surface:          hsl(228 18% 13%);
+  --surface-raised:   hsl(228 16% 18%);
+  --accent:           hsl(262 80% 65%);
+  --accent-muted:     hsl(262 60% 22%);
+  --accent-light:     hsl(262 70% 82%);
+  --cyan:             hsl(188 88% 56%);
+  --green:            hsl(142 71% 45%);
+  --orange:           hsl(35 90% 55%);
+  --pink:             hsl(330 80% 68%);
+  --yellow:           hsl(44 90% 60%);
+  --red:              hsl(0 75% 60%);
+  --text:             hsl(220 20% 93%);
+  --text-muted:       hsl(220 12% 52%);
+  --border:           rgba(255,255,255,0.08);
+  --glass-bg:         rgba(17,18,46,0.55);
+  --glass-border:     rgba(255,255,255,0.09);
+  --status-reading:   hsl(188 88% 56%);
+  --status-completed: hsl(142 71% 45%);
+  --status-plan:      hsl(262 80% 65%);
+  --status-paused:    hsl(44 90% 60%);
+  --status-dropped:   hsl(0 75% 60%);
+
+  --sp-xs:  4px;
+  --sp-sm:  8px;
+  --sp-md:  12px;
+  --sp-base:16px;
+  --sp-lg:  20px;
+  --sp-xl:  24px;
+  --sp-2xl: 32px;
+  --sp-3xl: 48px;
+
+  --r-sm:  8px;
+  --r-md:  12px;
+  --r-lg:  16px;
+  --r-xl:  24px;
+  --r-full:9999px;
+
+  --tab-h: 80px;
+}
+
+/* ───────── RESET ───────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; background: var(--bg); }
+button { background: none; border: none; cursor: pointer; font: inherit; color: inherit; }
+img { display: block; }
+
+/* ───────── PHONE FRAME ───────── */
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(ellipse at 20% 40%, hsl(262 80% 18% / 0.5) 0%, transparent 55%),
+    radial-gradient(ellipse at 80% 20%, hsl(188 88% 18% / 0.35) 0%, transparent 50%),
+    hsl(228 20% 5%);
+  font-family: 'Nunito', sans-serif;
+  color: var(--text);
+}
+
+.phone {
+  width: 390px;
+  height: 844px;
+  border-radius: 50px;
+  overflow: hidden;
+  position: relative;
+  background: var(--bg);
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.12),
+    0 40px 120px rgba(0,0,0,0.8),
+    inset 0 0 0 1px rgba(255,255,255,0.06);
+}
+
+/* Notch */
+.phone::before {
+  content: '';
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 120px;
+  height: 34px;
+  background: #000;
+  border-radius: var(--r-full);
+  z-index: 100;
+}
+
+.screen {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  display: none;
+  flex-direction: column;
+}
+.screen.active { display: flex; }
+
+/* ───────── SCROLLABLE CONTENT ───────── */
+.scroll-area {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-top: 54px;
+  padding-bottom: calc(var(--tab-h) + 16px);
+  scrollbar-width: none;
+}
+.scroll-area::-webkit-scrollbar { display: none; }
+
+/* ───────── GLASS CARD ───────── */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-lg);
+}
+
+/* ───────── TAB BAR ───────── */
+.tab-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0; right: 0;
+  height: var(--tab-h);
+  background: rgba(10,11,20,0.85);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-top: 1px solid var(--glass-border);
+  display: flex;
+  align-items: flex-start;
+  padding-top: 10px;
+  z-index: 50;
+}
+.tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 0;
+  transition: transform 0.15s ease;
+  cursor: pointer;
+}
+.tab:active { transform: scale(0.9); }
+.tab-icon { font-size: 22px; line-height: 1; transition: filter 0.2s; }
+.tab-label {
+  font-family: 'Nunito', sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: var(--text-muted);
+  transition: color 0.2s;
+}
+.tab.active .tab-icon { filter: drop-shadow(0 0 8px var(--accent)); }
+.tab.active .tab-label { color: var(--accent); }
+
+/* ───────── TYPOGRAPHY ───────── */
+.t-display {
+  font-family: 'Bebas Neue', cursive;
+  font-size: 42px;
+  line-height: 1;
+  letter-spacing: 1px;
+  color: var(--text);
+}
+.t-heading {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+}
+.t-subheading {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text);
+}
+.t-body { font-size: 14px; font-weight: 400; line-height: 1.6; color: var(--text); }
+.t-body-bold { font-size: 14px; font-weight: 700; color: var(--text); }
+.t-caption {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.t-label {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+.t-muted { color: var(--text-muted); }
+
+/* ───────── BADGES ───────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: var(--r-full);
+  font-size: 10px;
+  font-weight: 700;
+  font-family: 'Space Grotesk', sans-serif;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+.badge-manga   { background: hsl(330 60% 22%); color: var(--pink); }
+.badge-manhwa  { background: hsl(188 60% 18%); color: var(--cyan); }
+.badge-webtoon { background: hsl(142 50% 18%); color: var(--green); }
+.badge-manhua  { background: hsl(35 60% 18%); color: var(--orange); }
+.badge-bd      { background: hsl(44 60% 18%); color: var(--yellow); }
+.score-badge {
+  background: rgba(0,0,0,0.65);
+  backdrop-filter: blur(6px);
+  border-radius: var(--r-sm);
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: 'Space Grotesk', sans-serif;
+  color: var(--yellow);
+}
+
+/* ═══════════════════════════════════════
+   SCREEN 1 — DÉCOUVRIR
+═══════════════════════════════════════ */
+#screen-discover {}
+
+/* Hero card */
+.hero {
+  position: relative;
+  height: 340px;
+  flex-shrink: 0;
+  overflow: hidden;
+  margin-top: -54px; /* bleed under status bar */
+}
+.hero-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+}
+.hero-gradient {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(10,11,20,0.25) 0%,
+    rgba(10,11,20,0.1) 30%,
+    rgba(10,11,20,0.7) 65%,
+    rgba(10,11,20,0.98) 100%
+  );
+}
+.hero-content {
+  position: absolute;
+  bottom: 0;
+  left: 0; right: 0;
+  padding: var(--sp-base) var(--sp-base) var(--sp-lg);
+}
+.hero-title {
+  font-family: 'Bebas Neue', cursive;
+  font-size: 38px;
+  line-height: 1;
+  text-shadow: 0 2px 16px rgba(0,0,0,0.6);
+  margin-bottom: var(--sp-sm);
+}
+.hero-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-sm);
+  flex-wrap: wrap;
+  margin-bottom: var(--sp-md);
+}
+.hero-genres {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: var(--sp-md);
+}
+.hero-actions { display: flex; gap: var(--sp-sm); }
+.btn-primary {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-xs);
+  background: var(--accent);
+  color: white;
+  border-radius: var(--r-md);
+  padding: 10px 16px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  transition: transform 0.12s, filter 0.12s;
+}
+.btn-primary:active { transform: scale(0.96); filter: brightness(0.9); }
+.btn-secondary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-md);
+  font-size: 18px;
+  transition: transform 0.12s;
+}
+.btn-secondary:active { transform: scale(0.96); }
+
+/* Media row */
+.section-pad { padding: 0 var(--sp-base); }
+.row-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--sp-sm);
+}
+.row-header .t-subheading { font-size: 15px; }
+.see-all { font-size: 12px; color: var(--accent); font-weight: 600; font-family: 'Space Grotesk', sans-serif; }
+
+.cards-row {
+  display: flex;
+  gap: var(--sp-sm);
+  overflow-x: auto;
+  padding: 4px 0 8px;
+  padding-left: var(--sp-base);
+  scrollbar-width: none;
+  margin: 0 calc(-1 * var(--sp-base));
+}
+.cards-row::-webkit-scrollbar { display: none; }
+.cards-row::after {
+  content: '';
+  min-width: var(--sp-base);
+}
+
+.manga-card {
+  position: relative;
+  flex-shrink: 0;
+  width: 108px;
+  cursor: pointer;
+  transition: transform 0.18s cubic-bezier(0.34,1.56,0.64,1);
+}
+.manga-card:active { transform: scale(0.93); }
+.manga-card-img-wrap {
+  width: 108px;
+  height: 152px;
+  border-radius: var(--r-md);
+  overflow: hidden;
+  background: var(--surface-raised);
+  position: relative;
+  margin-bottom: var(--sp-xs);
+}
+.manga-card-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s;
+}
+.manga-card:hover .manga-card-img { transform: scale(1.04); }
+.card-score {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+}
+.card-type {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+}
+.manga-card-title {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.manga-card-sub { font-size: 10px; color: var(--text-muted); margin-top: 1px; }
+
+/* ═══════════════════════════════════════
+   SCREEN 2 — BIBLIOTHÈQUE
+═══════════════════════════════════════ */
+.lib-header {
+  padding: var(--sp-base);
+  padding-bottom: 0;
+}
+.status-chips {
+  display: flex;
+  gap: var(--sp-xs);
+  overflow-x: auto;
+  padding: var(--sp-sm) var(--sp-base);
+  margin: 0 calc(-1 * var(--sp-base));
+  scrollbar-width: none;
+}
+.status-chips::-webkit-scrollbar { display: none; }
+.chip {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 14px;
+  border-radius: var(--r-full);
+  background: var(--surface-raised);
+  border: 1px solid transparent;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: 'Space Grotesk', sans-serif;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.chip.active { background: var(--accent-muted); border-color: var(--accent); color: var(--accent-light); }
+.chip-dot { width: 7px; height: 7px; border-radius: 50%; }
+
+.lib-list { display: flex; flex-direction: column; gap: var(--sp-sm); padding: var(--sp-sm) var(--sp-base) 0; }
+
+.lib-item {
+  display: flex;
+  gap: var(--sp-md);
+  padding: var(--sp-md);
+  border-radius: var(--r-lg);
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+.lib-item:active { transform: scale(0.98); }
+.lib-cover {
+  width: 64px;
+  height: 90px;
+  border-radius: var(--r-sm);
+  object-fit: cover;
+  background: var(--surface-raised);
+  flex-shrink: 0;
+}
+.lib-info { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: space-between; }
+.lib-title { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px; }
+.lib-meta { display: flex; gap: var(--sp-xs); align-items: center; margin-bottom: var(--sp-xs); }
+.lib-progress-wrap { margin-top: 4px; }
+.lib-progress-label { display: flex; justify-content: space-between; margin-bottom: 4px; }
+.progress-bar {
+  height: 5px;
+  background: var(--surface-raised);
+  border-radius: var(--r-full);
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: var(--r-full);
+  transition: width 0.4s ease;
+}
+.lib-actions { display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between; }
+.plus-btn {
+  width: 32px; height: 32px;
+  background: var(--accent-muted);
+  border-radius: var(--r-sm);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; color: var(--accent-light);
+  transition: transform 0.12s, filter 0.12s;
+}
+.plus-btn:active { transform: scale(0.9); filter: brightness(0.9); }
+.lib-score {
+  font-size: 13px;
+  font-weight: 700;
+  font-family: 'Space Grotesk', sans-serif;
+  color: var(--yellow);
+}
+
+/* ═══════════════════════════════════════
+   SCREEN 3 — RECHERCHER
+═══════════════════════════════════════ */
+.search-header { padding: var(--sp-base); }
+.search-box {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-sm);
+  padding: 12px 16px;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--glass-border);
+  margin-bottom: var(--sp-md);
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+}
+.search-input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 15px;
+  color: var(--text);
+}
+.search-input::placeholder { color: var(--text-muted); }
+.search-icon { font-size: 18px; color: var(--text-muted); }
+
+.filter-chips {
+  display: flex;
+  gap: var(--sp-xs);
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+.filter-chips::-webkit-scrollbar { display: none; }
+
+.search-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--sp-sm);
+  padding: 0 var(--sp-base);
+}
+.search-item {
+  cursor: pointer;
+  transition: transform 0.18s cubic-bezier(0.34,1.56,0.64,1);
+}
+.search-item:active { transform: scale(0.93); }
+.search-item-img {
+  width: 100%;
+  aspect-ratio: 2/3;
+  object-fit: cover;
+  border-radius: var(--r-md);
+  background: var(--surface-raised);
+  position: relative;
+  overflow: hidden;
+  margin-bottom: var(--sp-xs);
+}
+.search-item-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.search-item-title {
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ═══════════════════════════════════════
+   SCREEN 4 — PROFIL
+═══════════════════════════════════════ */
+.profile-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-sm);
+  padding: var(--sp-xl) var(--sp-base) var(--sp-base);
+}
+.avatar {
+  width: 80px; height: 80px;
+  border-radius: 50%;
+  background: var(--surface-raised);
+  border: 2px solid var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 36px;
+}
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-md);
+  padding: 0 var(--sp-base);
+}
+.stat-card { padding: var(--sp-base); border-radius: var(--r-lg); text-align: center; }
+.stat-value { font-family: 'Bebas Neue', cursive; font-size: 38px; line-height: 1; color: var(--text); }
+.stat-value.accent { color: var(--accent); }
+.stat-label { font-size: 11px; font-weight: 600; color: var(--text-muted); letter-spacing: 0.5px; margin-top: 4px; }
+
+.profile-section { padding: var(--sp-base); border-radius: var(--r-lg); margin: 0 var(--sp-base); }
+.section-title { font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 700; margin-bottom: var(--sp-md); }
+
+.status-bar-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-sm);
+  margin-bottom: var(--sp-md);
+}
+.status-bar-row:last-child { margin-bottom: 0; }
+.status-bar-label {
+  display: flex; align-items: center; gap: 6px;
+  width: 90px; flex-shrink: 0;
+}
+.status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.status-bar-name { font-size: 11px; font-weight: 700; }
+.status-bar-track {
+  flex: 1;
+  height: 6px;
+  background: var(--surface-raised);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.status-bar-fill { height: 100%; border-radius: 3px; }
+.status-bar-count { width: 20px; text-align: right; font-size: 11px; color: var(--text-muted); flex-shrink: 0; }
+
+.genre-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-sm);
+  margin-bottom: var(--sp-sm);
+}
+.genre-row:last-child { margin-bottom: 0; }
+.genre-rank {
+  width: 36px; height: 24px;
+  border-radius: var(--r-sm);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700;
+  font-family: 'Space Grotesk', sans-serif;
+  flex-shrink: 0;
+}
+.genre-rank.top { background: var(--accent-muted); color: var(--accent-light); }
+.genre-rank.rest { background: var(--surface-raised); color: var(--text-muted); }
+.genre-name { flex: 1; font-size: 13px; font-weight: 700; }
+.genre-count { font-size: 12px; color: var(--text-muted); }
+
+/* ═══════════════════════════════════════
+   SCREEN 5 — DÉTAIL MANGA
+═══════════════════════════════════════ */
+.detail-hero {
+  position: relative;
+  height: 320px;
+  flex-shrink: 0;
+  overflow: hidden;
+  margin-top: -54px;
+}
+.detail-hero-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+  filter: blur(2px) brightness(0.7);
+  transform: scale(1.05);
+}
+.detail-hero-gradient {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(10,11,20,0.4) 0%,
+    rgba(10,11,20,0.15) 35%,
+    rgba(10,11,20,0.75) 65%,
+    rgba(10,11,20,1) 100%
+  );
+}
+.detail-cover-wrap {
+  position: absolute;
+  bottom: 16px;
+  left: var(--sp-base);
+  display: flex;
+  gap: var(--sp-base);
+  align-items: flex-end;
+}
+.detail-cover {
+  width: 100px;
+  height: 140px;
+  border-radius: var(--r-md);
+  object-fit: cover;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+}
+.detail-cover-info { flex: 1; }
+.detail-title { font-family: 'Bebas Neue', cursive; font-size: 28px; line-height: 1; text-shadow: 0 2px 8px rgba(0,0,0,0.5); margin-bottom: 6px; }
+.detail-meta { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
+.back-btn {
+  position: absolute;
+  top: 60px;
+  left: var(--sp-base);
+  width: 38px; height: 38px;
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(8px);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+  cursor: pointer;
+  transition: transform 0.12s;
+  z-index: 5;
+}
+.back-btn:active { transform: scale(0.9); }
+
+.detail-body { padding: 0 var(--sp-base); }
+.detail-info-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--sp-sm);
+  margin-bottom: var(--sp-lg);
+}
+.info-item { text-align: center; }
+.info-value { font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 700; }
+.info-label { font-size: 10px; color: var(--text-muted); font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; margin-top: 2px; }
+
+.desc-text { font-size: 13px; line-height: 1.7; color: hsl(220 15% 75%); margin-bottom: var(--sp-lg); }
+
+.tracking-panel { border-radius: var(--r-xl); overflow: hidden; margin-bottom: var(--sp-lg); }
+.tracking-inner { padding: var(--sp-base); }
+.tracking-title { font-family: 'Space Grotesk', sans-serif; font-size: 14px; font-weight: 700; margin-bottom: var(--sp-md); }
+
+.status-picker { display: flex; flex-wrap: wrap; gap: var(--sp-xs); margin-bottom: var(--sp-md); }
+.status-pill {
+  padding: 5px 12px;
+  border-radius: var(--r-full);
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  font-size: 11px;
+  font-weight: 700;
+  font-family: 'Space Grotesk', sans-serif;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.status-pill.active { border-color: var(--status-reading); background: rgba(34,211,238,0.12); color: var(--status-reading); }
+
+.row-input {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--sp-sm) 0;
+  border-bottom: 1px solid var(--border);
+}
+.row-input:last-of-type { border-bottom: none; }
+.row-input-label { font-size: 13px; color: var(--text-muted); font-weight: 600; }
+.row-input-val { display: flex; align-items: center; gap: var(--sp-sm); }
+.stepper-btn {
+  width: 28px; height: 28px;
+  background: var(--surface-raised);
+  border-radius: var(--r-sm);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; color: var(--text);
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+.stepper-btn:active { transform: scale(0.9); }
+.stepper-val { font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 700; min-width: 24px; text-align: center; }
+
+.score-stars { display: flex; gap: 3px; }
+.star { font-size: 14px; cursor: pointer; transition: transform 0.1s; }
+.star:active { transform: scale(1.3); }
+
+.genres-wrap { display: flex; flex-wrap: wrap; gap: var(--sp-xs); margin-bottom: var(--sp-lg); }
+.genre-chip {
+  padding: 4px 10px;
+  border-radius: var(--r-full);
+  background: var(--surface-raised);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+/* ───────── ANIMATIONS ───────── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.88); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.screen.active .anime-1 { animation: fadeUp 0.4s cubic-bezier(0.16,1,0.3,1) both; }
+.screen.active .anime-2 { animation: fadeUp 0.4s cubic-bezier(0.16,1,0.3,1) 0.08s both; }
+.screen.active .anime-3 { animation: fadeUp 0.4s cubic-bezier(0.16,1,0.3,1) 0.16s both; }
+.screen.active .anime-4 { animation: fadeUp 0.4s cubic-bezier(0.16,1,0.3,1) 0.24s both; }
+.screen.active .anime-5 { animation: fadeUp 0.4s cubic-bezier(0.16,1,0.3,1) 0.32s both; }
+.screen.active .scale-1 { animation: scaleIn 0.35s cubic-bezier(0.16,1,0.3,1) 0.06s both; }
+.screen.active .scale-2 { animation: scaleIn 0.35s cubic-bezier(0.16,1,0.3,1) 0.14s both; }
+.screen.active .scale-3 { animation: scaleIn 0.35s cubic-bezier(0.16,1,0.3,1) 0.22s both; }
+.screen.active .scale-4 { animation: scaleIn 0.35s cubic-bezier(0.16,1,0.3,1) 0.3s both; }
+
+/* Skeleton pulse */
+.skel {
+  background: linear-gradient(90deg, var(--surface-raised) 25%, hsl(228 16% 22%) 50%, var(--surface-raised) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s infinite;
+  border-radius: var(--r-sm);
+}
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+
+/* Discover row gap */
+.discover-rows { display: flex; flex-direction: column; gap: var(--sp-lg); padding-bottom: var(--sp-sm); }
+
+/* ───────── SCROLLBAR DECORATION ───────── */
+.phone { scrollbar-width: none; }
+</style>
+</head>
+<body>
+
+<div class="phone">
+
+  <!-- ═══════ SCREEN: DÉCOUVRIR ═══════ -->
+  <div id="screen-discover" class="screen active">
+    <div class="scroll-area">
+
+      <!-- Hero -->
+      <div class="hero anime-1">
+        <img class="hero-img"
+          src="https://cdn.myanimelist.net/images/anime/1208/94745l.jpg"
+          alt="Berserk cover"
+          onerror="this.style.background='linear-gradient(135deg,#2d1b6b,#0a2744)';this.removeAttribute('src')">
+        <div class="hero-gradient"></div>
+        <div class="hero-content">
+          <div class="t-caption" style="color:var(--accent);margin-bottom:4px">🔥 TENDANCE #1</div>
+          <div class="hero-title">Solo Leveling</div>
+          <div class="hero-meta">
+            <span class="badge badge-manhwa">Manhwa</span>
+            <span class="score-badge">⭐ 9.4</span>
+            <span style="font-size:12px;color:var(--text-muted)">179 chap.</span>
+          </div>
+          <div class="hero-genres t-label">Action · Fantasy · Système</div>
+          <div class="hero-actions">
+            <button class="btn-primary">+ Ajouter à la biblio</button>
+            <button class="btn-secondary">ℹ</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="discover-rows" style="padding-top:var(--sp-lg)">
+
+        <!-- Row: Tendances -->
+        <div class="anime-2">
+          <div class="section-pad row-header">
+            <span class="t-subheading">🔥 Tendances</span>
+            <span class="see-all">Voir tout</span>
+          </div>
+          <div class="cards-row">
+            <div class="manga-card scale-1">
+              <div class="manga-card-img-wrap">
+                <img class="manga-card-img" src="https://cdn.myanimelist.net/images/manga/2/253146l.jpg" alt=""
+                  onerror="this.style.background='linear-gradient(135deg,#2a0a4a,#0a0b14)';this.removeAttribute('src')">
+                <div class="card-score"><span class="score-badge">⭐ 9.4</span></div>
+                <div class="card-type"><span class="badge badge-manhwa">Manhwa</span></div>
+              </div>
+              <div class="manga-card-title">Solo Leveling</div>
+              <div class="manga-card-sub">Ch. 179</div>
+            </div>
+            <div class="manga-card scale-2">
+              <div class="manga-card-img-wrap">
+                <img class="manga-card-img" src="https://cdn.myanimelist.net/images/manga/1/258046l.jpg" alt=""
+                  onerror="this.style.background='linear-gradient(135deg,#0a2a4a,#0a0b14)';this.removeAttribute('src')">
+                <div class="card-score"><span class="score-badge">⭐ 9.2</span></div>
+                <div class="card-type"><span class="badge badge-manga">Manga</span></div>
+              </div>
+              <div class="manga-card-title">Berserk</div>
+              <div class="manga-card-sub">Ch. 374</div>
+            </div>
+            <div class="manga-card scale-3">
+              <div class="manga-card-img-wrap">
+                <img class="manga-card-img" src="https://cdn.myanimelist.net/images/manga/3/202924l.jpg" alt=""
+                  onerror="this.style.background='linear-gradient(135deg,#2a1a0a,#0a0b14)';this.removeAttribute('src')">
+                <div class="card-score"><span class="score-badge">⭐ 8.9</span></div>
+                <div class="card-type"><span class="badge badge-manga">Manga</span></div>
+              </div>
+              <div class="manga-card-title">Chainsaw Man</div>
+              <div class="manga-card-sub">Ch. 170</div>
+            </div>
+            <div class="manga-card scale-4">
+              <div class="manga-card-img-wrap">
+                <img class="manga-card-img" src="https://cdn.myanimelist.net/images/manga/2/73228l.jpg" alt=""
+                  onerror="this.style.background='linear-gradient(135deg,#0a1a2a,#0a0b14)';this.removeAttribute('src')">
+                <div class="card-score"><span class="score-badge">⭐ 9.0</span></div>
+                <div class="card-type"><span class="badge badge-manga">Manga</span></div>
+              </div>
+              <div class="manga-card-title">Attack on Titan</div>
+              <div class="manga-card-sub">Terminé</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Row: Manhwa -->
+        <div class="anime-3">
+          <div class="section-pad row-header">
+            <span class="t-subheading">🇰🇷 Manhwa KR</span>
+            <span class="see-all">Voir tout</span>
+          </div>
+          <div class="cards-row">
+            <div class="manga-card">
+              <div class="manga-card-img-wrap" style="background:linear-gradient(135deg,#1a0a3a,#0a0b14)">
+                <div class="card-score"><span class="score-badge">⭐ 9.1</span></div>
+                <div class="card-type"><span class="badge badge-manhwa">Manhwa</span></div>
+              </div>
+              <div class="manga-card-title">Tower of God</div>
+              <div class="manga-card-sub">Ch. 600+</div>
+            </div>
+            <div class="manga-card">
+              <div class="manga-card-img-wrap" style="background:linear-gradient(135deg,#0a1a3a,#0a0b14)">
+                <div class="card-score"><span class="score-badge">⭐ 8.8</span></div>
+                <div class="card-type"><span class="badge badge-manhwa">Manhwa</span></div>
+              </div>
+              <div class="manga-card-title">Omniscient Reader</div>
+              <div class="manga-card-sub">Ch. 551</div>
+            </div>
+            <div class="manga-card">
+              <div class="manga-card-img-wrap" style="background:linear-gradient(135deg,#3a1a0a,#0a0b14)">
+                <div class="card-score"><span class="score-badge">⭐ 8.6</span></div>
+                <div class="card-type"><span class="badge badge-manhwa">Manhwa</span></div>
+              </div>
+              <div class="manga-card-title">Nano Machine</div>
+              <div class="manga-card-sub">Ch. 230</div>
+            </div>
+            <div class="manga-card">
+              <div class="manga-card-img-wrap" style="background:linear-gradient(135deg,#0a3a1a,#0a0b14)">
+                <div class="card-score"><span class="score-badge">⭐ 9.3</span></div>
+                <div class="card-type"><span class="badge badge-webtoon">Webtoon</span></div>
+              </div>
+              <div class="manga-card-title">Noblesse</div>
+              <div class="manga-card-sub">Terminé</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Row: Webtoons -->
+        <div class="anime-4">
+          <div class="section-pad row-header">
+            <span class="t-subheading">📱 Webtoons</span>
+            <span class="see-all">Voir tout</span>
+          </div>
+          <div class="cards-row">
+            <div class="manga-card">
+              <div class="manga-card-img-wrap" style="background:linear-gradient(135deg,#0a3a2a,#0a0b14)">
+                <div class="card-score"><span class="score-badge">⭐ 9.0</span></div>
+                <div class="card-type"><span class="badge badge-webtoon">Webtoon</span></div>
+              </div>
+              <div class="manga-card-title">Unordinary</div>
+              <div class="manga-card-sub">Ch. 380+</div>
+            </div>
+            <div class="manga-card">
+              <div class="manga-card-img-wrap" style="background:linear-gradient(135deg,#2a0a2a,#0a0b14)">
+                <div class="card-score"><span class="score-badge">⭐ 8.7</span></div>
+                <div class="card-type"><span class="badge badge-webtoon">Webtoon</span></div>
+              </div>
+              <div class="manga-card-title">Lore Olympus</div>
+              <div class="manga-card-sub">Ch. 270+</div>
+            </div>
+            <div class="manga-card">
+              <div class="manga-card-img-wrap" style="background:linear-gradient(135deg,#0a2a3a,#0a0b14)">
+                <div class="card-score"><span class="score-badge">⭐ 8.9</span></div>
+                <div class="card-type"><span class="badge badge-webtoon">Webtoon</span></div>
+              </div>
+              <div class="manga-card-title">The God of High School</div>
+              <div class="manga-card-sub">Terminé</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Row: Top Manga -->
+        <div class="anime-5">
+          <div class="section-pad row-header">
+            <span class="t-subheading">🏆 Top Manga</span>
+            <span class="see-all">Voir tout</span>
+          </div>
+          <div class="cards-row">
+            <div class="manga-card">
+              <div class="manga-card-img-wrap" style="background:linear-gradient(135deg,#2a2a0a,#0a0b14)">
+                <div class="card-score"><span class="score-badge">⭐ 9.5</span></div>
+                <div class="card-type"><span class="badge badge-manga">Manga</span></div>
+              </div>
+              <div class="manga-card-title">Vagabond</div>
+              <div class="manga-card-sub">Ch. 327</div>
+            </div>
+            <div class="manga-card">
+              <div class="manga-card-img-wrap" style="background:linear-gradient(135deg,#3a0a1a,#0a0b14)">
+                <div class="card-score"><span class="score-badge">⭐ 9.3</span></div>
+                <div class="card-type"><span class="badge badge-manga">Manga</span></div>
+              </div>
+              <div class="manga-card-title">Vinland Saga</div>
+              <div class="manga-card-sub">Ch. 210</div>
+            </div>
+            <div class="manga-card">
+              <div class="manga-card-img-wrap" style="background:linear-gradient(135deg,#0a0a3a,#0a0b14)">
+                <div class="card-score"><span class="score-badge">⭐ 9.1</span></div>
+                <div class="card-type"><span class="badge badge-manga">Manga</span></div>
+              </div>
+              <div class="manga-card-title">Fullmetal Alchemist</div>
+              <div class="manga-card-sub">Terminé</div>
+            </div>
+            <div class="manga-card">
+              <div class="manga-card-img-wrap" style="background:linear-gradient(135deg,#1a3a0a,#0a0b14)">
+                <div class="card-score"><span class="score-badge">⭐ 9.2</span></div>
+                <div class="card-type"><span class="badge badge-manga">Manga</span></div>
+              </div>
+              <div class="manga-card-title">Hunter x Hunter</div>
+              <div class="manga-card-sub">Ch. 401</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ SCREEN: BIBLIOTHÈQUE ═══════ -->
+  <div id="screen-library" class="screen">
+    <div class="scroll-area">
+      <div class="lib-header">
+        <h2 class="t-heading anime-1" style="padding-bottom:var(--sp-sm)">Ma Bibliothèque</h2>
+      </div>
+
+      <!-- Status chips -->
+      <div class="status-chips anime-2">
+        <div class="chip active">
+          <div class="chip-dot" style="background:var(--text-muted)"></div>
+          Tout (12)
+        </div>
+        <div class="chip">
+          <div class="chip-dot" style="background:var(--status-reading)"></div>
+          En cours (5)
+        </div>
+        <div class="chip">
+          <div class="chip-dot" style="background:var(--status-completed)"></div>
+          Terminé (4)
+        </div>
+        <div class="chip">
+          <div class="chip-dot" style="background:var(--status-plan)"></div>
+          Prévu (2)
+        </div>
+        <div class="chip">
+          <div class="chip-dot" style="background:var(--status-paused)"></div>
+          Pausé (1)
+        </div>
+      </div>
+
+      <div class="lib-list">
+        <!-- Item 1 -->
+        <div class="lib-item glass anime-1">
+          <div style="position:relative">
+            <div class="lib-cover skel" style="background:linear-gradient(135deg,#2a0a4a,#0a0b14)"></div>
+            <div style="position:absolute;top:4px;left:4px"><span class="badge badge-manhwa">Manhwa</span></div>
+          </div>
+          <div class="lib-info">
+            <div>
+              <div class="lib-title">Solo Leveling</div>
+              <div class="lib-meta">
+                <span class="t-label">Sung Jin-Woo</span>
+              </div>
+            </div>
+            <div class="lib-progress-wrap">
+              <div class="lib-progress-label">
+                <span class="t-label">Chap. 87 / 179</span>
+                <span class="t-label">49%</span>
+              </div>
+              <div class="progress-bar">
+                <div class="progress-fill" style="width:49%"></div>
+              </div>
+            </div>
+          </div>
+          <div class="lib-actions">
+            <div class="lib-score">9.4 ⭐</div>
+            <button class="plus-btn">+</button>
+          </div>
+        </div>
+
+        <!-- Item 2 -->
+        <div class="lib-item glass anime-2">
+          <div style="position:relative">
+            <div class="lib-cover" style="background:linear-gradient(135deg,#2a1a0a,#0a0b14);border-radius:var(--r-sm)"></div>
+            <div style="position:absolute;top:4px;left:4px"><span class="badge badge-manga">Manga</span></div>
+          </div>
+          <div class="lib-info">
+            <div>
+              <div class="lib-title">Chainsaw Man</div>
+              <div class="lib-meta">
+                <span class="t-label">Fujimoto Tatsuki</span>
+              </div>
+            </div>
+            <div class="lib-progress-wrap">
+              <div class="lib-progress-label">
+                <span class="t-label">Chap. 155 / 170</span>
+                <span class="t-label">91%</span>
+              </div>
+              <div class="progress-bar">
+                <div class="progress-fill" style="width:91%;background:var(--pink)"></div>
+              </div>
+            </div>
+          </div>
+          <div class="lib-actions">
+            <div class="lib-score">8.9 ⭐</div>
+            <button class="plus-btn">+</button>
+          </div>
+        </div>
+
+        <!-- Item 3 -->
+        <div class="lib-item glass anime-3">
+          <div style="position:relative">
+            <div class="lib-cover" style="background:linear-gradient(135deg,#0a1a3a,#0a0b14);border-radius:var(--r-sm)"></div>
+            <div style="position:absolute;top:4px;left:4px"><span class="badge badge-manhwa">Manhwa</span></div>
+          </div>
+          <div class="lib-info">
+            <div>
+              <div class="lib-title">Tower of God</div>
+              <div class="lib-meta">
+                <span class="t-label">SIU</span>
+              </div>
+            </div>
+            <div class="lib-progress-wrap">
+              <div class="lib-progress-label">
+                <span class="t-label">Chap. 420 / 600</span>
+                <span class="t-label">70%</span>
+              </div>
+              <div class="progress-bar">
+                <div class="progress-fill" style="width:70%;background:var(--cyan)"></div>
+              </div>
+            </div>
+          </div>
+          <div class="lib-actions">
+            <div class="lib-score">9.1 ⭐</div>
+            <button class="plus-btn">+</button>
+          </div>
+        </div>
+
+        <!-- Item 4 -->
+        <div class="lib-item glass anime-4">
+          <div style="position:relative">
+            <div class="lib-cover" style="background:linear-gradient(135deg,#0a2a1a,#0a0b14);border-radius:var(--r-sm)"></div>
+            <div style="position:absolute;top:4px;left:4px"><span class="badge badge-manga">Manga</span></div>
+          </div>
+          <div class="lib-info">
+            <div>
+              <div class="lib-title">Vinland Saga</div>
+              <div class="lib-meta">
+                <span class="t-label">Makoto Yukimura</span>
+              </div>
+            </div>
+            <div class="lib-progress-wrap">
+              <div class="lib-progress-label">
+                <span class="t-label">Terminé · 210 chap.</span>
+                <span class="t-label" style="color:var(--green)">✓</span>
+              </div>
+              <div class="progress-bar">
+                <div class="progress-fill" style="width:100%;background:var(--green)"></div>
+              </div>
+            </div>
+          </div>
+          <div class="lib-actions">
+            <div class="lib-score">9.3 ⭐</div>
+            <button class="plus-btn" style="opacity:0.4;cursor:default">+</button>
+          </div>
+        </div>
+
+        <!-- Item 5 -->
+        <div class="lib-item glass anime-5">
+          <div style="position:relative">
+            <div class="lib-cover" style="background:linear-gradient(135deg,#3a0a1a,#0a0b14);border-radius:var(--r-sm)"></div>
+            <div style="position:absolute;top:4px;left:4px"><span class="badge badge-manga">Manga</span></div>
+          </div>
+          <div class="lib-info">
+            <div>
+              <div class="lib-title">Berserk</div>
+              <div class="lib-meta">
+                <span class="t-label">Kentaro Miura</span>
+              </div>
+            </div>
+            <div class="lib-progress-wrap">
+              <div class="lib-progress-label">
+                <span class="t-label">Chap. 200 / 374</span>
+                <span class="t-label">54%</span>
+              </div>
+              <div class="progress-bar">
+                <div class="progress-fill" style="width:54%;background:var(--orange)"></div>
+              </div>
+            </div>
+          </div>
+          <div class="lib-actions">
+            <div class="lib-score">9.2 ⭐</div>
+            <button class="plus-btn">+</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ SCREEN: RECHERCHER ═══════ -->
+  <div id="screen-search" class="screen">
+    <div class="scroll-area">
+      <div class="search-header">
+        <h2 class="t-heading anime-1" style="margin-bottom:var(--sp-md)">Rechercher</h2>
+        <div class="search-box glass anime-2">
+          <span class="search-icon">🔍</span>
+          <input class="search-input" type="text" placeholder="Titre, auteur, genre…">
+        </div>
+        <div class="filter-chips anime-3">
+          <div class="chip active" style="font-size:11px;padding:5px 12px">Tout</div>
+          <div class="chip" style="font-size:11px;padding:5px 12px">🇯🇵 Manga</div>
+          <div class="chip" style="font-size:11px;padding:5px 12px">🇰🇷 Manhwa</div>
+          <div class="chip" style="font-size:11px;padding:5px 12px">📱 Webtoon</div>
+          <div class="chip" style="font-size:11px;padding:5px 12px">🇨🇳 Manhua</div>
+        </div>
+      </div>
+
+      <!-- Section populaires -->
+      <div style="padding:var(--sp-base) var(--sp-base) var(--sp-sm)">
+        <div class="t-caption anime-3" style="margin-bottom:var(--sp-sm)">POPULAIRES EN CE MOMENT</div>
+      </div>
+
+      <div class="search-grid anime-4">
+        <div class="search-item">
+          <div class="search-item-img"><img src="" alt="" style="background:linear-gradient(135deg,#2a0a4a,#0a0b14)"><div style="position:absolute;bottom:4px;right:4px" class="score-badge">9.4</div></div>
+          <div class="search-item-title">Solo Leveling</div>
+        </div>
+        <div class="search-item">
+          <div class="search-item-img"><img src="" alt="" style="background:linear-gradient(135deg,#2a1a0a,#0a0b14)"><div style="position:absolute;bottom:4px;right:4px" class="score-badge">8.9</div></div>
+          <div class="search-item-title">Chainsaw Man</div>
+        </div>
+        <div class="search-item">
+          <div class="search-item-img"><img src="" alt="" style="background:linear-gradient(135deg,#0a2a1a,#0a0b14)"><div style="position:absolute;bottom:4px;right:4px" class="score-badge">9.2</div></div>
+          <div class="search-item-title">Berserk</div>
+        </div>
+        <div class="search-item">
+          <div class="search-item-img"><img src="" alt="" style="background:linear-gradient(135deg,#0a0a3a,#0a0b14)"><div style="position:absolute;bottom:4px;right:4px" class="score-badge">9.5</div></div>
+          <div class="search-item-title">Vagabond</div>
+        </div>
+        <div class="search-item">
+          <div class="search-item-img"><img src="" alt="" style="background:linear-gradient(135deg,#0a1a3a,#0a0b14)"><div style="position:absolute;bottom:4px;right:4px" class="score-badge">9.1</div></div>
+          <div class="search-item-title">Tower of God</div>
+        </div>
+        <div class="search-item">
+          <div class="search-item-img"><img src="" alt="" style="background:linear-gradient(135deg,#3a1a0a,#0a0b14)"><div style="position:absolute;bottom:4px;right:4px" class="score-badge">8.8</div></div>
+          <div class="search-item-title">Omniscient Reader's Viewpoint</div>
+        </div>
+        <div class="search-item">
+          <div class="search-item-img"><img src="" alt="" style="background:linear-gradient(135deg,#1a3a0a,#0a0b14)"><div style="position:absolute;bottom:4px;right:4px" class="score-badge">9.3</div></div>
+          <div class="search-item-title">Vinland Saga</div>
+        </div>
+        <div class="search-item">
+          <div class="search-item-img"><img src="" alt="" style="background:linear-gradient(135deg,#3a0a1a,#0a0b14)"><div style="position:absolute;bottom:4px;right:4px" class="score-badge">9.0</div></div>
+          <div class="search-item-title">Fullmetal Alchemist</div>
+        </div>
+        <div class="search-item">
+          <div class="search-item-img"><img src="" alt="" style="background:linear-gradient(135deg,#0a3a2a,#0a0b14)"><div style="position:absolute;bottom:4px;right:4px" class="score-badge">8.6</div></div>
+          <div class="search-item-title">Nano Machine</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ SCREEN: PROFIL ═══════ -->
+  <div id="screen-profile" class="screen">
+    <div class="scroll-area">
+
+      <!-- Avatar header -->
+      <div class="profile-header anime-1">
+        <div class="avatar">📖</div>
+        <div class="t-heading">Lecteur Manga</div>
+        <div class="t-body t-muted">Votre bibliothèque personnelle</div>
+      </div>
+
+      <!-- Stats grid -->
+      <div class="stats-grid" style="margin-bottom:var(--sp-lg)">
+        <div class="stat-card glass scale-1">
+          <div class="stat-value accent">12</div>
+          <div class="stat-label">Total</div>
+        </div>
+        <div class="stat-card glass scale-2">
+          <div class="stat-value">1 847</div>
+          <div class="stat-label">Chapitres lus</div>
+        </div>
+        <div class="stat-card glass scale-3">
+          <div class="stat-value">8.9</div>
+          <div class="stat-label">Score moyen</div>
+        </div>
+        <div class="stat-card glass scale-4">
+          <div class="stat-value">4</div>
+          <div class="stat-label">Terminés</div>
+        </div>
+      </div>
+
+      <!-- Répartition -->
+      <div class="profile-section glass anime-3" style="margin-bottom:var(--sp-md)">
+        <div class="section-title">📊 Répartition</div>
+
+        <div class="status-bar-row">
+          <div class="status-bar-label">
+            <div class="status-dot" style="background:var(--status-reading)"></div>
+            <span class="status-bar-name t-body-bold" style="font-size:11px">En cours</span>
+          </div>
+          <div class="status-bar-track">
+            <div class="status-bar-fill" style="width:42%;background:var(--status-reading)"></div>
+          </div>
+          <span class="status-bar-count">5</span>
+        </div>
+
+        <div class="status-bar-row">
+          <div class="status-bar-label">
+            <div class="status-dot" style="background:var(--status-completed)"></div>
+            <span class="status-bar-name t-body-bold" style="font-size:11px">Terminé</span>
+          </div>
+          <div class="status-bar-track">
+            <div class="status-bar-fill" style="width:33%;background:var(--status-completed)"></div>
+          </div>
+          <span class="status-bar-count">4</span>
+        </div>
+
+        <div class="status-bar-row">
+          <div class="status-bar-label">
+            <div class="status-dot" style="background:var(--status-plan)"></div>
+            <span class="status-bar-name t-body-bold" style="font-size:11px">Prévu</span>
+          </div>
+          <div class="status-bar-track">
+            <div class="status-bar-fill" style="width:17%;background:var(--status-plan)"></div>
+          </div>
+          <span class="status-bar-count">2</span>
+        </div>
+
+        <div class="status-bar-row">
+          <div class="status-bar-label">
+            <div class="status-dot" style="background:var(--status-paused)"></div>
+            <span class="status-bar-name t-body-bold" style="font-size:11px">Pausé</span>
+          </div>
+          <div class="status-bar-track">
+            <div class="status-bar-fill" style="width:8%;background:var(--status-paused)"></div>
+          </div>
+          <span class="status-bar-count">1</span>
+        </div>
+      </div>
+
+      <!-- Top genres -->
+      <div class="profile-section glass anime-4" style="margin-bottom:var(--sp-md)">
+        <div class="section-title">🎭 Top Genres</div>
+
+        <div class="genre-row">
+          <div class="genre-rank top">#1</div>
+          <span class="genre-name">Action</span>
+          <span class="genre-count">9</span>
+        </div>
+        <div class="genre-row">
+          <div class="genre-rank top">#2</div>
+          <span class="genre-name">Fantasy</span>
+          <span class="genre-count">7</span>
+        </div>
+        <div class="genre-row">
+          <div class="genre-rank top">#3</div>
+          <span class="genre-name">Adventure</span>
+          <span class="genre-count">6</span>
+        </div>
+        <div class="genre-row">
+          <div class="genre-rank rest">#4</div>
+          <span class="genre-name">Drama</span>
+          <span class="genre-count">4</span>
+        </div>
+        <div class="genre-row">
+          <div class="genre-rank rest">#5</div>
+          <span class="genre-name">Seinen</span>
+          <span class="genre-count">3</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══════ SCREEN: DÉTAIL MANGA ═══════ -->
+  <div id="screen-detail" class="screen">
+    <div class="scroll-area" style="padding-top:0">
+      <!-- Hero -->
+      <div class="detail-hero">
+        <div class="detail-hero-img" style="background:linear-gradient(135deg,#2a0a4a,#0a1a4a,#0a0b14)"></div>
+        <div class="detail-hero-gradient"></div>
+        <button class="back-btn" onclick="showScreen('screen-library')">←</button>
+        <div class="detail-cover-wrap">
+          <div style="width:100px;height:140px;border-radius:var(--r-md);background:linear-gradient(135deg,#3a1a5a,#0a0b14);box-shadow:0 8px 32px rgba(0,0,0,0.6);flex-shrink:0"></div>
+          <div class="detail-cover-info">
+            <div class="detail-title">Solo Leveling</div>
+            <div class="detail-meta">
+              <span class="badge badge-manhwa">Manhwa</span>
+              <span class="score-badge">⭐ 9.4</span>
+            </div>
+            <div class="t-label">Chugong · Dubu</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Body -->
+      <div class="detail-body" style="padding-top:var(--sp-lg)">
+
+        <!-- Info grid -->
+        <div class="detail-info-grid glass anime-1" style="padding:var(--sp-md);border-radius:var(--r-lg);margin-bottom:var(--sp-lg)">
+          <div class="info-item">
+            <div class="info-value">179</div>
+            <div class="info-label">Chapitres</div>
+          </div>
+          <div class="info-item" style="border-left:1px solid var(--border);border-right:1px solid var(--border)">
+            <div class="info-value" style="color:var(--green)">Terminé</div>
+            <div class="info-label">Statut</div>
+          </div>
+          <div class="info-item">
+            <div class="info-value">2018</div>
+            <div class="info-label">Début</div>
+          </div>
+        </div>
+
+        <!-- Genres -->
+        <div class="genres-wrap anime-2">
+          <span class="genre-chip">Action</span>
+          <span class="genre-chip">Fantasy</span>
+          <span class="genre-chip">Système</span>
+          <span class="genre-chip">Isekai</span>
+          <span class="genre-chip">Combat</span>
+          <span class="genre-chip">Manhwa</span>
+        </div>
+
+        <!-- Description -->
+        <div class="desc-text anime-3">
+          Dix ans après la création du portail reliant notre monde à un donjon peuplé de monstres, certains humains ont éveillé des pouvoirs magiques, devenant des "Chasseurs". Sung Jin-Woo, classé au bas de l'échelle, est le chasseur le plus faible du monde. Suite à un incident dans un donjon, il reçoit une mystérieuse quête...
+        </div>
+
+        <!-- Tracking panel -->
+        <div class="tracking-panel glass anime-4">
+          <div class="tracking-inner">
+            <div class="tracking-title">📚 Suivi de lecture</div>
+
+            <div class="status-picker">
+              <button class="status-pill active">En cours</button>
+              <button class="status-pill">Terminé</button>
+              <button class="status-pill">Prévu</button>
+              <button class="status-pill">Pausé</button>
+              <button class="status-pill">Abandonné</button>
+            </div>
+
+            <div class="row-input">
+              <span class="row-input-label">Chapitre</span>
+              <div class="row-input-val">
+                <button class="stepper-btn">−</button>
+                <span class="stepper-val">87</span>
+                <button class="stepper-btn">+</button>
+                <span class="t-label">/ 179</span>
+              </div>
+            </div>
+
+            <div class="row-input">
+              <span class="row-input-label">Note</span>
+              <div class="row-input-val">
+                <div class="score-stars">
+                  <span class="star">⭐</span>
+                  <span class="star">⭐</span>
+                  <span class="star">⭐</span>
+                  <span class="star">⭐</span>
+                  <span class="star">⭐</span>
+                  <span class="star" style="opacity:0.3">⭐</span>
+                  <span class="star" style="opacity:0.3">⭐</span>
+                  <span class="star" style="opacity:0.3">⭐</span>
+                  <span class="star" style="opacity:0.3">⭐</span>
+                  <span class="star" style="opacity:0.3">⭐</span>
+                </div>
+                <span class="t-body-bold" style="color:var(--yellow);font-family:'Space Grotesk'">5</span>
+              </div>
+            </div>
+
+            <div style="margin-top:var(--sp-md)">
+              <button style="width:100%;padding:11px;border-radius:var(--r-md);background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.25);color:hsl(0 70% 65%);font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;cursor:pointer">
+                Supprimer de la bibliothèque
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ TAB BAR ═══════ -->
+  <nav class="tab-bar">
+    <button class="tab active" data-screen="screen-discover" onclick="showScreen('screen-discover')">
+      <span class="tab-icon">🧭</span>
+      <span class="tab-label">Découvrir</span>
+    </button>
+    <button class="tab" data-screen="screen-library" onclick="showScreen('screen-library')">
+      <span class="tab-icon">📚</span>
+      <span class="tab-label">Bibliothèque</span>
+    </button>
+    <button class="tab" data-screen="screen-search" onclick="showScreen('screen-search')">
+      <span class="tab-icon">🔍</span>
+      <span class="tab-label">Rechercher</span>
+    </button>
+    <button class="tab" data-screen="screen-profile" onclick="showScreen('screen-profile')">
+      <span class="tab-icon">👤</span>
+      <span class="tab-label">Profil</span>
+    </button>
+  </nav>
+
+</div><!-- /phone -->
+
+<script>
+function showScreen(id) {
+  // Hide all screens
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  // Show target
+  const target = document.getElementById(id);
+  if (target) {
+    target.classList.add('active');
+    // Scroll to top
+    const sa = target.querySelector('.scroll-area');
+    if (sa) sa.scrollTop = 0;
+  }
+  // Update tabs (only for main tabs, not for detail)
+  const mainScreens = ['screen-discover','screen-library','screen-search','screen-profile'];
+  document.querySelectorAll('.tab').forEach(t => {
+    t.classList.remove('active');
+    if (t.dataset.screen === id) t.classList.add('active');
+  });
+  // If opening library item → go to detail
+}
+
+// Clicking a lib item opens detail
+document.querySelectorAll('.lib-item').forEach(item => {
+  item.addEventListener('click', () => showScreen('screen-detail'));
+});
+// Clicking a manga card opens detail
+document.querySelectorAll('.manga-card, .search-item').forEach(card => {
+  card.addEventListener('click', () => showScreen('screen-detail'));
+});
+// Hero actions
+document.querySelectorAll('.hero-actions button').forEach(btn => {
+  btn.addEventListener('click', e => { e.stopPropagation(); });
+});
+
+// Status chips (library) — toggle active
+document.querySelectorAll('#screen-library .chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    document.querySelectorAll('#screen-library .chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+  });
+});
+
+// Filter chips (search)
+document.querySelectorAll('#screen-search .chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    document.querySelectorAll('#screen-search .chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+  });
+});
+
+// Status pills (detail)
+document.querySelectorAll('.status-pill').forEach(pill => {
+  pill.addEventListener('click', () => {
+    document.querySelectorAll('.status-pill').forEach(p => p.classList.remove('active'));
+    pill.classList.add('active');
+  });
+});
+
+// Stepper
+let chap = 87;
+const stepperVal = document.querySelector('.stepper-val');
+document.querySelectorAll('.stepper-btn').forEach((btn, i) => {
+  btn.addEventListener('click', () => {
+    if (i === 0) chap = Math.max(0, chap - 1);
+    else chap = Math.min(179, chap + 1);
+    if (stepperVal) stepperVal.textContent = chap;
+  });
+});
+
+// Stars rating
+const stars = document.querySelectorAll('.star');
+let rating = 5;
+stars.forEach((star, i) => {
+  star.addEventListener('click', () => {
+    rating = i + 1;
+    stars.forEach((s, j) => {
+      s.style.opacity = j < rating ? '1' : '0.3';
+    });
+    const ratingVal = document.querySelector('.score-stars + .t-body-bold');
+    if (ratingVal) ratingVal.textContent = rating;
+  });
+  star.addEventListener('mouseenter', () => {
+    stars.forEach((s, j) => s.style.opacity = j <= i ? '1' : '0.3');
+  });
+  star.addEventListener('mouseleave', () => {
+    stars.forEach((s, j) => s.style.opacity = j < rating ? '1' : '0.3');
+  });
+});
+</script>
+</body>
+</html>
