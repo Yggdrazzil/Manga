@@ -1,7 +1,7 @@
 # MangaTrack
 
 Application mobile de suivi de lectures — manga, manhwa, manhua, webtoon & BD.
-Construite avec **Expo SDK 52 / React Native 0.76**, TypeScript strict, design glassmorphisme iOS.
+Construite avec **Expo SDK 54 / React Native 0.81**, TypeScript strict, design glassmorphisme iOS.
 
 Sources de données : **AniList** (GraphQL), **MangaDex** (REST), **Jikan / MyAnimeList**.
 
@@ -45,10 +45,11 @@ npx expo start
 
 ### 6. Dépannage
 - **« Project is incompatible with this version of Expo Go »** : ta version d'Expo Go ne
-  supporte plus le SDK 52. Monte le projet au dernier SDK :
+  supporte pas le SDK 54 (trop ancienne, ou plus récente côté SDK). Aligne le projet sur
+  ta version d'Expo Go :
   ```bash
   npx expo install expo@latest
-  npx expo install --fix
+  npx expo install --fix -- --legacy-peer-deps
   npx tsc --noEmit
   ```
 - **Bundling bloqué / cache** : `npx expo start -c`.
@@ -75,10 +76,10 @@ npx expo start
 ---
 
 ## Stack technique
-- **Expo Router 4** — navigation par fichiers, routes typées
+- **Expo Router 6** — navigation par fichiers, routes typées
 - **TanStack Query v5** — cache et gestion des requêtes réseau
 - **Zustand v5 + AsyncStorage** — bibliothèque locale persistante (aucun compte requis)
-- **Reanimated 3 + Moti** — animations spring
+- **Reanimated 4 + Moti** — animations spring (New Architecture)
 - **expo-blur** — glassmorphisme (verre dépoli) sur iOS
 
 ---
