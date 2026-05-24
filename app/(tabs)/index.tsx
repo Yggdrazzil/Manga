@@ -11,7 +11,7 @@ import * as mangadex from '@/lib/api/mangadex';
 import { MediaRow } from '@/components/manga/MediaRow';
 import { Typography } from '@/components/ui/Typography';
 import { TypeBadge } from '@/components/ui/TypeBadge';
-import { COLORS, FONTS, SPACING } from '@/constants/theme';
+import { COLORS, SPACING } from '@/constants/theme';
 
 const TAB_BAR_HEIGHT = 88;
 

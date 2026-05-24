@@ -24,7 +24,6 @@ import * as jikan from '@/lib/api/jikan';
 import { useLibraryStore } from '@/lib/store/library';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { GlassButton } from '@/components/ui/GlassButton';
-import { StatusBadge } from '@/components/ui/StatusBadge';
 import { TypeBadge } from '@/components/ui/TypeBadge';
 import { Typography } from '@/components/ui/Typography';
 import { COLORS, FONTS, RADIUS, SPACING, STATUS_LABELS } from '@/constants/theme';
