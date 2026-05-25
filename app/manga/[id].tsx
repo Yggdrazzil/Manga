@@ -26,11 +26,14 @@ import { GlassCard } from '@/components/ui/GlassCard';
 import { GlassButton } from '@/components/ui/GlassButton';
 import { TypeBadge } from '@/components/ui/TypeBadge';
 import { Typography } from '@/components/ui/Typography';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { ChapterList } from '@/components/manga/ChapterList';
 import { COLORS, FONTS, RADIUS, SPACING, STATUS_LABELS } from '@/constants/theme';
 import type { Manga, ReadingStatus } from '@/lib/types';
 
 const STATUSES: ReadingStatus[] = ['READING', 'PLAN_TO_READ', 'COMPLETED', 'PAUSED', 'DROPPED'];
+
+type ActiveTab = 'about' | 'chapters';
 
 function DescriptionText({ text }: { text: string }) {
   const [expanded, setExpanded] = useState(false);
@@ -215,6 +218,7 @@ export default function MangaDetailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { id, source } = useLocalSearchParams<{ id: string; source: string }>();
+  const [activeTab, setActiveTab] = useState<ActiveTab>('about');
 
   const { data: manga, isLoading, isError } = useQuery({
     queryKey: ['manga-detail', id, source],
@@ -269,6 +273,7 @@ export default function MangaDetailScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + SPACING.xl }]}
       >
+        {/* Hero */}
         <View style={styles.hero}>
           <Image
             source={{ uri: manga.bannerImage ?? manga.coverImage }}
@@ -300,79 +305,120 @@ export default function MangaDetailScreen() {
           </View>
         </View>
 
-        <View style={styles.content}>
-          <MotiView
-            from={{ opacity: 0, translateY: 16 }}
-            animate={{ opacity: 1, translateY: 0 }}
-            transition={{ type: 'spring', stiffness: 280, damping: 25, delay: 160 }}
-          >
-            <GlassCard style={styles.infoCard}>
-              <View style={styles.infoGrid}>
-                <InfoItem label="Auteur(s)" value={manga.authors.join(', ') || '—'} />
-                <InfoItem label="Chapitres" value={manga.chapters ? String(manga.chapters) : '—'} />
-                <InfoItem label="Volumes" value={manga.volumes ? String(manga.volumes) : '—'} />
-                <InfoItem
-                  label="Score"
-                  value={manga.averageScore ? `${(manga.averageScore / 10).toFixed(1)}/10` : '—'}
-                  highlight
-                />
-              </View>
-            </GlassCard>
-          </MotiView>
-
-          {manga.genres.length > 0 && (
-            <MotiView
-              from={{ opacity: 0, translateY: 12 }}
-              animate={{ opacity: 1, translateY: 0 }}
-              transition={{ type: 'spring', stiffness: 280, damping: 25, delay: 220 }}
-              style={styles.genresSection}
-            >
-              <View style={styles.genresWrap}>
-                {manga.genres.map(g => (
-                  <View key={g} style={styles.genreChip}>
-                    <Typography variant="label" color={COLORS.accentLight}>{g}</Typography>
-                  </View>
-                ))}
-              </View>
-            </MotiView>
-          )}
-
-          {manga.description && (
-            <MotiView
-              from={{ opacity: 0, translateY: 12 }}
-              animate={{ opacity: 1, translateY: 0 }}
-              transition={{ type: 'spring', stiffness: 280, damping: 25, delay: 280 }}
-            >
-              <Typography variant="heading" style={styles.sectionHeading}>Synopsis</Typography>
-              <DescriptionText text={manga.description} />
-            </MotiView>
-          )}
-
-          <MotiView
-            from={{ opacity: 0, translateY: 16 }}
-            animate={{ opacity: 1, translateY: 0 }}
-            transition={{ type: 'spring', stiffness: 280, damping: 25, delay: 340 }}
-          >
-            <TrackingPanel manga={manga} />
-          </MotiView>
-
-          {(() => {
-            const mdId = manga.source === 'mangadex' ? manga.id : manga.mangadexId;
-            return mdId ? (
-              <MotiView
-                from={{ opacity: 0, translateY: 16 }}
-                animate={{ opacity: 1, translateY: 0 }}
-                transition={{ type: 'spring', stiffness: 280, damping: 25, delay: 420 }}
+        {/* Tab bar */}
+        <View style={styles.tabBar}>
+          {(['about', 'chapters'] as const).map(tab => {
+            const isActive = activeTab === tab;
+            const label = tab === 'about' ? 'À PROPOS' : 'CHAPITRES';
+            return (
+              <Pressable
+                key={tab}
+                style={styles.tabItem}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setActiveTab(tab);
+                }}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: isActive }}
+                accessibilityLabel={label}
               >
+                <Typography
+                  variant="label"
+                  style={[styles.tabLabel, isActive && styles.tabLabelActive]}
+                >
+                  {label}
+                </Typography>
+                <View style={[styles.tabLine, isActive && styles.tabLineActive]} />
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {/* À PROPOS tab */}
+        {activeTab === 'about' && (
+          <View style={styles.content}>
+            <MotiView
+              from={{ opacity: 0, translateY: 16 }}
+              animate={{ opacity: 1, translateY: 0 }}
+              transition={{ type: 'spring', stiffness: 280, damping: 25, delay: 160 }}
+            >
+              <GlassCard style={styles.infoCard}>
+                <View style={styles.infoGrid}>
+                  <InfoItem label="Auteur(s)" value={manga.authors.join(', ') || '—'} />
+                  <InfoItem label="Chapitres" value={manga.chapters ? String(manga.chapters) : '—'} />
+                  <InfoItem label="Volumes" value={manga.volumes ? String(manga.volumes) : '—'} />
+                  <InfoItem
+                    label="Score"
+                    value={manga.averageScore ? `${(manga.averageScore / 10).toFixed(1)}/10` : '—'}
+                    highlight
+                  />
+                </View>
+              </GlassCard>
+            </MotiView>
+
+            {manga.genres.length > 0 && (
+              <MotiView
+                from={{ opacity: 0, translateY: 12 }}
+                animate={{ opacity: 1, translateY: 0 }}
+                transition={{ type: 'spring', stiffness: 280, damping: 25, delay: 220 }}
+                style={styles.genresSection}
+              >
+                <View style={styles.genresWrap}>
+                  {manga.genres.map(g => (
+                    <View key={g} style={styles.genreChip}>
+                      <Typography variant="label" color={COLORS.accentLight}>{g}</Typography>
+                    </View>
+                  ))}
+                </View>
+              </MotiView>
+            )}
+
+            {manga.description && (
+              <MotiView
+                from={{ opacity: 0, translateY: 12 }}
+                animate={{ opacity: 1, translateY: 0 }}
+                transition={{ type: 'spring', stiffness: 280, damping: 25, delay: 280 }}
+              >
+                <Typography variant="heading" style={styles.sectionHeading}>Synopsis</Typography>
+                <DescriptionText text={manga.description} />
+              </MotiView>
+            )}
+
+            <MotiView
+              from={{ opacity: 0, translateY: 16 }}
+              animate={{ opacity: 1, translateY: 0 }}
+              transition={{ type: 'spring', stiffness: 280, damping: 25, delay: 340 }}
+            >
+              <TrackingPanel manga={manga} />
+            </MotiView>
+          </View>
+        )}
+
+        {/* CHAPITRES tab */}
+        {activeTab === 'chapters' && (
+          <View style={[styles.chaptersContent, { paddingBottom: insets.bottom + 88 }]}>
+            {(() => {
+              const mdId = manga.source === 'mangadex' ? manga.id : manga.mangadexId;
+              if (!mdId) {
+                return (
+                  <EmptyState
+                    icon="📭"
+                    title="Chapitres non disponibles"
+                    subtitle="Les chapitres sont disponibles pour les œuvres MangaDex ou les œuvres AniList avec un lien MangaDex."
+                  />
+                );
+              }
+              return (
                 <ChapterList
                   mangadexId={mdId}
                   entryMangaId={manga.id}
                   source={manga.source}
+                  manga={manga}
                 />
-              </MotiView>
-            ) : null;
-          })()}
-        </View>
+              );
+            })()}
+          </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -436,9 +482,41 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 12,
   },
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.bg,
+  },
+  tabItem: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: SPACING.md,
+  },
+  tabLabel: {
+    color: COLORS.textMuted,
+    fontFamily: FONTS.bodyBold,
+    letterSpacing: 1,
+    fontSize: 12,
+    marginBottom: SPACING.sm,
+  },
+  tabLabelActive: {
+    color: COLORS.accentLight,
+  },
+  tabLine: {
+    height: 2,
+    width: '60%',
+    borderRadius: 1,
+    backgroundColor: 'transparent',
+  },
+  tabLineActive: {
+    backgroundColor: COLORS.accent,
+  },
   content: {
     padding: SPACING.base,
     gap: SPACING.lg,
+  },
+  chaptersContent: {
+    paddingHorizontal: SPACING.base,
+    paddingTop: SPACING.lg,
   },
   infoCard: { borderRadius: RADIUS.lg },
   infoGrid: {
