@@ -46,6 +46,7 @@ export interface LibraryEntry {
   updatedAt: string;
   manga: Manga;
   readChapterIds?: string[];
+  chapterData?: Record<string, ChapterNote>;
 }
 
 export interface MangaChapter {
@@ -57,6 +58,13 @@ export interface MangaChapter {
   pages: number;
   publishAt: string;
   translatedLanguage: string;
+}
+
+export interface ChapterNote {
+  rating?: 1 | 2 | 3 | 4 | 5;
+  reaction?: string;
+  platform?: string;
+  readAt?: string;
 }
 
 export interface SearchFilters {
