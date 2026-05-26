@@ -20,13 +20,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import * as anilist from '@/lib/api/anilist';
 import * as mangadex from '@/lib/api/mangadex';
+import { findMangadexId, getReadableChapters } from '@/lib/api/mangadex';
 import * as jikan from '@/lib/api/jikan';
 import { useLibraryStore } from '@/lib/store/library';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { GlassButton } from '@/components/ui/GlassButton';
 import { TypeBadge } from '@/components/ui/TypeBadge';
 import { Typography } from '@/components/ui/Typography';
-import { EmptyState } from '@/components/ui/EmptyState';
 import { ChapterList } from '@/components/manga/ChapterList';
 import { COLORS, FONTS, RADIUS, SPACING, STATUS_LABELS } from '@/constants/theme';
 import type { Manga, ReadingStatus } from '@/lib/types';
@@ -231,6 +231,28 @@ export default function MangaDetailScreen() {
     enabled: !!id,
   });
 
+  const searchTitle = manga
+    ? manga.title.english ?? manga.title.romaji ?? manga.title.userPreferred
+    : '';
+  const directMdId = manga ? (manga.source === 'mangadex' ? manga.id : manga.mangadexId) : null;
+
+  const { data: resolvedMdId } = useQuery({
+    queryKey: ['resolve-mdid', manga?.source, manga?.id],
+    queryFn: () => findMangadexId(searchTitle),
+    enabled: !!manga && !directMdId && !!searchTitle,
+    staleTime: 1000 * 60 * 60,
+  });
+  const effectiveMdId = directMdId ?? resolvedMdId ?? null;
+
+  const { data: chapters } = useQuery({
+    queryKey: ['readable-chapters', effectiveMdId],
+    queryFn: () => getReadableChapters(effectiveMdId!),
+    enabled: !!effectiveMdId,
+    staleTime: 1000 * 60 * 5,
+  });
+  const hasChapters = (chapters?.length ?? 0) > 0;
+  const showChaptersTab = hasChapters;
+
   if (isLoading) return <LoadingScreen />;
 
   if (isError || !manga) {
@@ -251,6 +273,7 @@ export default function MangaDetailScreen() {
   }
 
   const displayTitle = manga.title.english ?? manga.title.romaji ?? manga.title.userPreferred;
+  const currentTab: ActiveTab = showChaptersTab ? activeTab : 'about';
 
   return (
     <View style={styles.container}>
@@ -305,37 +328,39 @@ export default function MangaDetailScreen() {
           </View>
         </View>
 
-        {/* Tab bar */}
-        <View style={styles.tabBar}>
-          {(['about', 'chapters'] as const).map(tab => {
-            const isActive = activeTab === tab;
-            const label = tab === 'about' ? 'À PROPOS' : 'CHAPITRES';
-            return (
-              <Pressable
-                key={tab}
-                style={styles.tabItem}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setActiveTab(tab);
-                }}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: isActive }}
-                accessibilityLabel={label}
-              >
-                <Typography
-                  variant="label"
-                  style={[styles.tabLabel, isActive && styles.tabLabelActive]}
+        {/* Tab bar — only when readable chapters exist */}
+        {showChaptersTab && (
+          <View style={styles.tabBar}>
+            {(['about', 'chapters'] as const).map(tab => {
+              const isActive = currentTab === tab;
+              const label = tab === 'about' ? 'À PROPOS' : 'CHAPITRES';
+              return (
+                <Pressable
+                  key={tab}
+                  style={styles.tabItem}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setActiveTab(tab);
+                  }}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: isActive }}
+                  accessibilityLabel={label}
                 >
-                  {label}
-                </Typography>
-                <View style={[styles.tabLine, isActive && styles.tabLineActive]} />
-              </Pressable>
-            );
-          })}
-        </View>
+                  <Typography
+                    variant="label"
+                    style={[styles.tabLabel, isActive && styles.tabLabelActive]}
+                  >
+                    {label}
+                  </Typography>
+                  <View style={[styles.tabLine, isActive && styles.tabLineActive]} />
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
 
         {/* À PROPOS tab */}
-        {activeTab === 'about' && (
+        {currentTab === 'about' && (
           <View style={styles.content}>
             <MotiView
               from={{ opacity: 0, translateY: 16 }}
@@ -395,28 +420,14 @@ export default function MangaDetailScreen() {
         )}
 
         {/* CHAPITRES tab */}
-        {activeTab === 'chapters' && (
+        {currentTab === 'chapters' && (
           <View style={[styles.chaptersContent, { paddingBottom: insets.bottom + 88 }]}>
-            {(() => {
-              const mdId = manga.source === 'mangadex' ? manga.id : manga.mangadexId;
-              if (!mdId) {
-                return (
-                  <EmptyState
-                    icon="📭"
-                    title="Chapitres non disponibles"
-                    subtitle="Les chapitres sont disponibles pour les œuvres MangaDex ou les œuvres AniList avec un lien MangaDex."
-                  />
-                );
-              }
-              return (
-                <ChapterList
-                  mangadexId={mdId}
-                  entryMangaId={manga.id}
-                  source={manga.source}
-                  manga={manga}
-                />
-              );
-            })()}
+            <ChapterList
+              chapters={chapters ?? []}
+              entryMangaId={manga.id}
+              source={manga.source}
+              manga={manga}
+            />
           </View>
         )}
       </ScrollView>

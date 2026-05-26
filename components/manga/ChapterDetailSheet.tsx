@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
+import { useRouter } from 'expo-router';
 import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import React from 'react';
@@ -52,6 +53,7 @@ export function ChapterDetailSheet({
   onClose,
 }: ChapterDetailSheetProps) {
   const { height } = useWindowDimensions();
+  const router = useRouter();
 
   const entry = useLibraryStore(s => s.entries.find(e => e.mangaId === entryMangaId && e.source === source));
   const toggleChapterRead = useLibraryStore(s => s.toggleChapterRead);
@@ -167,6 +169,27 @@ export function ChapterDetailSheet({
           </View>
 
           <View style={styles.divider} />
+
+          {/* Read button */}
+          {chapter.isReadable !== false && (
+            <Pressable
+              style={({ pressed }) => [styles.readBtn, pressed && styles.readBtnPressed]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                onClose();
+                router.push(
+                  `/reader/${chapter.id}?chapter=${encodeURIComponent(chapter.chapter)}&title=${encodeURIComponent(chapter.title ?? '')}&entryMangaId=${encodeURIComponent(entryMangaId)}&source=${encodeURIComponent(source)}&mangaTitle=${encodeURIComponent(displayTitle)}` as never,
+                );
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={`Lire le chapitre ${chapter.chapter}`}
+            >
+              <Ionicons name="book" size={18} color="#fff" />
+              <Typography variant="label" style={styles.readBtnText}>
+                LIRE LE CHAPITRE
+              </Typography>
+            </Pressable>
+          )}
 
           {/* Section 2 — Platform */}
           <View style={styles.section}>
@@ -389,6 +412,26 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: COLORS.border,
     marginHorizontal: SPACING.base,
+  },
+  readBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+    marginHorizontal: SPACING.base,
+    marginTop: SPACING.base,
+    paddingVertical: SPACING.base,
+    borderRadius: RADIUS.lg,
+    backgroundColor: COLORS.accent,
+  },
+  readBtnPressed: {
+    opacity: 0.85,
+    transform: [{ scale: 0.98 }],
+  },
+  readBtnText: {
+    color: '#fff',
+    fontFamily: FONTS.bodyBold,
+    letterSpacing: 1,
   },
   section: {
     paddingHorizontal: SPACING.base,
