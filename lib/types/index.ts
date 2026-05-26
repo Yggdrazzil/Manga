@@ -58,6 +58,8 @@ export interface MangaChapter {
   pages: number;
   publishAt: string;
   translatedLanguage: string;
+  externalUrl?: string;
+  isReadable: boolean;
 }
 
 export interface ChapterNote {

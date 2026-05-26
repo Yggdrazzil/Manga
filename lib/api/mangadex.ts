@@ -67,6 +67,7 @@ interface MDChapter {
     pages: number;
     publishAt: string;
     readableAt: string;
+    externalUrl?: string | null;
   };
   relationships: MDRelationship[];
 }
@@ -246,6 +247,8 @@ function normalizeChapter(ch: MDChapter): MangaChapter {
     pages: ch.attributes.pages,
     publishAt: ch.attributes.publishAt,
     translatedLanguage: ch.attributes.translatedLanguage,
+    externalUrl: ch.attributes.externalUrl ?? undefined,
+    isReadable: (ch.attributes.pages ?? 0) > 0 && !ch.attributes.externalUrl,
   };
 }
 
@@ -303,4 +306,55 @@ export async function getChaptersForLibrary(
   });
 
   return data.data.map(normalizeChapter);
+}
+
+export async function findMangadexId(title: string): Promise<string | null> {
+  const data = await fetchMD<MDResponse>('/manga', {
+    title,
+    limit: 5,
+    contentRating: CONTENT_RATINGS,
+  });
+  return data.data[0]?.id ?? null;
+}
+
+export async function getReadableChapters(
+  mangaId: string,
+  lang?: string[]
+): Promise<MangaChapter[]> {
+  const data = await fetchMD<MDChapterFeedResponse>(`/manga/${mangaId}/feed`, {
+    limit: 100,
+    translatedLanguage: lang ?? ['en', 'fr'],
+    'order[chapter]': 'asc',
+    includeExternalUrl: 0,
+    contentRating: CONTENT_RATINGS,
+  });
+  const seen = new Set<string>();
+  const readable: MangaChapter[] = [];
+  for (const ch of data.data) {
+    if ((ch.attributes.pages ?? 0) <= 0 || ch.attributes.externalUrl) continue;
+    const num = ch.attributes.chapter ?? 'none';
+    if (seen.has(num)) continue;
+    seen.add(num);
+    readable.push(normalizeChapter(ch));
+  }
+  return readable;
+}
+
+interface MDAtHomeResponse {
+  result: string;
+  baseUrl: string;
+  chapter: { hash: string; data: string[]; dataSaver: string[] };
+}
+
+export async function getChapterPages(
+  chapterId: string,
+  dataSaver = false
+): Promise<string[]> {
+  const url = `${BASE}/at-home/server/${chapterId}`;
+  const res = await fetch(url, { headers: { 'Content-Type': 'application/json' } });
+  if (!res.ok) throw new Error(`MangaDex at-home error: ${res.status}`);
+  const d = (await res.json()) as MDAtHomeResponse;
+  const quality = dataSaver ? 'data-saver' : 'data';
+  const files = dataSaver ? d.chapter.dataSaver : d.chapter.data;
+  return files.map(f => `${d.baseUrl}/${quality}/${d.chapter.hash}/${f}`);
 }
