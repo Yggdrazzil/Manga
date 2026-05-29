@@ -1,0 +1,38 @@
+name: Publier la preview (EAS Update)
+
+# À chaque push sur main ou une branche claude/*, on publie une mise à jour
+# Over-The-Air sur le canal "preview". Tu la vois ensuite dans Expo Go sur
+# ton téléphone en rafraîchissant — sans jamais ouvrir ton ordinateur.
+
+on:
+  push:
+    branches:
+      - main
+      - "claude/**"
+  workflow_dispatch: {}
+
+jobs:
+  update:
+    name: Publier l'update
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Installer Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Installer EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      - name: Publier la mise à jour
+        run: eas update --branch preview --message "${{ github.event.head_commit.message || 'mise à jour manuelle' }}" --non-interactive
