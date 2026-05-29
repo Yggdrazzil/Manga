@@ -308,35 +308,104 @@ export async function getChaptersForLibrary(
   return data.data.map(normalizeChapter);
 }
 
-export async function findMangadexId(title: string): Promise<string | null> {
+function normalizeTitleString(s: string): string {
+  return s
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function candidateTitles(manga: MDManga): string[] {
+  const out: string[] = [];
+  for (const v of Object.values(manga.attributes.title)) {
+    if (v) out.push(v);
+  }
+  for (const alt of manga.attributes.altTitles) {
+    for (const v of Object.values(alt)) {
+      if (v) out.push(v);
+    }
+  }
+  return out;
+}
+
+export async function findMangadexId(
+  title: string,
+  hints?: { year?: number }
+): Promise<string | null> {
   const data = await fetchMD<MDResponse>('/manga', {
     title,
-    limit: 5,
+    limit: 10,
     contentRating: CONTENT_RATINGS,
   });
-  return data.data[0]?.id ?? null;
+
+  const query = normalizeTitleString(title);
+
+  let bestId: string | null = null;
+  let bestScore = -Infinity;
+
+  for (const manga of data.data) {
+    const candidates = candidateTitles(manga).map(normalizeTitleString).filter(Boolean);
+    let score = 0;
+    for (const cand of candidates) {
+      if (cand === query) {
+        score = Math.max(score, 3);
+      } else if (cand.startsWith(query) || query.startsWith(cand)) {
+        score = Math.max(score, 2);
+      } else if (cand.includes(query) || query.includes(cand)) {
+        score = Math.max(score, 1);
+      }
+    }
+    if (hints?.year != null && manga.attributes.year === hints.year) {
+      score += 0.5;
+    }
+    if (score > bestScore) {
+      bestScore = score;
+      bestId = manga.id;
+    }
+  }
+
+  if (bestScore < 2) return null;
+  return bestId;
 }
 
 export async function getReadableChapters(
   mangaId: string,
   lang?: string[]
 ): Promise<MangaChapter[]> {
-  const data = await fetchMD<MDChapterFeedResponse>(`/manga/${mangaId}/feed`, {
-    limit: 100,
-    translatedLanguage: lang ?? ['en', 'fr'],
-    'order[chapter]': 'asc',
-    includeExternalUrl: 0,
-    contentRating: CONTENT_RATINGS,
-  });
+  const limit = 100;
+  const MAX_PAGES = 30;
   const seen = new Set<string>();
   const readable: MangaChapter[] = [];
-  for (const ch of data.data) {
-    if ((ch.attributes.pages ?? 0) <= 0 || ch.attributes.externalUrl) continue;
-    const num = ch.attributes.chapter ?? 'none';
-    if (seen.has(num)) continue;
-    seen.add(num);
-    readable.push(normalizeChapter(ch));
+
+  let offset = 0;
+  let total = Infinity;
+  let pages = 0;
+
+  while (offset < total && pages < MAX_PAGES) {
+    const data = await fetchMD<MDChapterFeedResponse>(`/manga/${mangaId}/feed`, {
+      limit,
+      offset,
+      translatedLanguage: lang ?? ['en', 'fr'],
+      'order[chapter]': 'asc',
+      includeExternalUrl: 0,
+      contentRating: CONTENT_RATINGS,
+    });
+
+    for (const ch of data.data) {
+      if ((ch.attributes.pages ?? 0) <= 0 || ch.attributes.externalUrl) continue;
+      const num = ch.attributes.chapter ?? 'none';
+      if (seen.has(num)) continue;
+      seen.add(num);
+      readable.push(normalizeChapter(ch));
+    }
+
+    total = data.total;
+    offset += limit;
+    pages += 1;
   }
+
   return readable;
 }
 
