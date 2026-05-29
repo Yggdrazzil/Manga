@@ -12,7 +12,7 @@ import { Panel } from '@/components/ui/Panel';
 import { Typography } from '@/components/ui/Typography';
 import { ChapterDetailSheet } from './ChapterDetailSheet';
 import { compareChapters } from '@/lib/utils/chapter';
-import { BORDERS, COLORS, FONTS, RADIUS, SPACING, HARD_SHADOW } from '@/constants/theme';
+import { BORDERS, COLORS, RADIUS, SPACING } from '@/constants/theme';
 import type { Manga, MangaChapter } from '@/lib/types';
 
 interface ChapterListProps {
@@ -175,7 +175,7 @@ export function ChapterList({ chapters, entryMangaId, source, manga }: ChapterLi
               </View>
             </View>
           </Panel>
-        ) : nextChapter ? (
+        ) : nextChapter && nextChapter.isReadable !== false ? (
           <Panel variant="ink" hardShadow style={styles.continueCard}>
             <View style={styles.continueInner}>
               <View style={styles.continueCoverFrame}>
@@ -271,7 +271,7 @@ export function ChapterList({ chapters, entryMangaId, source, manga }: ChapterLi
               >
                 <View style={styles.volumeHeaderLeft}>
                   <Typography variant="subheading" color={COLORS.textInk}>
-                    {vol === 'Hors volume' ? 'Hors volume' : `Volume ${vol}`}
+                    {vol === 'Hors volume' ? 'Chapitres' : `Volume ${vol}`}
                   </Typography>
                   <Typography variant="label" color={COLORS.textInkMuted}>
                     {readCount}/{volChapters.length}
@@ -324,7 +324,12 @@ export function ChapterList({ chapters, entryMangaId, source, manga }: ChapterLi
                 <View style={styles.chaptersList}>
                   {volChapters.map((ch, i) => {
                     const read = isChapterRead(ch);
+                    const readable = ch.isReadable !== false;
                     const dateStr = formatDate(ch.publishAt);
+                    const toggle = () => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                      toggleChapterRead(entryMangaId, source, ch.id, parseFloat(ch.chapter));
+                    };
                     return (
                       <MotiView
                         key={ch.id}
@@ -343,12 +348,13 @@ export function ChapterList({ chapters, entryMangaId, source, manga }: ChapterLi
                             read && styles.chapterCardRead,
                             pressed && styles.chapterCardPressed,
                           ]}
-                          onPress={() => openReader(ch)}
+                          onPress={() => (readable ? openReader(ch) : toggle())}
                           onLongPress={() => {
                             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                             setSelectedChapter(ch);
                           }}
-                          accessibilityRole="button"
+                          accessibilityRole={readable ? 'button' : 'checkbox'}
+                          accessibilityState={readable ? undefined : { checked: read }}
                           accessibilityLabel={`${read ? 'Lu — ' : ''}Chapitre ${ch.chapter}${ch.title ? ` : ${ch.title}` : ''}`}
                         >
                           <View style={styles.chapterCoverFrame}>
@@ -378,20 +384,19 @@ export function ChapterList({ chapters, entryMangaId, source, manga }: ChapterLi
                                 {ch.title}
                               </Typography>
                             ) : null}
-                            <Typography variant="caption" color={COLORS.textInkFaint} style={styles.chapterDate}>
-                              {dateStr}
-                              {dateStr ? ' · ' : ''}
-                              {ch.pages}p
-                            </Typography>
+                            {(dateStr || ch.pages > 0) && (
+                              <Typography variant="caption" color={COLORS.textInkFaint} style={styles.chapterDate}>
+                                {dateStr}
+                                {dateStr && ch.pages > 0 ? ' · ' : ''}
+                                {ch.pages > 0 ? `${ch.pages}p` : ''}
+                              </Typography>
+                            )}
                           </View>
 
                           <Pressable
                             style={[styles.checkCircle, read && styles.checkCircleRead]}
                             hitSlop={8}
-                            onPress={() => {
-                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                              toggleChapterRead(entryMangaId, source, ch.id, parseFloat(ch.chapter));
-                            }}
+                            onPress={toggle}
                             accessibilityRole="checkbox"
                             accessibilityState={{ checked: read }}
                             accessibilityLabel={`${read ? 'Marquer non lu' : 'Marquer lu'}: chapitre ${ch.chapter}`}

@@ -8,6 +8,7 @@ import {
   ScrollView,
   StyleSheet,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -78,10 +79,16 @@ async function searchAll(query: string, type: FilterType): Promise<Manga[]> {
 
 export default function SearchScreen() {
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterType>('ALL');
   const inputRef = useRef<TextInput>(null);
+
+  const GAP = SPACING.md;
+  const available = width - SPACING.base * 2;
+  const numColumns = Math.max(3, Math.floor((available + GAP) / (MIN_CARD_WIDTH + GAP)));
+  const cardWidth = Math.floor((available - GAP * (numColumns - 1)) / numColumns);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedQuery(query), 450);
@@ -99,12 +106,12 @@ export default function SearchScreen() {
     <MotiView
       from={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      transition={{ type: 'spring', stiffness: 320, damping: 26, delay: index * 40 }}
-      style={styles.gridItem}
+      transition={{ type: 'spring', stiffness: 320, damping: 26, delay: Math.min(index, 12) * 40 }}
+      style={{ width: cardWidth }}
     >
-      <MangaCard manga={item} width={styles.gridItem.width as number} />
+      <MangaCard manga={item} width={cardWidth} />
     </MotiView>
-  ), []);
+  ), [cardWidth]);
 
   const showEmpty = debouncedQuery.length >= 2 && !isLoading && (!results || results.length === 0);
   const showInitial = debouncedQuery.length < 2;
@@ -177,10 +184,11 @@ export default function SearchScreen() {
 
       {results && results.length > 0 && (
         <FlatList
+          key={numColumns}
           data={results}
           renderItem={renderItem}
           keyExtractor={item => `${item.source}-${item.id}`}
-          numColumns={3}
+          numColumns={numColumns}
           columnWrapperStyle={styles.row}
           contentContainerStyle={[
             styles.grid,
@@ -193,7 +201,7 @@ export default function SearchScreen() {
   );
 }
 
-const CARD_WIDTH = 108;
+const MIN_CARD_WIDTH = 104;
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.paper },
@@ -238,5 +246,4 @@ const styles = StyleSheet.create({
   filterLabelActive: { color: COLORS.accentRed },
   grid: { paddingHorizontal: SPACING.base, paddingTop: SPACING.md },
   row: { gap: SPACING.md, marginBottom: SPACING.md },
-  gridItem: { width: CARD_WIDTH },
 });

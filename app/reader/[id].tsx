@@ -8,10 +8,10 @@ import { MotiView } from 'moti';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Dimensions,
   FlatList,
   Pressable,
   StyleSheet,
+  useWindowDimensions,
   View,
   type ViewToken,
 } from 'react-native';
@@ -23,15 +23,12 @@ import { Typography } from '@/components/ui/Typography';
 import { chapterNumber } from '@/lib/utils/chapter';
 import { COLORS, FONTS, RADIUS, SPACING } from '@/constants/theme';
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
-const PLACEHOLDER_HEIGHT = SCREEN_WIDTH * 1.4;
-
-function ReaderPage({ uri, onTap }: { uri: string; onTap: () => void }) {
+function ReaderPage({ uri, width, onTap }: { uri: string; width: number; onTap: () => void }) {
   const [ratio, setRatio] = useState<number | null>(null);
 
   const handleLoad = useCallback((e: ImageLoadEventData) => {
-    const { width, height } = e.source;
-    if (width > 0 && height > 0) setRatio(width / height);
+    const { width: w, height: h } = e.source;
+    if (w > 0 && h > 0) setRatio(w / h);
   }, []);
 
   return (
@@ -39,8 +36,8 @@ function ReaderPage({ uri, onTap }: { uri: string; onTap: () => void }) {
       <Image
         source={{ uri }}
         style={{
-          width: SCREEN_WIDTH,
-          height: ratio ? SCREEN_WIDTH / ratio : PLACEHOLDER_HEIGHT,
+          width,
+          height: ratio ? width / ratio : width * 1.4,
           backgroundColor: '#000',
         }}
         contentFit="contain"
@@ -169,6 +166,7 @@ export default function ReaderScreen() {
     mangaTitle?: string;
   }>();
 
+  const { width } = useWindowDimensions();
   const [chromeVisible, setChromeVisible] = useState(true);
   const toggleChrome = useCallback(() => setChromeVisible(v => !v), []);
   const [currentPage, setCurrentPage] = useState(1);
@@ -198,12 +196,12 @@ export default function ReaderScreen() {
 
   const onViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
-      const last = viewableItems[viewableItems.length - 1];
-      if (last?.index != null) setCurrentPage(last.index + 1);
+      const first = viewableItems.find(v => v.isViewable && v.index != null);
+      if (first?.index != null) setCurrentPage(first.index + 1);
     },
   ).current;
 
-  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 60 }).current;
+  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 50 }).current;
 
   useEffect(() => {
     if (total > 0 && currentPage >= total) markReadIfDone();
@@ -225,14 +223,13 @@ export default function ReaderScreen() {
       <FlatList
         data={pages}
         keyExtractor={(uri, index) => `${index}-${uri}`}
-        renderItem={({ item }) => <ReaderPage uri={item} onTap={toggleChrome} />}
+        renderItem={({ item }) => <ReaderPage uri={item} width={width} onTap={toggleChrome} />}
         showsVerticalScrollIndicator={false}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
         onEndReachedThreshold={0.1}
         onEndReached={markReadIfDone}
-        windowSize={5}
-        removeClippedSubviews
+        windowSize={7}
       />
 
       <ReaderChrome

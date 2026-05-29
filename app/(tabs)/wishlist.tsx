@@ -6,7 +6,7 @@ import { MotiView } from 'moti';
 import { format, isThisWeek, isToday, isTomorrow, isYesterday, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import React, { useState } from 'react';
-import { Dimensions, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { getChaptersForLibrary } from '@/lib/api/mangadex';
@@ -19,11 +19,16 @@ import { BORDERS, COLORS, RADIUS, SPACING } from '@/constants/theme';
 import type { LibraryEntry, MangaChapter } from '@/lib/types';
 
 const TAB_BAR_HEIGHT = 88;
-const COLUMNS = 3;
 const GUTTER = SPACING.md;
-const CARD_WIDTH = Math.floor(
-  (Dimensions.get('window').width - SPACING.base * 2 - GUTTER * (COLUMNS - 1)) / COLUMNS
-);
+const MIN_CARD_WIDTH = 104;
+
+function useGridColumns() {
+  const { width } = useWindowDimensions();
+  const available = width - SPACING.base * 2;
+  const columns = Math.max(3, Math.floor((available + GUTTER) / (MIN_CARD_WIDTH + GUTTER)));
+  const cardWidth = Math.floor((available - GUTTER * (columns - 1)) / columns);
+  return cardWidth;
+}
 
 function getDateLabel(publishAt: string): string {
   const date = parseISO(publishAt);
@@ -35,12 +40,12 @@ function getDateLabel(publishAt: string): string {
   return format(date, 'd MMM', { locale: fr }).toUpperCase();
 }
 
-function WishlistCard({ entry, index }: { entry: LibraryEntry; index: number }) {
+function WishlistCard({ entry, index, cardWidth }: { entry: LibraryEntry; index: number; cardWidth: number }) {
   const router = useRouter();
   const updateStatus = useLibraryStore(s => s.updateStatus);
 
   const title = entry.manga.title.english ?? entry.manga.title.romaji ?? entry.manga.title.userPreferred;
-  const imageHeight = Math.round(CARD_WIDTH * 1.42);
+  const imageHeight = Math.round(cardWidth * 1.42);
 
   const startReading = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -52,7 +57,7 @@ function WishlistCard({ entry, index }: { entry: LibraryEntry; index: number }) 
       from={{ opacity: 0, scale: 0.94 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ type: 'spring', stiffness: 320, damping: 24, delay: (index % 9) * 45 }}
-      style={{ width: CARD_WIDTH }}
+      style={{ width: cardWidth }}
     >
       <Pressable onPress={() => router.push(`/manga/${entry.mangaId}?source=${entry.source}`)}>
         <View style={[styles.poster, { height: imageHeight }]}>
@@ -85,6 +90,7 @@ function WishlistCard({ entry, index }: { entry: LibraryEntry; index: number }) 
 }
 
 function WishlistTab({ insets }: { insets: ReturnType<typeof useSafeAreaInsets> }) {
+  const cardWidth = useGridColumns();
   const entries = useLibraryStore(s => s.entries);
   const wishlist = entries
     .filter(e => e.status === 'PLAN_TO_READ')
@@ -104,7 +110,7 @@ function WishlistTab({ insets }: { insets: ReturnType<typeof useSafeAreaInsets> 
       ) : (
         <View style={styles.grid}>
           {wishlist.map((entry, index) => (
-            <WishlistCard key={`${entry.source}-${entry.mangaId}`} entry={entry} index={index} />
+            <WishlistCard key={`${entry.source}-${entry.mangaId}`} entry={entry} index={index} cardWidth={cardWidth} />
           ))}
         </View>
       )}

@@ -4,13 +4,12 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { MotiView } from 'moti';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from 'react-native';
 
@@ -24,13 +23,12 @@ import * as jikan from '@/lib/api/jikan';
 import { useLibraryStore } from '@/lib/store/library';
 import { confirmAction } from '@/lib/utils/confirm';
 import { Panel } from '@/components/ui/Panel';
-import { GlassButton } from '@/components/ui/GlassButton';
 import { Halftone } from '@/components/ui/Halftone';
 import { TypeBadge } from '@/components/ui/TypeBadge';
 import { Typography } from '@/components/ui/Typography';
 import { ChapterList } from '@/components/manga/ChapterList';
 import { BORDERS, COLORS, FONTS, RADIUS, SPACING, STATUS_LABELS } from '@/constants/theme';
-import type { Manga, ReadingStatus } from '@/lib/types';
+import type { Manga, MangaChapter, ReadingStatus } from '@/lib/types';
 
 const STATUSES: ReadingStatus[] = ['READING', 'PLAN_TO_READ', 'COMPLETED', 'PAUSED', 'DROPPED'];
 
@@ -83,16 +81,19 @@ function ScorePicker({ score, onChange }: { score?: number; onChange: (s: number
   );
 }
 
-function TrackingPanel({ manga }: { manga: Manga }) {
+function TrackingPanel({ manga, totalChapters, readCount, onGoToChapters }: {
+  manga: Manga;
+  totalChapters: number;
+  readCount: number;
+  onGoToChapters?: () => void;
+}) {
   const addEntry = useLibraryStore(s => s.addEntry);
   const updateStatus = useLibraryStore(s => s.updateStatus);
-  const updateProgress = useLibraryStore(s => s.updateProgress);
   const updateScore = useLibraryStore(s => s.updateScore);
   const removeEntry = useLibraryStore(s => s.removeEntry);
-  const getEntry = useLibraryStore(s => s.getEntry);
-
-  const entry = getEntry(manga.id, manga.source);
-  const [chapterInput, setChapterInput] = useState(String(entry?.progress ?? 0));
+  const entry = useLibraryStore(s =>
+    s.entries.find(e => e.mangaId === manga.id && e.source === manga.source),
+  );
 
   const handleAddWithStatus = (status: ReadingStatus) => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -103,14 +104,7 @@ function TrackingPanel({ manga }: { manga: Manga }) {
     }
   };
 
-  const handleProgressSave = () => {
-    const val = parseInt(chapterInput, 10);
-    if (!isNaN(val) && val >= 0) {
-      if (!entry) addEntry(manga, 'READING');
-      updateProgress(manga.id, manga.source, val);
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-  };
+  const progressPct = totalChapters > 0 ? Math.min(readCount / totalChapters, 1) : 0;
 
   const handleRemove = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -161,28 +155,29 @@ function TrackingPanel({ manga }: { manga: Manga }) {
 
         {entry && (
           <>
-            <View style={styles.progressSection}>
-              <Typography variant="subheading" color={COLORS.textInk}>
-                Chapitres lus{manga.chapters ? ` / ${manga.chapters}` : ''}
-              </Typography>
-              <View style={styles.progressInputRow}>
-                <TextInput
-                  style={styles.progressInput}
-                  value={chapterInput}
-                  onChangeText={setChapterInput}
-                  keyboardType="number-pad"
-                  returnKeyType="done"
-                  onSubmitEditing={handleProgressSave}
-                  placeholderTextColor={COLORS.textInkMuted}
-                />
-                <GlassButton
-                  label="Sauvegarder"
-                  variant="ghost"
-                  size="sm"
-                  onPress={handleProgressSave}
-                />
-              </View>
-            </View>
+            {totalChapters > 0 && (
+              <Pressable style={styles.progressSection} onPress={onGoToChapters} hitSlop={4}>
+                <View style={styles.progressHeader}>
+                  <Typography variant="subheading" color={COLORS.textInk}>
+                    Progression
+                  </Typography>
+                  <Typography variant="label" color={COLORS.textInkMuted}>
+                    {readCount} / {totalChapters} chapitres
+                  </Typography>
+                </View>
+                <View style={styles.progressTrack}>
+                  <View style={[styles.progressFill, { width: `${progressPct * 100}%` as `${number}%` }]} />
+                </View>
+                {onGoToChapters && (
+                  <View style={styles.progressHint}>
+                    <Ionicons name="checkbox-outline" size={14} color={COLORS.accentRed} />
+                    <Typography variant="label" color={COLORS.accentRed}>
+                      Cocher mes chapitres lus →
+                    </Typography>
+                  </View>
+                )}
+              </Pressable>
+            )}
 
             <View style={styles.scoreSection}>
               <Typography variant="subheading" color={COLORS.textInk}>
@@ -258,8 +253,43 @@ export default function MangaDetailScreen() {
     enabled: !!effectiveMdId,
     staleTime: 1000 * 60 * 5,
   });
-  const hasChapters = (chapters?.length ?? 0) > 0;
-  const showChaptersTab = hasChapters;
+
+  // Build the chapter list: real readable chapters when available, otherwise
+  // synthesize one card per chapter from the API's total count (TV-Time style).
+  const displayChapters = useMemo<MangaChapter[]>(() => {
+    if (chapters && chapters.length > 0) return chapters;
+    const count = manga?.chapters ?? 0;
+    if (!manga || count <= 0) return [];
+    return Array.from({ length: count }, (_, i) => {
+      const n = i + 1;
+      return {
+        id: `${manga.id}-syn-${n}`,
+        mangaId: manga.id,
+        chapter: String(n),
+        pages: 0,
+        publishAt: '',
+        translatedLanguage: '',
+        isReadable: false,
+      } satisfies MangaChapter;
+    });
+  }, [chapters, manga]);
+
+  const entry = useLibraryStore(s =>
+    manga ? s.entries.find(e => e.mangaId === manga.id && e.source === manga.source) : undefined,
+  );
+  const readCount = useMemo(() => {
+    if (!entry) return 0;
+    const ids = entry.readChapterIds ?? [];
+    if (displayChapters.length > 0) {
+      return displayChapters.filter(
+        ch => ids.includes(ch.id) || (Number.isFinite(parseFloat(ch.chapter)) && parseFloat(ch.chapter) <= entry.progress),
+      ).length;
+    }
+    return entry.progress;
+  }, [entry, displayChapters]);
+
+  const showChaptersTab = displayChapters.length > 0;
+  const totalChapters = displayChapters.length || manga?.chapters || 0;
 
   if (isLoading) return <LoadingScreen />;
 
@@ -421,7 +451,12 @@ export default function MangaDetailScreen() {
               animate={{ opacity: 1, translateY: 0 }}
               transition={{ type: 'spring', stiffness: 280, damping: 25, delay: 320 }}
             >
-              <TrackingPanel manga={manga} />
+              <TrackingPanel
+                manga={manga}
+                totalChapters={totalChapters}
+                readCount={readCount}
+                onGoToChapters={showChaptersTab ? () => setActiveTab('chapters') : undefined}
+              />
             </MotiView>
           </View>
         )}
@@ -430,7 +465,7 @@ export default function MangaDetailScreen() {
         {currentTab === 'chapters' && (
           <View style={[styles.chaptersContent, { paddingBottom: insets.bottom + 88 }]}>
             <ChapterList
-              chapters={chapters ?? []}
+              chapters={displayChapters}
               entryMangaId={manga.id}
               source={manga.source}
               manga={manga}
@@ -598,19 +633,29 @@ const styles = StyleSheet.create({
   statusBtnLabel: { color: COLORS.textInkMuted, fontSize: 12 },
   statusBtnLabelActive: { color: COLORS.accentRed },
   progressSection: { gap: SPACING.sm },
-  progressInputRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
-  progressInput: {
-    width: 80,
-    height: 44,
+  progressHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  progressTrack: {
+    height: 6,
     backgroundColor: COLORS.paperSunken,
-    borderWidth: BORDERS.bold,
+    borderRadius: RADIUS.full,
+    overflow: 'hidden',
+    borderWidth: BORDERS.hair,
     borderColor: COLORS.line,
-    borderRadius: RADIUS.md,
-    paddingHorizontal: SPACING.md,
-    fontFamily: FONTS.display,
-    fontSize: 20,
-    color: COLORS.textInk,
-    textAlign: 'center',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: COLORS.accentRed,
+    borderRadius: RADIUS.full,
+  },
+  progressHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    marginTop: 2,
   },
   scoreSection: { gap: SPACING.sm },
   scoreRow: { flexDirection: 'row', gap: SPACING.xs, flexWrap: 'wrap' },
