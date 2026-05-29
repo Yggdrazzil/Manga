@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -8,42 +7,51 @@ import { MotiView } from 'moti';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   TextInput,
   View,
 } from 'react-native';
+
+import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import * as anilist from '@/lib/api/anilist';
 import * as mangadex from '@/lib/api/mangadex';
+import { findMangadexId, getReadableChapters } from '@/lib/api/mangadex';
 import * as jikan from '@/lib/api/jikan';
 import { useLibraryStore } from '@/lib/store/library';
-import { GlassCard } from '@/components/ui/GlassCard';
+import { confirmAction } from '@/lib/utils/confirm';
+import { Panel } from '@/components/ui/Panel';
 import { GlassButton } from '@/components/ui/GlassButton';
-import { StatusBadge } from '@/components/ui/StatusBadge';
+import { Halftone } from '@/components/ui/Halftone';
 import { TypeBadge } from '@/components/ui/TypeBadge';
 import { Typography } from '@/components/ui/Typography';
-import { COLORS, FONTS, RADIUS, SPACING, STATUS_LABELS } from '@/constants/theme';
+import { ChapterList } from '@/components/manga/ChapterList';
+import { BORDERS, COLORS, FONTS, RADIUS, SPACING, STATUS_LABELS } from '@/constants/theme';
 import type { Manga, ReadingStatus } from '@/lib/types';
 
 const STATUSES: ReadingStatus[] = ['READING', 'PLAN_TO_READ', 'COMPLETED', 'PAUSED', 'DROPPED'];
 
+type ActiveTab = 'about' | 'chapters';
+
+const SPRING = { stiffness: 300, damping: 26 };
+
 function DescriptionText({ text }: { text: string }) {
   const [expanded, setExpanded] = useState(false);
-  const maxChars = 220;
+  const maxChars = 240;
   const shouldTruncate = text.length > maxChars;
   const displayed = shouldTruncate && !expanded ? `${text.slice(0, maxChars)}…` : text;
 
   return (
     <View>
-      <Typography variant="body" style={styles.description}>{displayed}</Typography>
+      <Typography variant="body" color={COLORS.textInkMuted} style={styles.description}>
+        {displayed}
+      </Typography>
       {shouldTruncate && (
-        <Pressable onPress={() => setExpanded(!expanded)} style={styles.expandBtn}>
-          <Typography variant="label" color={COLORS.accent}>
+        <Pressable onPress={() => setExpanded(!expanded)} style={styles.expandBtn} hitSlop={8}>
+          <Typography variant="label" color={COLORS.accentRed}>
             {expanded ? 'Voir moins ↑' : 'Voir plus ↓'}
           </Typography>
         </Pressable>
@@ -105,25 +113,28 @@ function TrackingPanel({ manga }: { manga: Manga }) {
   };
 
   const handleRemove = () => {
-    Alert.alert('Retirer', 'Retirer de votre bibliothèque ?', [
-      { text: 'Annuler', style: 'cancel' },
-      {
-        text: 'Retirer',
-        style: 'destructive',
-        onPress: () => {
-          removeEntry(manga.id, manga.source);
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-        },
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    confirmAction({
+      title: 'Retirer',
+      message: 'Retirer de votre bibliothèque ?',
+      confirmLabel: 'Retirer',
+      destructive: true,
+      onConfirm: () => {
+        removeEntry(manga.id, manga.source);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       },
-    ]);
+    });
   };
 
   return (
-    <GlassCard style={styles.trackingCard}>
+    <Panel variant="paper" bordered hardShadow style={styles.trackingCard}>
       <View style={styles.trackingInner}>
-        <Typography variant="heading" style={styles.trackingTitle}>
-          {entry ? '📚 Votre suivi' : '➕ Ajouter à la bibliothèque'}
-        </Typography>
+        <View style={styles.trackingTitleRow}>
+          <View style={styles.sectionMarker} />
+          <Typography variant="heading" color={COLORS.textInk}>
+            {entry ? 'Votre suivi' : 'Ajouter à la bibliothèque'}
+          </Typography>
+        </View>
 
         <View style={styles.statusPicker}>
           {STATUSES.map(status => (
@@ -151,9 +162,8 @@ function TrackingPanel({ manga }: { manga: Manga }) {
         {entry && (
           <>
             <View style={styles.progressSection}>
-              <Typography variant="bodyBold" style={styles.sectionLabel}>
-                Chapitres lus
-                {manga.chapters ? ` / ${manga.chapters}` : ''}
+              <Typography variant="subheading" color={COLORS.textInk}>
+                Chapitres lus{manga.chapters ? ` / ${manga.chapters}` : ''}
               </Typography>
               <View style={styles.progressInputRow}>
                 <TextInput
@@ -163,7 +173,7 @@ function TrackingPanel({ manga }: { manga: Manga }) {
                   keyboardType="number-pad"
                   returnKeyType="done"
                   onSubmitEditing={handleProgressSave}
-                  placeholderTextColor={COLORS.textMuted}
+                  placeholderTextColor={COLORS.textInkMuted}
                 />
                 <GlassButton
                   label="Sauvegarder"
@@ -175,7 +185,7 @@ function TrackingPanel({ manga }: { manga: Manga }) {
             </View>
 
             <View style={styles.scoreSection}>
-              <Typography variant="bodyBold" style={styles.sectionLabel}>
+              <Typography variant="subheading" color={COLORS.textInk}>
                 Score {entry.score ? `· ${entry.score}/10` : ''}
               </Typography>
               <ScorePicker
@@ -184,7 +194,7 @@ function TrackingPanel({ manga }: { manga: Manga }) {
               />
             </View>
 
-            <Pressable onPress={handleRemove} style={styles.removeBtn}>
+            <Pressable onPress={handleRemove} style={styles.removeBtn} hitSlop={8}>
               <Typography variant="label" color={COLORS.error}>
                 Retirer de la bibliothèque
               </Typography>
@@ -192,7 +202,7 @@ function TrackingPanel({ manga }: { manga: Manga }) {
           </>
         )}
       </View>
-    </GlassCard>
+    </Panel>
   );
 }
 
@@ -202,19 +212,21 @@ function LoadingScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <Pressable style={[styles.backBtn, { top: insets.top + 8 }]} onPress={() => router.back()}>
-        <BlurView intensity={30} tint="dark" style={styles.backBtnBlur}>
-          <Ionicons name="chevron-down" size={22} color={COLORS.text} />
-        </BlurView>
+        <View style={styles.backBtnInner}>
+          <Ionicons name="chevron-down" size={22} color={COLORS.onInk} />
+        </View>
       </Pressable>
-      <ActivityIndicator color={COLORS.accent} size="large" style={{ flex: 1 }} />
+      <ActivityIndicator color={COLORS.accentRed} size="large" style={{ flex: 1 }} />
     </View>
   );
 }
+
 
 export default function MangaDetailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { id, source } = useLocalSearchParams<{ id: string; source: string }>();
+  const [activeTab, setActiveTab] = useState<ActiveTab>('about');
 
   const { data: manga, isLoading, isError } = useQuery({
     queryKey: ['manga-detail', id, source],
@@ -227,26 +239,50 @@ export default function MangaDetailScreen() {
     enabled: !!id,
   });
 
+  const searchTitle = manga
+    ? (manga.title.english ?? manga.title.romaji ?? manga.title.userPreferred)
+    : '';
+  const directMdId = manga ? (manga.source === 'mangadex' ? manga.id : manga.mangadexId) : null;
+
+  const { data: resolvedMdId } = useQuery({
+    queryKey: ['resolve-mdid', manga?.source, manga?.id, manga?.year],
+    queryFn: () => findMangadexId(searchTitle, manga?.year ? { year: manga.year } : undefined),
+    enabled: !!manga && !directMdId && !!searchTitle,
+    staleTime: 1000 * 60 * 60,
+  });
+  const effectiveMdId = directMdId ?? resolvedMdId ?? null;
+
+  const { data: chapters } = useQuery({
+    queryKey: ['readable-chapters', effectiveMdId],
+    queryFn: () => getReadableChapters(effectiveMdId!),
+    enabled: !!effectiveMdId,
+    staleTime: 1000 * 60 * 5,
+  });
+  const hasChapters = (chapters?.length ?? 0) > 0;
+  const showChaptersTab = hasChapters;
+
   if (isLoading) return <LoadingScreen />;
 
   if (isError || !manga) {
     return (
       <View style={[styles.container, { paddingTop: insets.top + 16 }]}>
         <Pressable style={[styles.backBtn, { top: insets.top + 8 }]} onPress={() => router.back()}>
-          <BlurView intensity={30} tint="dark" style={styles.backBtnBlur}>
-            <Ionicons name="chevron-down" size={22} color={COLORS.text} />
-          </BlurView>
+          <View style={styles.backBtnInner}>
+            <Ionicons name="chevron-down" size={22} color={COLORS.onInk} />
+          </View>
         </Pressable>
         <View style={styles.errorState}>
-          <Typography variant="display" style={styles.errorEmoji}>😔</Typography>
-          <Typography variant="heading">Impossible de charger</Typography>
-          <Typography variant="body">Une erreur s&apos;est produite. Réessayez.</Typography>
+          <Halftone opacity={0.04} />
+          <Ionicons name="alert-circle-outline" size={56} color={COLORS.textInkMuted} />
+          <Typography variant="heading" color={COLORS.textInk}>Impossible de charger</Typography>
+          <Typography variant="body" color={COLORS.textInkMuted}>Une erreur s&apos;est produite. Réessayez.</Typography>
         </View>
       </View>
     );
   }
 
   const displayTitle = manga.title.english ?? manga.title.romaji ?? manga.title.userPreferred;
+  const currentTab: ActiveTab = showChaptersTab ? activeTab : 'about';
 
   return (
     <View style={styles.container}>
@@ -254,21 +290,16 @@ export default function MangaDetailScreen() {
         style={[styles.backBtn, { top: insets.top + 8 }]}
         onPress={() => router.back()}
       >
-        {Platform.OS === 'ios' ? (
-          <BlurView intensity={30} tint="dark" style={styles.backBtnBlur}>
-            <Ionicons name="chevron-down" size={22} color={COLORS.text} />
-          </BlurView>
-        ) : (
-          <View style={[styles.backBtnBlur, styles.backBtnAndroid]}>
-            <Ionicons name="chevron-down" size={22} color={COLORS.text} />
-          </View>
-        )}
+        <View style={styles.backBtnInner}>
+          <Ionicons name="chevron-down" size={22} color={COLORS.onInk} />
+        </View>
       </Pressable>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + SPACING.xl }]}
+        contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 100 }]}
       >
+        {/* Ink hero */}
         <View style={styles.hero}>
           <Image
             source={{ uri: manga.bannerImage ?? manga.coverImage }}
@@ -277,7 +308,7 @@ export default function MangaDetailScreen() {
             cachePolicy="memory-disk"
           />
           <LinearGradient
-            colors={['rgba(10,11,20,0.2)', 'rgba(10,11,20,0.6)', COLORS.bg]}
+            colors={['rgba(22,19,14,0.15)', 'rgba(22,19,14,0.7)', COLORS.ink]}
             locations={[0.2, 0.6, 1]}
             style={StyleSheet.absoluteFillObject}
           />
@@ -289,85 +320,145 @@ export default function MangaDetailScreen() {
             >
               <View style={styles.heroMeta}>
                 <TypeBadge type={manga.type} />
-                <Typography variant="caption" color="rgba(255,255,255,0.6)">
+                <Typography variant="kicker" color={COLORS.onInkMuted}>
                   {manga.year ?? '—'} · {manga.status === 'ONGOING' ? 'En cours' : manga.status === 'COMPLETED' ? 'Terminé' : manga.status}
                 </Typography>
               </View>
-              <Typography variant="display" style={styles.heroTitle} numberOfLines={3}>
+              <Typography variant="hero" color={COLORS.onInk} style={styles.heroTitle} numberOfLines={3}>
                 {displayTitle}
               </Typography>
             </MotiView>
           </View>
         </View>
 
-        <View style={styles.content}>
-          <MotiView
-            from={{ opacity: 0, translateY: 16 }}
-            animate={{ opacity: 1, translateY: 0 }}
-            transition={{ type: 'spring', stiffness: 280, damping: 25, delay: 160 }}
-          >
-            <GlassCard style={styles.infoCard}>
-              <View style={styles.infoGrid}>
-                <InfoItem label="Auteur(s)" value={manga.authors.join(', ') || '—'} />
-                <InfoItem label="Chapitres" value={manga.chapters ? String(manga.chapters) : '—'} />
-                <InfoItem label="Volumes" value={manga.volumes ? String(manga.volumes) : '—'} />
-                <InfoItem
-                  label="Score"
-                  value={manga.averageScore ? `${(manga.averageScore / 10).toFixed(1)}/10` : '—'}
-                  highlight
-                />
-              </View>
-            </GlassCard>
-          </MotiView>
+        {/* Underline tab bar */}
+        {showChaptersTab && (
+          <View style={styles.tabBar}>
+            {(['about', 'chapters'] as const).map(tab => {
+              const isActive = currentTab === tab;
+              const label = tab === 'about' ? 'À PROPOS' : 'CHAPITRES';
+              return (
+                <Pressable
+                  key={tab}
+                  style={styles.tabItem}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setActiveTab(tab);
+                  }}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: isActive }}
+                  accessibilityLabel={label}
+                >
+                  <Typography
+                    variant="kicker"
+                    style={[styles.tabLabel, isActive && styles.tabLabelActive]}
+                  >
+                    {label}
+                  </Typography>
+                </Pressable>
+              );
+            })}
+            <View style={styles.tabUnderline}>
+              <TabUnderlineIndicator activeTab={currentTab} />
+            </View>
+          </View>
+        )}
 
-          {manga.genres.length > 0 && (
+        {/* À PROPOS */}
+        {currentTab === 'about' && (
+          <View style={styles.content}>
             <MotiView
-              from={{ opacity: 0, translateY: 12 }}
+              from={{ opacity: 0, translateY: 16 }}
               animate={{ opacity: 1, translateY: 0 }}
-              transition={{ type: 'spring', stiffness: 280, damping: 25, delay: 220 }}
-              style={styles.genresSection}
+              transition={{ type: 'spring', stiffness: 280, damping: 25, delay: 140 }}
             >
-              <View style={styles.genresWrap}>
-                {manga.genres.map(g => (
-                  <View key={g} style={styles.genreChip}>
-                    <Typography variant="label" color={COLORS.accentLight}>{g}</Typography>
-                  </View>
-                ))}
-              </View>
+              <Panel variant="paper" bordered style={styles.infoCard}>
+                <View style={styles.infoGrid}>
+                  <InfoItem label="Auteur(s)" value={manga.authors.join(', ') || '—'} />
+                  <InfoItem label="Chapitres" value={manga.chapters ? String(manga.chapters) : '—'} />
+                  <InfoItem label="Volumes" value={manga.volumes ? String(manga.volumes) : '—'} />
+                  <InfoItem
+                    label="Score"
+                    value={manga.averageScore ? `${(manga.averageScore / 10).toFixed(1)}/10` : '—'}
+                    highlight
+                  />
+                </View>
+              </Panel>
             </MotiView>
-          )}
 
-          {manga.description && (
+            {manga.genres.length > 0 && (
+              <MotiView
+                from={{ opacity: 0, translateY: 12 }}
+                animate={{ opacity: 1, translateY: 0 }}
+                transition={{ type: 'spring', stiffness: 280, damping: 25, delay: 200 }}
+              >
+                <View style={styles.genresWrap}>
+                  {manga.genres.map(g => (
+                    <View key={g} style={styles.genreChip}>
+                      <Typography variant="label" color={COLORS.accentRed}>{g}</Typography>
+                    </View>
+                  ))}
+                </View>
+              </MotiView>
+            )}
+
+            {manga.description && (
+              <MotiView
+                from={{ opacity: 0, translateY: 12 }}
+                animate={{ opacity: 1, translateY: 0 }}
+                transition={{ type: 'spring', stiffness: 280, damping: 25, delay: 260 }}
+              >
+                <View style={styles.sectionHeader}>
+                  <View style={styles.sectionMarker} />
+                  <Typography variant="title" color={COLORS.textInk}>Synopsis</Typography>
+                </View>
+                <DescriptionText text={manga.description} />
+              </MotiView>
+            )}
+
             <MotiView
-              from={{ opacity: 0, translateY: 12 }}
+              from={{ opacity: 0, translateY: 16 }}
               animate={{ opacity: 1, translateY: 0 }}
-              transition={{ type: 'spring', stiffness: 280, damping: 25, delay: 280 }}
+              transition={{ type: 'spring', stiffness: 280, damping: 25, delay: 320 }}
             >
-              <Typography variant="heading" style={styles.sectionHeading}>Synopsis</Typography>
-              <DescriptionText text={manga.description} />
+              <TrackingPanel manga={manga} />
             </MotiView>
-          )}
+          </View>
+        )}
 
-          <MotiView
-            from={{ opacity: 0, translateY: 16 }}
-            animate={{ opacity: 1, translateY: 0 }}
-            transition={{ type: 'spring', stiffness: 280, damping: 25, delay: 340 }}
-          >
-            <TrackingPanel manga={manga} />
-          </MotiView>
-        </View>
+        {/* CHAPITRES */}
+        {currentTab === 'chapters' && (
+          <View style={[styles.chaptersContent, { paddingBottom: insets.bottom + 88 }]}>
+            <ChapterList
+              chapters={chapters ?? []}
+              entryMangaId={manga.id}
+              source={manga.source}
+              manga={manga}
+            />
+          </View>
+        )}
       </ScrollView>
     </View>
   );
 }
 
+function TabUnderlineIndicator({ activeTab }: { activeTab: ActiveTab }) {
+  const x = useSharedValue(0);
+  x.value = withSpring(activeTab === 'chapters' ? 1 : 0, SPRING);
+  const style = useAnimatedStyle(() => ({
+    left: `${x.value * 50}%` as `${number}%`,
+    width: '50%',
+  }));
+  return <Animated.View style={[styles.tabLineIndicator, style]} />;
+}
+
 function InfoItem({ label, value, highlight = false }: { label: string; value: string; highlight?: boolean }) {
   return (
     <View style={styles.infoItem}>
-      <Typography variant="caption">{label}</Typography>
+      <Typography variant="caption" color={COLORS.textInkMuted}>{label}</Typography>
       <Typography
-        variant="bodyBold"
-        color={highlight ? COLORS.warning : COLORS.text}
+        variant="subheading"
+        color={highlight ? COLORS.warning : COLORS.textInk}
         style={styles.infoValue}
       >
         {value}
@@ -377,28 +468,26 @@ function InfoItem({ label, value, highlight = false }: { label: string; value: s
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.bg },
+  container: { flex: 1, backgroundColor: COLORS.paper },
   scroll: {},
   backBtn: {
     position: 'absolute',
     left: SPACING.base,
     zIndex: 100,
-    borderRadius: RADIUS.full,
-    overflow: 'hidden',
   },
-  backBtnBlur: {
-    width: 40,
-    height: 40,
+  backBtnInner: {
+    width: 44,
+    height: 44,
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.ink,
+    borderWidth: BORDERS.bold,
+    borderColor: COLORS.lineOnInk,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  backBtnAndroid: {
-    backgroundColor: 'rgba(10,11,20,0.85)',
-    borderRadius: RADIUS.full,
-  },
   hero: {
-    height: 320,
-    backgroundColor: COLORS.surfaceRaised,
+    height: 340,
+    backgroundColor: COLORS.ink,
     justifyContent: 'flex-end',
   },
   heroBottom: {
@@ -412,16 +501,51 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.xs,
   },
   heroTitle: {
-    fontSize: 30,
-    lineHeight: 32,
-    color: COLORS.text,
-    textShadowColor: 'rgba(0,0,0,0.9)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 12,
+    fontSize: 34,
+    lineHeight: 36,
+  },
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.ink,
+    position: 'relative',
+  },
+  tabItem: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: SPACING.md,
+    paddingBottom: SPACING.base,
+  },
+  tabLabel: {
+    color: COLORS.onInkMuted,
+    letterSpacing: 1.5,
+    fontSize: 11,
+  },
+  tabLabelActive: {
+    color: COLORS.onInk,
+  },
+  tabUnderline: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 2,
+  },
+  tabLineActive: {},
+  tabLineIndicator: {
+    position: 'absolute',
+    height: 2,
+    backgroundColor: COLORS.accentRed,
+    borderRadius: 1,
   },
   content: {
     padding: SPACING.base,
     gap: SPACING.lg,
+    backgroundColor: COLORS.paper,
+  },
+  chaptersContent: {
+    paddingHorizontal: SPACING.base,
+    paddingTop: SPACING.lg,
+    backgroundColor: COLORS.paper,
   },
   infoCard: { borderRadius: RADIUS.lg },
   infoGrid: {
@@ -432,51 +556,60 @@ const styles = StyleSheet.create({
   },
   infoItem: { width: '45%', gap: 4, flexGrow: 1 },
   infoValue: { fontSize: 15 },
-  genresSection: {},
   genresWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm },
   genreChip: {
-    backgroundColor: COLORS.accentMuted,
-    borderWidth: 1,
-    borderColor: `${COLORS.accent}33`,
+    backgroundColor: COLORS.accentSoft,
+    borderWidth: BORDERS.hair,
+    borderColor: `${COLORS.accentRed}44`,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.xs + 2,
     borderRadius: RADIUS.full,
   },
-  sectionHeading: { fontSize: 16, marginBottom: SPACING.sm },
-  description: { lineHeight: 24, color: COLORS.textSecondary },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    marginBottom: SPACING.sm,
+  },
+  sectionMarker: {
+    width: 4,
+    height: 20,
+    backgroundColor: COLORS.accentRed,
+    borderRadius: 2,
+  },
+  description: { lineHeight: 24 },
   expandBtn: { marginTop: SPACING.sm, alignSelf: 'flex-start' },
-  trackingCard: { borderRadius: RADIUS.xl },
+  trackingCard: { borderRadius: RADIUS.lg, overflow: 'visible' },
   trackingInner: { padding: SPACING.base, gap: SPACING.lg },
-  trackingTitle: { fontSize: 17 },
+  trackingTitleRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
   statusPicker: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm },
   statusBtn: {
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
     borderRadius: RADIUS.full,
-    backgroundColor: COLORS.surfaceRaised,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    backgroundColor: COLORS.paperSunken,
+    borderWidth: BORDERS.hair,
+    borderColor: COLORS.line,
   },
   statusBtnActive: {
-    backgroundColor: COLORS.accentMuted,
-    borderColor: `${COLORS.accent}66`,
+    backgroundColor: COLORS.accentSoft,
+    borderColor: `${COLORS.accentRed}66`,
   },
-  statusBtnLabel: { color: COLORS.textMuted, fontFamily: FONTS.bodyMedium, fontSize: 12 },
-  statusBtnLabelActive: { color: COLORS.accentLight },
+  statusBtnLabel: { color: COLORS.textInkMuted, fontSize: 12 },
+  statusBtnLabelActive: { color: COLORS.accentRed },
   progressSection: { gap: SPACING.sm },
-  sectionLabel: { color: COLORS.text, fontSize: 14 },
   progressInputRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
   progressInput: {
     width: 80,
     height: 44,
-    backgroundColor: COLORS.surfaceRaised,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    backgroundColor: COLORS.paperSunken,
+    borderWidth: BORDERS.bold,
+    borderColor: COLORS.line,
     borderRadius: RADIUS.md,
     paddingHorizontal: SPACING.md,
-    fontFamily: FONTS.bodyBold,
-    fontSize: 18,
-    color: COLORS.text,
+    fontFamily: FONTS.display,
+    fontSize: 20,
+    color: COLORS.textInk,
     textAlign: 'center',
   },
   scoreSection: { gap: SPACING.sm },
@@ -485,9 +618,9 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: RADIUS.sm,
-    backgroundColor: COLORS.surfaceRaised,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    backgroundColor: COLORS.paperSunken,
+    borderWidth: BORDERS.hair,
+    borderColor: COLORS.line,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -498,9 +631,9 @@ const styles = StyleSheet.create({
   scoreBtnLabel: {
     fontFamily: FONTS.bodyBold,
     fontSize: 13,
-    color: COLORS.textMuted,
+    color: COLORS.textInkMuted,
   },
-  scoreBtnLabelActive: { color: '#000' },
+  scoreBtnLabelActive: { color: COLORS.ink },
   removeBtn: {
     alignSelf: 'center',
     paddingVertical: SPACING.sm,
@@ -512,5 +645,5 @@ const styles = StyleSheet.create({
     gap: SPACING.md,
     padding: SPACING.xl,
   },
-  errorEmoji: { fontSize: 60, lineHeight: 70 },
 });
+

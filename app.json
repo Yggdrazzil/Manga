@@ -23,7 +23,10 @@
         "backgroundColor": "#0A0B14"
       },
       "package": "com.mangatrack.app",
-      "permissions": ["INTERNET"]
+      "permissions": [
+        "INTERNET",
+        "INTERNET"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -44,6 +47,19 @@
     "splash": {
       "backgroundColor": "#0A0B14",
       "resizeMode": "contain"
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "492585a2-922b-49f1-b58e-8b06a3644f31"
+      }
+    },
+    "owner": "yggdrazil",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/492585a2-922b-49f1-b58e-8b06a3644f31"
     }
   }
 }

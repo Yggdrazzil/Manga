@@ -1,68 +1,98 @@
 import React from 'react';
-import { Text, type TextProps, type StyleProp, type TextStyle } from 'react-native';
+import { Text, type StyleProp, type TextProps, type TextStyle } from 'react-native';
 import { COLORS, FONTS } from '@/constants/theme';
 
+type TypographyVariant =
+  | 'hero'
+  | 'title'
+  | 'display'
+  | 'kicker'
+  | 'heading'
+  | 'subheading'
+  | 'body'
+  | 'bodyBold'
+  | 'label'
+  | 'caption';
+
 interface TypographyProps extends TextProps {
-  variant?: 'display' | 'heading' | 'subheading' | 'body' | 'bodyBold' | 'caption' | 'label';
+  variant?: TypographyVariant;
   color?: string;
   style?: StyleProp<TextStyle>;
 }
 
-const variantStyles: Record<NonNullable<TypographyProps['variant']>, TextStyle> = {
+const variantStyles: Record<TypographyVariant, TextStyle> = {
+  hero: {
+    fontFamily: FONTS.serifBlack,
+    fontSize: 36,
+    lineHeight: 38,
+    letterSpacing: -0.5,
+    color: COLORS.textInk,
+  },
+  title: {
+    fontFamily: FONTS.serif,
+    fontSize: 22,
+    lineHeight: 28,
+    letterSpacing: -0.2,
+    color: COLORS.textInk,
+  },
   display: {
     fontFamily: FONTS.display,
     fontSize: 42,
     lineHeight: 44,
     letterSpacing: 1,
-    color: COLORS.text,
+    color: COLORS.textInk,
+  },
+  kicker: {
+    fontFamily: FONTS.display,
+    fontSize: 13,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    color: COLORS.accentRed,
   },
   heading: {
     fontFamily: FONTS.heading,
-    fontSize: 22,
-    lineHeight: 28,
-    letterSpacing: -0.3,
-    color: COLORS.text,
+    fontSize: 18,
+    lineHeight: 24,
+    letterSpacing: -0.2,
+    color: COLORS.textInk,
   },
   subheading: {
     fontFamily: FONTS.headingMedium,
     fontSize: 15,
     lineHeight: 20,
-    color: COLORS.text,
+    color: COLORS.textInk,
   },
   body: {
     fontFamily: FONTS.body,
-    fontSize: 14,
-    lineHeight: 22,
-    color: COLORS.textSecondary,
+    fontSize: 15,
+    lineHeight: 24,
+    color: COLORS.textInkSoft,
   },
   bodyBold: {
     fontFamily: FONTS.bodyBold,
-    fontSize: 14,
-    lineHeight: 20,
-    color: COLORS.text,
-  },
-  caption: {
-    fontFamily: FONTS.body,
-    fontSize: 11,
-    lineHeight: 14,
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
-    color: COLORS.textMuted,
+    fontSize: 15,
+    lineHeight: 22,
+    color: COLORS.textInk,
   },
   label: {
-    fontFamily: FONTS.bodyMedium,
-    fontSize: 12,
-    lineHeight: 16,
-    color: COLORS.textSecondary,
+    fontFamily: FONTS.headingMedium,
+    fontSize: 13,
+    lineHeight: 18,
+    color: COLORS.textInkMuted,
+  },
+  caption: {
+    fontFamily: FONTS.headingMedium,
+    fontSize: 11,
+    lineHeight: 14,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    color: COLORS.textInkFaint,
   },
 };
 
 export function Typography({ variant = 'body', color, style, children, ...rest }: TypographyProps) {
   return (
-    <Text
-      style={[variantStyles[variant], color ? { color } : undefined, style]}
-      {...rest}
-    >
+    <Text style={[variantStyles[variant], color ? { color } : undefined, style]} {...rest}>
       {children}
     </Text>
   );

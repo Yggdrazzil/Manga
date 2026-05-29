@@ -2,16 +2,17 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { MotiView } from 'moti';
-import React from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import React, { useCallback } from 'react';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as anilist from '@/lib/api/anilist';
 import * as mangadex from '@/lib/api/mangadex';
 import { MediaRow } from '@/components/manga/MediaRow';
+import { Halftone } from '@/components/ui/Halftone';
 import { Typography } from '@/components/ui/Typography';
 import { TypeBadge } from '@/components/ui/TypeBadge';
-import { COLORS, FONTS, SPACING } from '@/constants/theme';
+import { BORDERS, COLORS, RADIUS, SPACING } from '@/constants/theme';
 
 const TAB_BAR_HEIGHT = 88;
 
@@ -27,15 +28,19 @@ function HeroCard() {
     return <View style={styles.heroPlaceholder} />;
   }
 
+  const title = hero.title.english ?? hero.title.romaji ?? hero.title.userPreferred;
+
   return (
     <MotiView
-      from={{ opacity: 0, scale: 0.96 }}
-      animate={{ opacity: 1, scale: 1 }}
+      from={{ opacity: 0, translateY: 12 }}
+      animate={{ opacity: 1, translateY: 0 }}
       transition={{ type: 'spring', stiffness: 280, damping: 28 }}
     >
       <Pressable
         style={styles.heroCard}
         onPress={() => router.push(`/manga/${hero.id}?source=${hero.source}`)}
+        accessibilityRole="button"
+        accessibilityLabel={`Voir ${title}`}
       >
         <Image
           source={{ uri: hero.bannerImage ?? hero.coverImage }}
@@ -44,27 +49,28 @@ function HeroCard() {
           cachePolicy="memory-disk"
         />
         <LinearGradient
-          colors={['transparent', 'rgba(10,11,20,0.7)', COLORS.bg]}
-          locations={[0.3, 0.7, 1]}
+          colors={['rgba(22,19,14,0.1)', 'rgba(22,19,14,0.65)', COLORS.ink]}
+          locations={[0.3, 0.65, 1]}
           style={StyleSheet.absoluteFillObject}
         />
+        <Halftone opacity={0.03} />
         <View style={styles.heroContent}>
           <View style={styles.heroMeta}>
             <TypeBadge type={hero.type} />
             {hero.year && (
-              <Typography variant="caption" color="rgba(255,255,255,0.7)">
+              <Typography variant="kicker" color={COLORS.onInkMuted}>
                 {hero.year}
               </Typography>
             )}
           </View>
-          <Typography variant="display" style={styles.heroTitle} numberOfLines={2}>
-            {hero.title.english ?? hero.title.romaji ?? hero.title.userPreferred}
+          <Typography variant="hero" color={COLORS.onInk} style={styles.heroTitle} numberOfLines={2}>
+            {title}
           </Typography>
           {hero.genres.slice(0, 3).length > 0 && (
             <View style={styles.heroGenres}>
               {hero.genres.slice(0, 3).map(g => (
                 <View key={g} style={styles.genreChip}>
-                  <Typography variant="label" color="rgba(255,255,255,0.75)">{g}</Typography>
+                  <Typography variant="label" color={COLORS.onInkMuted}>{g}</Typography>
                 </View>
               ))}
             </View>
@@ -77,6 +83,8 @@ function HeroCard() {
 
 export default function DiscoverScreen() {
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = React.useState(false);
 
   const { data: trending, isLoading: trendingLoading } = useQuery({
     queryKey: ['trending', 1, 20],
@@ -103,11 +111,27 @@ export default function DiscoverScreen() {
     queryFn: () => anilist.getManhua(1, 20),
   });
 
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await queryClient.invalidateQueries({ queryKey: ['trending'] });
+    await queryClient.invalidateQueries({ queryKey: ['manhwa'] });
+    await queryClient.invalidateQueries({ queryKey: ['popular'] });
+    setRefreshing(false);
+  }, [queryClient]);
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.content, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom }]}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={COLORS.accentRed}
+            colors={[COLORS.accentRed]}
+          />
+        }
       >
         <MotiView
           from={{ opacity: 0, translateY: -12 }}
@@ -115,42 +139,41 @@ export default function DiscoverScreen() {
           transition={{ type: 'spring', stiffness: 350, damping: 28 }}
           style={styles.header}
         >
-          <Typography variant="display" style={styles.appTitle}>MangaTrack</Typography>
-          <Typography variant="body">Découvrez · Suivez · Lisez</Typography>
+          <Typography variant="kicker" color={COLORS.accentRed}>
+            MANGA TRACKER
+          </Typography>
+          <Typography variant="hero" color={COLORS.textInk} style={styles.appTitle}>
+            Découvrir
+          </Typography>
         </MotiView>
 
         <HeroCard />
 
         <View style={styles.rows}>
           <MediaRow
-            title="Tendances"
-            emoji="🔥"
+            title="TENDANCES"
             mangas={trending?.items}
             isLoading={trendingLoading}
           />
           <MediaRow
-            title="Manhwa Populaires"
-            emoji="🇰🇷"
+            title="MANHWA"
             mangas={manhwa?.items}
             isLoading={manhwaLoading}
           />
           <MediaRow
-            title="Webtoons"
-            emoji="📱"
+            title="WEBTOONS"
             mangas={webtoons?.items}
             isLoading={webtoonsLoading}
           />
           <MediaRow
-            title="Top Manga"
-            emoji="⭐"
+            title="TOP MANGA"
             mangas={popular?.items}
             isLoading={popularLoading}
             cardWidth={130}
           />
           {manhua && (
             <MediaRow
-              title="Manhua"
-              emoji="🇨🇳"
+              title="MANHUA"
               mangas={manhua.items}
               cardWidth={110}
             />
@@ -162,7 +185,7 @@ export default function DiscoverScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.bg },
+  container: { flex: 1, backgroundColor: COLORS.paper },
   content: { paddingTop: SPACING.md },
   header: {
     paddingHorizontal: SPACING.base,
@@ -170,25 +193,27 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   appTitle: {
-    fontSize: 36,
-    lineHeight: 38,
-    color: COLORS.accent,
-    letterSpacing: 2,
+    fontSize: 38,
+    lineHeight: 40,
   },
   heroCard: {
-    height: 240,
+    height: 260,
     marginHorizontal: SPACING.base,
-    borderRadius: 20,
+    borderRadius: RADIUS.lg,
+    borderWidth: BORDERS.bold,
+    borderColor: COLORS.ink,
     overflow: 'hidden',
     marginBottom: SPACING.xl,
-    backgroundColor: COLORS.surfaceRaised,
+    backgroundColor: COLORS.ink,
     justifyContent: 'flex-end',
   },
   heroPlaceholder: {
-    height: 240,
+    height: 260,
     marginHorizontal: SPACING.base,
-    borderRadius: 20,
-    backgroundColor: COLORS.surfaceRaised,
+    borderRadius: RADIUS.lg,
+    borderWidth: BORDERS.bold,
+    borderColor: COLORS.ink,
+    backgroundColor: COLORS.ink,
     marginBottom: SPACING.xl,
   },
   heroContent: {
@@ -201,13 +226,8 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
   },
   heroTitle: {
-    fontSize: 28,
-    lineHeight: 30,
-    letterSpacing: 0.5,
-    color: COLORS.text,
-    textShadowColor: 'rgba(0,0,0,0.8)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 8,
+    fontSize: 30,
+    lineHeight: 32,
   },
   heroGenres: {
     flexDirection: 'row',
@@ -215,12 +235,12 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   genreChip: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: COLORS.lineOnInk,
     paddingHorizontal: SPACING.sm,
     paddingVertical: 3,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.18)',
+    borderRadius: RADIUS.sm,
+    borderWidth: BORDERS.hair,
+    borderColor: COLORS.lineOnInk,
   },
   rows: { gap: 0 },
 });

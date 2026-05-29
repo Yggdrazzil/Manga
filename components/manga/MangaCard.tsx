@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
-import { COLORS, FONTS, RADIUS, SPACING } from '@/constants/theme';
+import { BORDERS, COLORS, FONTS, RADIUS, SPACING } from '@/constants/theme';
 import type { Manga } from '@/lib/types';
 import { TypeBadge } from '../ui/TypeBadge';
 import { Typography } from '../ui/Typography';
@@ -38,8 +38,10 @@ export function MangaCard({ manga, width = 120 }: MangaCardProps) {
       onPressIn={() => { scale.value = withSpring(0.95, { stiffness: 500, damping: 22 }); }}
       onPressOut={() => { scale.value = withSpring(1, { stiffness: 400, damping: 20 }); }}
       onPress={handlePress}
+      accessibilityRole="button"
+      accessibilityLabel={displayTitle}
     >
-      <View style={[styles.imageWrap, { height: imageHeight, borderRadius: RADIUS.md }]}>
+      <View style={[styles.imageFrame, { height: imageHeight }]}>
         <Image
           source={{ uri: manga.coverImage }}
           style={StyleSheet.absoluteFillObject}
@@ -62,14 +64,15 @@ export function MangaCard({ manga, width = 120 }: MangaCardProps) {
         </View>
       </View>
       <Typography
-        variant="bodyBold"
+        variant="label"
         numberOfLines={2}
+        color={COLORS.textInk}
         style={styles.title}
       >
         {displayTitle}
       </Typography>
       {manga.year && (
-        <Typography variant="label" style={styles.meta}>
+        <Typography variant="caption" color={COLORS.textInkMuted} style={styles.meta}>
           {manga.year}
         </Typography>
       )}
@@ -78,9 +81,12 @@ export function MangaCard({ manga, width = 120 }: MangaCardProps) {
 }
 
 const styles = StyleSheet.create({
-  imageWrap: {
+  imageFrame: {
     overflow: 'hidden',
-    backgroundColor: COLORS.surfaceRaised,
+    backgroundColor: COLORS.paperSunken,
+    borderRadius: RADIUS.md,
+    borderWidth: BORDERS.bold,
+    borderColor: COLORS.ink,
   },
   scoreWrap: {
     position: 'absolute',
@@ -88,7 +94,7 @@ const styles = StyleSheet.create({
     right: SPACING.xs,
   },
   scoreBadge: {
-    backgroundColor: 'rgba(0,0,0,0.72)',
+    backgroundColor: 'rgba(22,19,14,0.82)',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: RADIUS.sm,
@@ -106,12 +112,13 @@ const styles = StyleSheet.create({
   },
   title: {
     marginTop: SPACING.sm,
-    fontSize: 13,
-    lineHeight: 17,
-    color: COLORS.text,
+    fontSize: 12,
+    lineHeight: 16,
   },
   meta: {
     marginTop: 2,
-    color: COLORS.textMuted,
+    fontSize: 10,
+    letterSpacing: 0,
+    textTransform: 'none',
   },
 });

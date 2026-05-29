@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { LibraryEntry, Manga, ReadingStatus, ReadingStats } from '../types';
+import type { ChapterNote, LibraryEntry, Manga, ReadingStatus, ReadingStats } from '../types';
+import { maxChapterProgress } from '@/lib/utils/chapter';
 
 interface LibraryState {
   entries: LibraryEntry[];
@@ -14,6 +15,9 @@ interface LibraryState {
   getEntry: (mangaId: string, source: string) => LibraryEntry | undefined;
   entriesByStatus: (status: ReadingStatus) => LibraryEntry[];
   getStats: () => ReadingStats;
+  toggleChapterRead: (mangaId: string, source: string, chapterId: string, chapterNum: number) => void;
+  updateChapterNote: (mangaId: string, source: string, chapterId: string, note: Partial<ChapterNote>) => void;
+  markVolumeRead: (mangaId: string, source: string, chapters: Array<{ id: string; num: number }>) => void;
 }
 
 export const useLibraryStore = create<LibraryState>()(
@@ -47,17 +51,20 @@ export const useLibraryStore = create<LibraryState>()(
 
       updateStatus: (mangaId, source, status) => {
         set(state => ({
-          entries: state.entries.map(e =>
-            e.mangaId === mangaId && e.source === source
-              ? {
-                  ...e,
-                  status,
-                  updatedAt: new Date().toISOString(),
-                  ...(status === 'READING' && !e.startDate ? { startDate: new Date().toISOString() } : {}),
-                  ...(status === 'COMPLETED' ? { finishDate: new Date().toISOString() } : {}),
-                }
-              : e
-          ),
+          entries: state.entries.map(e => {
+            if (e.mangaId !== mangaId || e.source !== source) return e;
+            const now = new Date().toISOString();
+            const enteringCompleted = status === 'COMPLETED' && e.status !== 'COMPLETED';
+            const leavingCompleted = status !== 'COMPLETED' && e.status === 'COMPLETED';
+            return {
+              ...e,
+              status,
+              updatedAt: now,
+              ...(status === 'READING' && !e.startDate ? { startDate: now } : {}),
+              ...(enteringCompleted ? { finishDate: now } : {}),
+              ...(leavingCompleted ? { finishDate: undefined } : {}),
+            };
+          }),
         }));
       },
 
@@ -89,6 +96,75 @@ export const useLibraryStore = create<LibraryState>()(
 
       getEntry: (mangaId, source) => {
         return get().entries.find(e => e.mangaId === mangaId && e.source === source);
+      },
+
+      toggleChapterRead: (mangaId, source, chapterId, chapterNum) => {
+        set(state => ({
+          entries: state.entries.map(e => {
+            if (e.mangaId !== mangaId || e.source !== source) return e;
+            const num = Number.isFinite(chapterNum) ? chapterNum : NaN;
+            const now = new Date().toISOString();
+            const ids = e.readChapterIds ?? [];
+            const isRead = ids.includes(chapterId);
+            const chapterData = { ...(e.chapterData ?? {}) };
+            let newIds: string[];
+            let progress = e.progress;
+
+            if (!isRead) {
+              newIds = [...ids, chapterId];
+              chapterData[chapterId] = {
+                ...(chapterData[chapterId] ?? {}),
+                readAt: chapterData[chapterId]?.readAt ?? now,
+              };
+              progress = Number.isFinite(num) ? Math.max(progress, Math.floor(num)) : progress;
+            } else {
+              newIds = ids.filter(id => id !== chapterId);
+              const existing = chapterData[chapterId];
+              if (existing) {
+                const rest: ChapterNote = { ...existing };
+                delete rest.readAt;
+                if (Object.keys(rest).length === 0) {
+                  delete chapterData[chapterId];
+                } else {
+                  chapterData[chapterId] = rest;
+                }
+              }
+              if (Number.isFinite(num) && Math.floor(num) <= progress) {
+                progress = Math.max(0, Math.floor(num) - 1);
+              }
+            }
+
+            return { ...e, readChapterIds: newIds, progress, chapterData, updatedAt: now };
+          }),
+        }));
+      },
+
+      updateChapterNote: (mangaId, source, chapterId, note) => {
+        set(state => ({
+          entries: state.entries.map(e => {
+            if (e.mangaId !== mangaId || e.source !== source) return e;
+            const chapterData = { ...(e.chapterData ?? {}), [chapterId]: { ...(e.chapterData?.[chapterId] ?? {}), ...note } };
+            return { ...e, chapterData, updatedAt: new Date().toISOString() };
+          }),
+        }));
+      },
+
+      markVolumeRead: (mangaId, source, chapters) => {
+        set(state => ({
+          entries: state.entries.map(e => {
+            if (e.mangaId !== mangaId || e.source !== source) return e;
+            const ids = new Set(e.readChapterIds ?? []);
+            const chapterData = { ...(e.chapterData ?? {}) };
+            const now = new Date().toISOString();
+            let maxProgress = e.progress;
+            for (const ch of chapters) {
+              ids.add(ch.id);
+              chapterData[ch.id] = { ...(chapterData[ch.id] ?? {}), readAt: chapterData[ch.id]?.readAt ?? now };
+              maxProgress = maxChapterProgress(maxProgress, String(ch.num));
+            }
+            return { ...e, readChapterIds: Array.from(ids), chapterData, progress: maxProgress, updatedAt: now };
+          }),
+        }));
       },
 
       entriesByStatus: (status) => {

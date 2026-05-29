@@ -1,11 +1,19 @@
+import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
+import { useRouter } from 'expo-router';
 import { MotiView } from 'moti';
-import React from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { formatDistanceToNow } from 'date-fns';
+import { fr } from 'date-fns/locale';
+import React, { useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, FONTS, RADIUS, SPACING, STATUS_LABELS } from '@/constants/theme';
+import { BORDERS, COLORS, FONTS, RADIUS, SPACING, STATUS_LABELS } from '@/constants/theme';
 import { useLibraryStore } from '@/lib/store/library';
-import type { ReadingStatus } from '@/lib/types';
-import { GlassCard } from '@/components/ui/GlassCard';
+import { confirmAction } from '@/lib/utils/confirm';
+import type { LibraryEntry, ReadingStatus } from '@/lib/types';
+import { Panel } from '@/components/ui/Panel';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Typography } from '@/components/ui/Typography';
 
 const TAB_BAR_HEIGHT = 88;
@@ -18,229 +26,398 @@ const STATUS_COLORS: Record<ReadingStatus, string> = {
   PAUSED: COLORS.statusPaused,
 };
 
-function StatCard({ label, value, accent = false }: { label: string; value: string | number; accent?: boolean }) {
+type Filter = 'ALL' | ReadingStatus;
+
+const FILTERS: { key: Filter; label: string }[] = [
+  { key: 'ALL', label: 'Historique' },
+  { key: 'READING', label: STATUS_LABELS.READING },
+  { key: 'COMPLETED', label: STATUS_LABELS.COMPLETED },
+  { key: 'PAUSED', label: STATUS_LABELS.PAUSED },
+  { key: 'DROPPED', label: STATUS_LABELS.DROPPED },
+];
+
+function StatPill({ value, label }: { value: string | number; label: string }) {
   return (
-    <GlassCard style={styles.statCard}>
-      <View style={styles.statInner}>
-        <Typography
-          variant="display"
-          style={[styles.statValue, accent && { color: COLORS.accent }]}
-        >
-          {value}
-        </Typography>
-        <Typography variant="label" style={styles.statLabel}>{label}</Typography>
-      </View>
-    </GlassCard>
+    <View style={styles.statPill}>
+      <Typography variant="display" color={COLORS.onInk} style={styles.statValue}>{value}</Typography>
+      <Typography variant="caption" color={COLORS.onInkMuted} style={styles.statLabel}>{label}</Typography>
+    </View>
   );
 }
 
 function StatusBar({ status, count, total }: { status: ReadingStatus; count: number; total: number }) {
   const percent = total > 0 ? count / total : 0;
   const color = STATUS_COLORS[status];
-
   return (
     <View style={styles.statusBarRow}>
       <View style={styles.statusBarLabel}>
         <View style={[styles.statusDot, { backgroundColor: color }]} />
-        <Typography variant="bodyBold" style={styles.statusBarText}>{STATUS_LABELS[status]}</Typography>
+        <Typography variant="label" color={COLORS.textInk}>{STATUS_LABELS[status]}</Typography>
       </View>
       <View style={styles.statusBarTrack}>
-        <View
-          style={[
-            styles.statusBarFill,
-            { backgroundColor: color, flex: percent },
-          ]}
-        />
+        <View style={[styles.statusBarFill, { backgroundColor: color, flex: percent }]} />
         {percent < 1 && <View style={{ flex: 1 - percent }} />}
       </View>
-      <Typography variant="label" color={COLORS.textMuted} style={styles.statusCount}>{count}</Typography>
+      <Typography variant="label" color={COLORS.textInkMuted} style={styles.statusCount}>{count}</Typography>
     </View>
+  );
+}
+
+function HistoryRow({ entry }: { entry: LibraryEntry }) {
+  const router = useRouter();
+  const updateProgress = useLibraryStore(s => s.updateProgress);
+  const removeEntry = useLibraryStore(s => s.removeEntry);
+
+  const title = entry.manga.title.english ?? entry.manga.title.romaji ?? entry.manga.title.userPreferred;
+  const percent = entry.manga.chapters ? Math.min(entry.progress / entry.manga.chapters, 1) : 0;
+  const relative = formatDistanceToNow(new Date(entry.updatedAt), { addSuffix: true, locale: fr });
+
+  const confirmRemove = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    confirmAction({
+      title,
+      message: 'Retirer cette œuvre de votre historique ?',
+      confirmLabel: 'Retirer',
+      destructive: true,
+      onConfirm: () => removeEntry(entry.mangaId, entry.source),
+    });
+  };
+
+  return (
+    <Pressable
+      onPress={() => router.push(`/manga/${entry.mangaId}?source=${entry.source}`)}
+      onLongPress={confirmRemove}
+    >
+      <Panel variant="paper" bordered style={styles.row}>
+        <View style={styles.rowInner}>
+          <View style={styles.rowCoverFrame}>
+            <Image
+              source={{ uri: entry.manga.coverImage }}
+              style={styles.rowCover}
+              contentFit="cover"
+              cachePolicy="memory-disk"
+            />
+          </View>
+          <View style={styles.rowInfo}>
+            <Typography variant="subheading" numberOfLines={2} color={COLORS.textInk} style={styles.rowTitle}>{title}</Typography>
+            <View style={styles.rowMeta}>
+              <StatusBadge status={entry.status} compact />
+              <Typography variant="label" color={COLORS.textInkMuted}>{relative}</Typography>
+              {entry.score ? (
+                <Typography variant="label" color={COLORS.warning}>★ {entry.score}</Typography>
+              ) : null}
+            </View>
+            <View style={styles.progressRow}>
+              <View style={styles.progressTrack}>
+                <View style={[styles.progressFill, { width: `${percent * 100}%` as `${number}%` }]} />
+              </View>
+              <Typography variant="label" color={COLORS.textInkMuted} style={styles.progressText}>
+                {entry.progress}{entry.manga.chapters ? `/${entry.manga.chapters}` : ''} ch.
+              </Typography>
+            </View>
+          </View>
+          <TouchableOpacity
+            style={styles.plusBtn}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              updateProgress(entry.mangaId, entry.source, entry.progress + 1);
+            }}
+            accessibilityLabel="Ajouter un chapitre"
+          >
+            <Typography style={styles.plusLabel}>+1</Typography>
+          </TouchableOpacity>
+        </View>
+      </Panel>
+    </Pressable>
   );
 }
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
+  const entries = useLibraryStore(s => s.entries);
   const getStats = useLibraryStore(s => s.getStats);
   const stats = getStats();
+  const [filter, setFilter] = useState<Filter>('ALL');
+
+  const featured = entries.find(e => e.manga.bannerImage) ?? entries[0];
+  const backdrop = featured?.manga.bannerImage ?? featured?.manga.coverImage;
+
+  const visible = entries
+    .filter(e => (filter === 'ALL' ? true : e.status === filter))
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 
   const statuses: ReadingStatus[] = ['READING', 'COMPLETED', 'PLAN_TO_READ', 'PAUSED', 'DROPPED'];
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={styles.container}>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.content, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom }]}
+        contentContainerStyle={{ paddingBottom: TAB_BAR_HEIGHT + insets.bottom }}
       >
-        <MotiView
-          from={{ opacity: 0, translateY: -10 }}
-          animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: 'spring', stiffness: 350, damping: 28 }}
-          style={styles.header}
-        >
-          <View style={styles.avatar}>
-            <Typography style={styles.avatarEmoji}>📖</Typography>
-          </View>
-          <Typography variant="heading" style={styles.username}>Lecteur Manga</Typography>
-          <Typography variant="body">Votre bibliothèque personnelle</Typography>
-        </MotiView>
-
-        <View style={styles.statsGrid}>
-          {[
-            { label: 'Total', value: stats.totalEntries, accent: true },
-            { label: 'Chapitres lus', value: stats.chaptersRead },
-            { label: 'Score moyen', value: stats.averageScore > 0 ? stats.averageScore.toFixed(1) : '—' },
-            { label: 'Terminés', value: stats.byStatus.COMPLETED },
-          ].map(({ label, value, accent }, i) => (
-            <MotiView
-              key={label}
-              from={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 22, delay: i * 80 }}
-              style={styles.statWrap}
-            >
-              <StatCard label={label} value={value} accent={accent} />
-            </MotiView>
-          ))}
+        {/* Ink hero */}
+        <View style={[styles.hero, { paddingTop: insets.top }]}>
+          {backdrop ? (
+            <Image source={{ uri: backdrop }} style={StyleSheet.absoluteFillObject} contentFit="cover" cachePolicy="memory-disk" />
+          ) : null}
+          <LinearGradient
+            colors={['rgba(22,19,14,0.3)', 'rgba(22,19,14,0.8)', COLORS.ink]}
+            locations={[0, 0.55, 1]}
+            style={StyleSheet.absoluteFillObject}
+          />
+          <MotiView
+            from={{ opacity: 0, translateY: 12 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{ type: 'spring', stiffness: 320, damping: 26 }}
+            style={styles.heroContent}
+          >
+            <View style={styles.avatar}>
+              <Typography style={styles.avatarEmoji}>📖</Typography>
+            </View>
+            <Typography variant="kicker" color={COLORS.accentRed}>LECTEUR MANGA</Typography>
+            <Typography variant="hero" color={COLORS.onInk} style={styles.username}>
+              Ma Bibliothèque
+            </Typography>
+          </MotiView>
         </View>
 
-        {stats.totalEntries > 0 && (
-          <MotiView
-            from={{ opacity: 0, translateY: 16 }}
-            animate={{ opacity: 1, translateY: 0 }}
-            transition={{ type: 'spring', stiffness: 280, damping: 25, delay: 350 }}
-          >
-            <GlassCard style={styles.section}>
-              <View style={styles.sectionInner}>
-                <Typography variant="heading" style={styles.sectionTitle}>📊 Répartition</Typography>
-                <View style={styles.statusBars}>
-                  {statuses.map(s => (
-                    stats.byStatus[s] > 0 && (
-                      <StatusBar
-                        key={s}
-                        status={s}
-                        count={stats.byStatus[s]}
-                        total={stats.totalEntries}
-                      />
-                    )
-                  ))}
-                </View>
-              </View>
-            </GlassCard>
-          </MotiView>
-        )}
+        {/* Stats strip — ink world */}
+        <View style={styles.statStrip}>
+          <StatPill value={stats.totalEntries} label="ŒUVRES" />
+          <View style={styles.statDivider} />
+          <StatPill value={stats.chaptersRead} label="CHAPITRES" />
+          <View style={styles.statDivider} />
+          <StatPill value={stats.averageScore > 0 ? stats.averageScore.toFixed(1) : '—'} label="NOTE MOY." />
+        </View>
 
-        {stats.topGenres.length > 0 && (
-          <MotiView
-            from={{ opacity: 0, translateY: 16 }}
-            animate={{ opacity: 1, translateY: 0 }}
-            transition={{ type: 'spring', stiffness: 280, damping: 25, delay: 450 }}
-          >
-            <GlassCard style={styles.section}>
-              <View style={styles.sectionInner}>
-                <Typography variant="heading" style={styles.sectionTitle}>🎭 Top Genres</Typography>
-                <View style={styles.genresWrap}>
-                  {stats.topGenres.map(({ genre, count }, i) => (
-                    <View key={genre} style={styles.genreRow}>
-                      <View style={[styles.genreRank, { backgroundColor: i < 3 ? COLORS.accentMuted : COLORS.surfaceRaised }]}>
-                        <Typography variant="label" color={i < 3 ? COLORS.accentLight : COLORS.textMuted}>
-                          #{i + 1}
-                        </Typography>
-                      </View>
-                      <Typography variant="bodyBold" style={styles.genreName}>{genre}</Typography>
-                      <Typography variant="label" color={COLORS.textMuted}>{count}</Typography>
+        <View style={styles.body}>
+          {stats.totalEntries > 0 && (
+            <MotiView
+              from={{ opacity: 0, translateY: 16 }}
+              animate={{ opacity: 1, translateY: 0 }}
+              transition={{ type: 'spring', stiffness: 280, damping: 25, delay: 200 }}
+            >
+              <Panel variant="paper" bordered style={styles.section}>
+                <View style={styles.sectionInner}>
+                  <View style={styles.sectionHeaderRow}>
+                    <View style={styles.sectionMarker} />
+                    <Typography variant="title" color={COLORS.textInk}>Statistiques</Typography>
+                  </View>
+                  <View style={styles.statusBars}>
+                    {statuses.map(s => (
+                      stats.byStatus[s] > 0 && (
+                        <StatusBar key={s} status={s} count={stats.byStatus[s]} total={stats.totalEntries} />
+                      )
+                    ))}
+                  </View>
+                  {stats.topGenres.length > 0 && (
+                    <View style={styles.genresWrap}>
+                      {stats.topGenres.slice(0, 6).map(({ genre, count }) => (
+                        <View key={genre} style={styles.genreChip}>
+                          <Typography variant="label" color={COLORS.accentRed}>{genre}</Typography>
+                          <Typography variant="label" color={COLORS.textInkMuted}>{count}</Typography>
+                        </View>
+                      ))}
                     </View>
-                  ))}
+                  )}
                 </View>
-              </View>
-            </GlassCard>
-          </MotiView>
-        )}
+              </Panel>
+            </MotiView>
+          )}
 
-        {stats.totalEntries === 0 && (
-          <GlassCard style={styles.emptyCard}>
-            <View style={styles.emptyInner}>
-              <Typography style={styles.emptyEmoji}>🌸</Typography>
-              <Typography variant="heading" style={styles.emptyTitle}>Votre aventure commence ici</Typography>
-              <Typography variant="body" style={styles.emptyText}>
-                Ajoutez des mangas à votre bibliothèque depuis l&apos;écran Découvrir.
-              </Typography>
+          <View style={styles.libraryHeaderRow}>
+            <View style={styles.sectionMarker} />
+            <Typography variant="title" color={COLORS.textInk}>Ma bibliothèque</Typography>
+          </View>
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterTabs}
+            style={styles.filterScroll}
+          >
+            {FILTERS.map(({ key, label }) => (
+              <Pressable
+                key={key}
+                style={[styles.filterTab, filter === key && styles.filterTabActive]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setFilter(key);
+                }}
+              >
+                <Typography
+                  variant="label"
+                  color={filter === key ? COLORS.accentRed : COLORS.textInkMuted}
+                >
+                  {label}
+                </Typography>
+              </Pressable>
+            ))}
+          </ScrollView>
+
+          {visible.length === 0 ? (
+            <Panel variant="paper" bordered style={styles.emptyCard}>
+              <View style={styles.emptyInner}>
+                <Typography style={styles.emptyEmoji}>🌸</Typography>
+                <Typography variant="heading" color={COLORS.textInk} style={styles.emptyTitle}>
+                  {entries.length === 0 ? 'Votre aventure commence ici' : 'Aucune œuvre ici'}
+                </Typography>
+                <Typography variant="body" color={COLORS.textInkMuted} style={styles.emptyText}>
+                  {entries.length === 0
+                    ? "Ajoutez des œuvres à votre bibliothèque depuis l'écran Découvrir."
+                    : 'Aucune œuvre ne correspond à ce filtre pour le moment.'}
+                </Typography>
+              </View>
+            </Panel>
+          ) : (
+            <View style={styles.list}>
+              {visible.map((entry, index) => (
+                <MotiView
+                  key={`${entry.source}-${entry.mangaId}`}
+                  from={{ opacity: 0, translateY: 12 }}
+                  animate={{ opacity: 1, translateY: 0 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 25, delay: Math.min(index, 8) * 45 }}
+                >
+                  <HistoryRow entry={entry} />
+                </MotiView>
+              ))}
             </View>
-          </GlassCard>
-        )}
+          )}
+        </View>
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.bg },
-  content: { paddingHorizontal: SPACING.base, gap: SPACING.lg, paddingTop: SPACING.md },
-  header: { alignItems: 'center', gap: SPACING.sm, paddingVertical: SPACING.md },
-  avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: COLORS.surfaceRaised,
-    borderWidth: 2,
-    borderColor: COLORS.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
+  container: { flex: 1, backgroundColor: COLORS.paper },
+  hero: {
+    height: 280,
+    backgroundColor: COLORS.ink,
+    justifyContent: 'flex-end',
   },
-  avatarEmoji: { fontSize: 36, lineHeight: 42 },
-  username: { fontSize: 22 },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: SPACING.md,
-  },
-  statWrap: { width: '47%', flexGrow: 1 },
-  statCard: { borderRadius: RADIUS.lg },
-  statInner: { padding: SPACING.base, alignItems: 'center', gap: SPACING.xs },
-  statValue: { fontSize: 34, lineHeight: 36, color: COLORS.text },
-  statLabel: { textAlign: 'center', letterSpacing: 0.5 },
-  section: { borderRadius: RADIUS.lg },
-  sectionInner: { padding: SPACING.base, gap: SPACING.md },
-  sectionTitle: { fontSize: 16 },
-  statusBars: { gap: SPACING.md },
-  statusBarRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
-  statusBarLabel: {
-    flexDirection: 'row',
+  heroContent: {
     alignItems: 'center',
     gap: SPACING.xs,
-    width: 96,
+    paddingBottom: SPACING.lg,
+    paddingHorizontal: SPACING.base,
   },
+  avatar: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: COLORS.inkSoft,
+    borderWidth: BORDERS.heavy,
+    borderColor: COLORS.accentRed,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: SPACING.xs,
+  },
+  avatarEmoji: { fontSize: 38, lineHeight: 44 },
+  username: { fontSize: 28, lineHeight: 30 },
+
+  statStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingVertical: SPACING.lg,
+    backgroundColor: COLORS.ink,
+  },
+  statPill: { alignItems: 'center', gap: 4, flex: 1 },
+  statValue: { fontSize: 32, lineHeight: 34, letterSpacing: 1 },
+  statLabel: { letterSpacing: 1, fontSize: 10 },
+  statDivider: { width: BORDERS.hair, height: 32, backgroundColor: COLORS.lineOnInk },
+
+  body: { paddingHorizontal: SPACING.base, paddingTop: SPACING.lg, gap: SPACING.lg },
+  section: { borderRadius: RADIUS.lg },
+  sectionInner: { padding: SPACING.base, gap: SPACING.md },
+  sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+  sectionMarker: { width: 4, height: 20, backgroundColor: COLORS.accentRed, borderRadius: 2 },
+  statusBars: { gap: SPACING.md },
+  statusBarRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+  statusBarLabel: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs, width: 96 },
   statusDot: { width: 8, height: 8, borderRadius: 4 },
-  statusBarText: { fontSize: 12, color: COLORS.text },
   statusBarTrack: {
     flex: 1,
-    height: 6,
-    backgroundColor: COLORS.surfaceRaised,
+    height: 5,
+    backgroundColor: COLORS.paperSunken,
     borderRadius: 3,
     overflow: 'hidden',
     flexDirection: 'row',
+    borderWidth: BORDERS.hair,
+    borderColor: COLORS.line,
   },
   statusBarFill: { borderRadius: 3 },
   statusCount: { width: 24, textAlign: 'right', fontSize: 12 },
-  genresWrap: { gap: SPACING.sm },
-  genreRow: {
+  genresWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, marginTop: SPACING.xs },
+  genreChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.accentSoft,
+    borderWidth: BORDERS.hair,
+    borderColor: `${COLORS.accentRed}44`,
+  },
+  libraryHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.sm,
+    marginBottom: -SPACING.sm,
   },
-  genreRank: {
-    width: 36,
-    height: 24,
+  filterScroll: { flexGrow: 0, marginHorizontal: -SPACING.base },
+  filterTabs: { paddingHorizontal: SPACING.base, gap: SPACING.sm },
+  filterTab: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.paperSunken,
+    borderWidth: BORDERS.bold,
+    borderColor: COLORS.line,
+  },
+  filterTabActive: {
+    backgroundColor: COLORS.accentSoft,
+    borderColor: COLORS.accentRed,
+  },
+  list: { gap: SPACING.md },
+  row: { borderRadius: RADIUS.lg },
+  rowInner: { flexDirection: 'row', padding: SPACING.md, gap: SPACING.md, alignItems: 'center' },
+  rowCoverFrame: {
+    borderWidth: BORDERS.bold,
+    borderColor: COLORS.ink,
     borderRadius: RADIUS.sm,
+    overflow: 'hidden',
+  },
+  rowCover: { width: 52, height: 74, backgroundColor: COLORS.paperSunken },
+  rowInfo: { flex: 1, gap: SPACING.xs },
+  rowTitle: { fontSize: 14, lineHeight: 18 },
+  rowMeta: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, flexWrap: 'wrap' },
+  progressRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginTop: 2 },
+  progressTrack: {
+    flex: 1,
+    height: 4,
+    backgroundColor: COLORS.paperSunken,
+    borderRadius: 2,
+    overflow: 'hidden',
+    borderWidth: BORDERS.hair,
+    borderColor: COLORS.line,
+  },
+  progressFill: { height: '100%', backgroundColor: COLORS.accentRed, borderRadius: 2 },
+  progressText: { fontSize: 11, minWidth: 56 },
+  plusBtn: {
+    backgroundColor: COLORS.ink,
+    borderRadius: RADIUS.sm,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    minWidth: 44,
+    minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  genreName: { flex: 1, color: COLORS.text, fontSize: 13 },
+  plusLabel: { fontFamily: FONTS.display, fontSize: 16, color: COLORS.onInk, letterSpacing: 0.5 },
   emptyCard: { borderRadius: RADIUS.xl },
-  emptyInner: {
-    padding: SPACING.xl,
-    alignItems: 'center',
-    gap: SPACING.md,
-  },
+  emptyInner: { padding: SPACING.xl, alignItems: 'center', gap: SPACING.md },
   emptyEmoji: { fontSize: 48, lineHeight: 56 },
   emptyTitle: { textAlign: 'center' },
   emptyText: { textAlign: 'center' },

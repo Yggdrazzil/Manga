@@ -18,6 +18,7 @@ const MEDIA_FIELDS = `
   startDate { year }
   genres
   countryOfOrigin
+  externalLinks { id url site }
   staff(sort: RELEVANCE, page: 1, perPage: 4) {
     edges { node { name { full } } role }
   }
@@ -38,6 +39,7 @@ interface AniListMedia {
   startDate?: { year?: number | null } | null;
   genres: string[];
   countryOfOrigin?: string | null;
+  externalLinks?: Array<{ id: number; url: string; site: string }> | null;
   staff: { edges: Array<{ node: { name: { full: string } }; role: string }> };
 }
 
@@ -75,6 +77,11 @@ function normalize(media: AniListMedia): Manga {
     .filter(e => ['Story', 'Story & Art', 'Original Story'].includes(e.role))
     .map(e => e.node.name.full);
 
+  const mangadexLink = (media.externalLinks ?? []).find(
+    l => l.site === 'MangaDex' || (l.url && l.url.includes('mangadex.org/title/'))
+  );
+  const mangadexId = mangadexLink?.url?.match(/mangadex\.org\/title\/([0-9a-f-]+)/)?.[1];
+
   return {
     id: String(media.id),
     source: 'anilist',
@@ -99,6 +106,7 @@ function normalize(media: AniListMedia): Manga {
     authors,
     countryOfOrigin: media.countryOfOrigin ?? undefined,
     accentColor: media.coverImage.color ?? undefined,
+    mangadexId,
   };
 }
 

@@ -18,7 +18,7 @@ import * as jikan from '@/lib/api/jikan';
 import { MangaCard } from '@/components/manga/MangaCard';
 import { Typography } from '@/components/ui/Typography';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { COLORS, FONTS, RADIUS, SPACING, TYPE_LABELS } from '@/constants/theme';
+import { BORDERS, COLORS, FONTS, RADIUS, SPACING, TYPE_LABELS } from '@/constants/theme';
 import type { Manga, MediaType } from '@/lib/types';
 
 const TAB_BAR_HEIGHT = 88;
@@ -112,15 +112,16 @@ export default function SearchScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <Typography variant="display" style={styles.title}>Rechercher</Typography>
+        <Typography variant="kicker" color={COLORS.accentRed}>DÉCOUVERTE</Typography>
+        <Typography variant="hero" color={COLORS.textInk} style={styles.title}>Rechercher</Typography>
 
         <View style={styles.inputWrap}>
-          <Ionicons name="search" size={20} color={COLORS.textMuted} style={styles.searchIcon} />
+          <Ionicons name="search" size={20} color={COLORS.textInkMuted} style={styles.searchIcon} />
           <TextInput
             ref={inputRef}
             style={styles.input}
             placeholder="Manga, manhwa, webtoon…"
-            placeholderTextColor={COLORS.textMuted}
+            placeholderTextColor={COLORS.textInkMuted}
             value={query}
             onChangeText={setQuery}
             returnKeyType="search"
@@ -129,10 +130,10 @@ export default function SearchScreen() {
           />
           {query.length > 0 && (
             <Pressable onPress={() => setQuery('')} style={styles.clearBtn}>
-              <Ionicons name="close-circle" size={18} color={COLORS.textMuted} />
+              <Ionicons name="close-circle" size={18} color={COLORS.textInkMuted} />
             </Pressable>
           )}
-          {isFetching && <ActivityIndicator size="small" color={COLORS.accent} style={styles.spinner} />}
+          {isFetching && <ActivityIndicator size="small" color={COLORS.accentRed} style={styles.spinner} />}
         </View>
 
         <ScrollView
@@ -195,25 +196,26 @@ export default function SearchScreen() {
 const CARD_WIDTH = 108;
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.bg },
-  header: { paddingHorizontal: SPACING.base, paddingTop: SPACING.md, gap: SPACING.md },
-  title: { color: COLORS.text, fontSize: 32 },
+  container: { flex: 1, backgroundColor: COLORS.paper },
+  header: { paddingHorizontal: SPACING.base, paddingTop: SPACING.md, gap: SPACING.sm },
+  title: { fontSize: 38, lineHeight: 40 },
   inputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.surfaceRaised,
+    backgroundColor: COLORS.paperRaised,
     borderRadius: RADIUS.lg,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    borderWidth: BORDERS.bold,
+    borderColor: COLORS.ink,
     paddingHorizontal: SPACING.md,
-    height: 48,
+    height: 52,
+    marginTop: SPACING.sm,
   },
   searchIcon: { marginRight: SPACING.sm },
   input: {
     flex: 1,
     fontFamily: FONTS.body,
     fontSize: 15,
-    color: COLORS.text,
+    color: COLORS.textInk,
     height: '100%',
   },
   clearBtn: { padding: SPACING.xs },
@@ -224,16 +226,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.xs + 2,
     borderRadius: RADIUS.full,
-    backgroundColor: COLORS.surfaceRaised,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    backgroundColor: COLORS.paperSunken,
+    borderWidth: BORDERS.bold,
+    borderColor: COLORS.line,
   },
   filterChipActive: {
-    backgroundColor: COLORS.accentMuted,
-    borderColor: `${COLORS.accent}66`,
+    backgroundColor: COLORS.accentSoft,
+    borderColor: COLORS.accentRed,
   },
-  filterLabel: { color: COLORS.textMuted },
-  filterLabelActive: { color: COLORS.accentLight },
+  filterLabel: { color: COLORS.textInkMuted },
+  filterLabelActive: { color: COLORS.accentRed },
   grid: { paddingHorizontal: SPACING.base, paddingTop: SPACING.md },
   row: { gap: SPACING.md, marginBottom: SPACING.md },
   gridItem: { width: CARD_WIDTH },
