@@ -409,6 +409,143 @@ export async function getReadableChapters(
   return readable;
 }
 
+interface MDAggregateChapter {
+  chapter: string;
+  id: string;
+  others: string[];
+  count: number;
+}
+
+interface MDAggregateVolume {
+  volume: string;
+  count: number;
+  chapters: Record<string, MDAggregateChapter> | MDAggregateChapter[];
+}
+
+interface MDAggregateResponse {
+  result: string;
+  volumes: Record<string, MDAggregateVolume> | MDAggregateVolume[];
+}
+
+// The /aggregate endpoint returns the complete chapter map (every chapter
+// number with its volume) in a single request — including chapters that are
+// only available as external links (e.g. One Piece on MangaPlus), which the
+// readable feed filters out. This is the authoritative source for the count.
+export async function getChapterAggregate(
+  mangaId: string,
+  lang?: string[],
+): Promise<Array<{ chapter: string; volume?: string; id: string }>> {
+  const data = await fetchMD<MDAggregateResponse>(`/manga/${mangaId}/aggregate`, {
+    translatedLanguage: lang ?? ['en', 'fr'],
+  });
+
+  const volumes = Array.isArray(data.volumes)
+    ? data.volumes
+    : Object.values(data.volumes ?? {});
+
+  const out: Array<{ chapter: string; volume?: string; id: string }> = [];
+  for (const vol of volumes) {
+    const chapters = Array.isArray(vol.chapters)
+      ? vol.chapters
+      : Object.values(vol.chapters ?? {});
+    for (const ch of chapters) {
+      if (!ch.chapter) continue;
+      out.push({
+        chapter: ch.chapter,
+        volume: vol.volume && vol.volume !== 'none' ? vol.volume : undefined,
+        id: ch.id,
+      });
+    }
+  }
+  return out;
+}
+
+// Best-effort pass over the feed to attach rich metadata (title, date, pages,
+// readability) to each chapter number. External/zero-page chapters are kept
+// here (unlike getReadableChapters) so series like One Piece still get titles.
+async function getChapterFeedMeta(
+  mangaId: string,
+  lang: string[],
+): Promise<Map<string, MangaChapter>> {
+  const limit = 100;
+  const MAX_PAGES = 20;
+  const byNum = new Map<string, MangaChapter>();
+
+  let offset = 0;
+  let total = Infinity;
+  let pages = 0;
+
+  while (offset < total && pages < MAX_PAGES) {
+    const data = await fetchMD<MDChapterFeedResponse>(`/manga/${mangaId}/feed`, {
+      limit,
+      offset,
+      translatedLanguage: lang,
+      'order[chapter]': 'asc',
+      'order[publishAt]': 'asc',
+      contentRating: CONTENT_RATINGS,
+    });
+
+    for (const ch of data.data) {
+      const num = ch.attributes.chapter;
+      if (!num || byNum.has(num)) continue;
+      byNum.set(num, normalizeChapter(ch));
+    }
+
+    total = data.total;
+    offset += limit;
+    pages += 1;
+  }
+
+  return byNum;
+}
+
+// Full chapter list for tracking (TV-Time style): every chapter as a checkable
+// card. Combines the authoritative aggregate count with feed metadata. A
+// chapter that is readable in-app keeps its real id + isReadable flag so the
+// reader still works; the rest become checkable-only cards.
+export async function getTrackingChapters(
+  mangaId: string,
+  lang?: string[],
+): Promise<MangaChapter[]> {
+  const languages = lang ?? ['en', 'fr'];
+
+  const [aggResult, metaResult] = await Promise.allSettled([
+    getChapterAggregate(mangaId, languages),
+    getChapterFeedMeta(mangaId, languages),
+  ]);
+
+  const agg = aggResult.status === 'fulfilled' ? aggResult.value : [];
+  const meta = metaResult.status === 'fulfilled' ? metaResult.value : new Map<string, MangaChapter>();
+
+  if (agg.length === 0) {
+    return Array.from(meta.values());
+  }
+
+  const seen = new Set<string>();
+  const chapters: MangaChapter[] = [];
+  for (const a of agg) {
+    if (seen.has(a.chapter)) continue;
+    seen.add(a.chapter);
+
+    const m = meta.get(a.chapter);
+    if (m) {
+      chapters.push({ ...m, volume: m.volume ?? a.volume });
+    } else {
+      chapters.push({
+        id: a.id || `${mangaId}-agg-${a.chapter}`,
+        mangaId,
+        chapter: a.chapter,
+        volume: a.volume,
+        pages: 0,
+        publishAt: '',
+        translatedLanguage: languages[0],
+        isReadable: false,
+      });
+    }
+  }
+  return chapters;
+}
+
 interface MDAtHomeResponse {
   result: string;
   baseUrl: string;

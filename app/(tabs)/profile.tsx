@@ -15,6 +15,8 @@ import type { LibraryEntry, ReadingStatus } from '@/lib/types';
 import { Panel } from '@/components/ui/Panel';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Typography } from '@/components/ui/Typography';
+import { AvatarPicker } from '@/components/profile/AvatarPicker';
+import { Ionicons } from '@expo/vector-icons';
 
 const TAB_BAR_HEIGHT = 88;
 
@@ -135,9 +137,12 @@ function HistoryRow({ entry }: { entry: LibraryEntry }) {
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const entries = useLibraryStore(s => s.entries);
+  const avatar = useLibraryStore(s => s.avatar);
+  const setAvatar = useLibraryStore(s => s.setAvatar);
   const getStats = useLibraryStore(s => s.getStats);
   const stats = getStats();
   const [filter, setFilter] = useState<Filter>('ALL');
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const featured = entries.find(e => e.manga.bannerImage) ?? entries[0];
   const backdrop = featured?.manga.bannerImage ?? featured?.manga.coverImage;
@@ -170,9 +175,26 @@ export default function ProfileScreen() {
             transition={{ type: 'spring', stiffness: 320, damping: 26 }}
             style={styles.heroContent}
           >
-            <View style={styles.avatar}>
-              <Typography style={styles.avatarEmoji}>📖</Typography>
-            </View>
+            <Pressable
+              style={styles.avatar}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setPickerOpen(true);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Changer la photo de profil"
+            >
+              <View style={styles.avatarClip}>
+                {avatar ? (
+                  <Image source={{ uri: avatar }} style={styles.avatarImage} contentFit="cover" cachePolicy="memory-disk" />
+                ) : (
+                  <Typography style={styles.avatarEmoji}>📖</Typography>
+                )}
+              </View>
+              <View style={styles.avatarEditBadge}>
+                <Ionicons name="pencil" size={13} color={COLORS.onInk} />
+              </View>
+            </Pressable>
             <Typography variant="kicker" color={COLORS.accentRed}>LECTEUR MANGA</Typography>
             <Typography variant="hero" color={COLORS.onInk} style={styles.username}>
               Ma Bibliothèque
@@ -284,6 +306,13 @@ export default function ProfileScreen() {
           )}
         </View>
       </ScrollView>
+
+      <AvatarPicker
+        visible={pickerOpen}
+        current={avatar}
+        onSelect={setAvatar}
+        onClose={() => setPickerOpen(false)}
+      />
     </View>
   );
 }
@@ -304,13 +333,34 @@ const styles = StyleSheet.create({
   avatar: {
     width: 88,
     height: 88,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: SPACING.xs,
+  },
+  avatarClip: {
+    width: 88,
+    height: 88,
     borderRadius: 44,
     backgroundColor: COLORS.inkSoft,
     borderWidth: BORDERS.heavy,
     borderColor: COLORS.accentRed,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: SPACING.xs,
+    overflow: 'hidden',
+  },
+  avatarImage: { width: '100%', height: '100%' },
+  avatarEditBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: COLORS.accentRed,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: BORDERS.bold,
+    borderColor: COLORS.ink,
   },
   avatarEmoji: { fontSize: 38, lineHeight: 44 },
   username: { fontSize: 28, lineHeight: 30 },

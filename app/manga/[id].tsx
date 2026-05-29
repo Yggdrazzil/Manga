@@ -18,7 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import * as anilist from '@/lib/api/anilist';
 import * as mangadex from '@/lib/api/mangadex';
-import { findMangadexId, getReadableChapters } from '@/lib/api/mangadex';
+import { findMangadexId, getTrackingChapters } from '@/lib/api/mangadex';
 import * as jikan from '@/lib/api/jikan';
 import { useLibraryStore } from '@/lib/store/library';
 import { confirmAction } from '@/lib/utils/confirm';
@@ -248,8 +248,8 @@ export default function MangaDetailScreen() {
   const effectiveMdId = directMdId ?? resolvedMdId ?? null;
 
   const { data: chapters } = useQuery({
-    queryKey: ['readable-chapters', effectiveMdId],
-    queryFn: () => getReadableChapters(effectiveMdId!),
+    queryKey: ['tracking-chapters', effectiveMdId],
+    queryFn: () => getTrackingChapters(effectiveMdId!),
     enabled: !!effectiveMdId,
     staleTime: 1000 * 60 * 5,
   });

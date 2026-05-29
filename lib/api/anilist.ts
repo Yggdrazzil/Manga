@@ -212,6 +212,46 @@ export async function searchManga(
   };
 }
 
+interface CharacterPageResponse {
+  Page: {
+    characters: Array<{
+      id: number;
+      name: { full?: string | null };
+      image: { large?: string | null; medium?: string | null };
+    }>;
+  };
+}
+
+export interface CharacterAvatar {
+  id: number;
+  name: string;
+  image: string;
+}
+
+// Most-favourited characters across AniList — these are the iconic faces
+// (Luffy, Levi, Gojo, …) with stable CDN images, used as profile avatars.
+export async function getPopularCharacters(perPage = 48): Promise<CharacterAvatar[]> {
+  const data = await request<CharacterPageResponse>(`
+    query ($perPage: Int) {
+      Page(page: 1, perPage: $perPage) {
+        characters(sort: FAVOURITES_DESC) {
+          id
+          name { full }
+          image { large medium }
+        }
+      }
+    }
+  `, { perPage });
+
+  return data.Page.characters
+    .map(c => ({
+      id: c.id,
+      name: c.name.full ?? 'Personnage',
+      image: c.image.large ?? c.image.medium ?? '',
+    }))
+    .filter(c => c.image);
+}
+
 export async function getMangaById(id: string): Promise<Manga> {
   const data = await request<MediaResponse>(`
     query ($id: Int) {
