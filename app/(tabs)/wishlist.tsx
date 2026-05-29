@@ -15,7 +15,7 @@ import { Typography } from '@/components/ui/Typography';
 import { TypeBadge } from '@/components/ui/TypeBadge';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { COLORS, RADIUS, SPACING } from '@/constants/theme';
+import { BORDERS, COLORS, RADIUS, SPACING } from '@/constants/theme';
 import type { LibraryEntry, MangaChapter } from '@/lib/types';
 
 const TAB_BAR_HEIGHT = 88;
@@ -73,11 +73,11 @@ function WishlistCard({ entry, index }: { entry: LibraryEntry; index: number }) 
             onPress={startReading}
             accessibilityLabel={`Commencer ${title}`}
           >
-            <Ionicons name="play" size={14} color={COLORS.bg} />
+            <Ionicons name="play" size={12} color={COLORS.onInk} />
           </Pressable>
         </View>
       </Pressable>
-      <Typography variant="bodyBold" numberOfLines={2} style={styles.cardTitle}>
+      <Typography variant="label" numberOfLines={2} color={COLORS.textInk} style={styles.cardTitle}>
         {title}
       </Typography>
     </MotiView>
@@ -163,7 +163,7 @@ function UpcomingChapterRow({
       style={styles.upcomingRow}
     >
       <Pressable
-        style={styles.upcomingCoverWrap}
+        style={styles.upcomingCoverFrame}
         onPress={() => router.push(`/manga/${entry.mangaId}?source=${entry.source}`)}
         accessibilityLabel={`Voir ${title}`}
       >
@@ -181,17 +181,17 @@ function UpcomingChapterRow({
           onPress={() => router.push(`/manga/${entry.mangaId}?source=${entry.source}`)}
           accessibilityLabel={`Ouvrir ${title}`}
         >
-          <Typography variant="label" numberOfLines={1} style={styles.titlePillText}>
+          <Typography variant="label" numberOfLines={1} color={COLORS.accentRed} style={styles.titlePillText}>
             {title} ›
           </Typography>
         </Pressable>
 
         <View style={styles.chapterLine}>
-          <Typography variant="bodyBold" style={styles.chapterLabel}>
-            Ch.{chapter.chapter}
+          <Typography variant="display" color={COLORS.textInk} style={styles.chapterLabel}>
+            CH.{chapter.chapter}
           </Typography>
           {chapter.title ? (
-            <Typography variant="label" numberOfLines={1} style={styles.chapterTitle}>
+            <Typography variant="label" numberOfLines={1} color={COLORS.textInkMuted} style={styles.chapterTitle}>
               {chapter.title}
             </Typography>
           ) : null}
@@ -199,7 +199,9 @@ function UpcomingChapterRow({
 
         {isNew && (
           <View style={styles.newBadge}>
-            <Typography variant="caption" style={styles.newBadgeText}>NOUVEAU</Typography>
+            <Typography variant="kicker" color={COLORS.onInk} style={styles.newBadgeText}>
+              NOUVEAU
+            </Typography>
           </View>
         )}
       </View>
@@ -218,7 +220,7 @@ function UpcomingChapterRow({
         <Ionicons
           name={isRead ? 'checkmark-circle' : 'ellipse-outline'}
           size={28}
-          color={isRead ? COLORS.accent : COLORS.textMuted}
+          color={isRead ? COLORS.statusCompleted : COLORS.textInkMuted}
         />
       </Pressable>
     </MotiView>
@@ -250,37 +252,23 @@ function UpcomingTab({ insets }: { insets: ReturnType<typeof useSafeAreaInsets> 
 
   if (readingEntries.length === 0) {
     return (
-      <ScrollView
-        contentContainerStyle={[styles.scroll, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom }]}
-      >
-        <EmptyState
-          icon="📅"
-          title="Aucun manga en cours"
-          subtitle="Marquez des œuvres comme « En cours » pour suivre les nouvelles sorties."
-        />
+      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom }]}>
+        <EmptyState icon="📅" title="Aucun manga en cours" subtitle="Marquez des œuvres comme « En cours » pour suivre les nouvelles sorties." />
       </ScrollView>
     );
   }
 
   if (mangadexIds.length === 0) {
     return (
-      <ScrollView
-        contentContainerStyle={[styles.scroll, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom }]}
-      >
-        <EmptyState
-          icon="🔗"
-          title="Aucun lien MangaDex"
-          subtitle="Vos séries en cours n'ont pas encore de lien MangaDex pour les sorties."
-        />
+      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom }]}>
+        <EmptyState icon="🔗" title="Aucun lien MangaDex" subtitle="Vos séries en cours n'ont pas encore de lien MangaDex pour les sorties." />
       </ScrollView>
     );
   }
 
   if (isLoading) {
     return (
-      <ScrollView
-        contentContainerStyle={[styles.scroll, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom }]}
-      >
+      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom }]}>
         <ChapterCalendarSkeleton />
       </ScrollView>
     );
@@ -297,14 +285,8 @@ function UpcomingTab({ insets }: { insets: ReturnType<typeof useSafeAreaInsets> 
 
   if (visibleChapters.length === 0) {
     return (
-      <ScrollView
-        contentContainerStyle={[styles.scroll, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom }]}
-      >
-        <EmptyState
-          icon="✅"
-          title="Tout à jour !"
-          subtitle="Aucune sortie récente à lire pour vos séries en cours."
-        />
+      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom }]}>
+        <EmptyState icon="✅" title="Tout à jour !" subtitle="Aucune sortie récente à lire pour vos séries en cours." />
       </ScrollView>
     );
   }
@@ -321,15 +303,14 @@ function UpcomingTab({ insets }: { insets: ReturnType<typeof useSafeAreaInsets> 
   return (
     <ScrollView
       showsVerticalScrollIndicator={false}
-      contentContainerStyle={[
-        styles.upcomingScroll,
-        { paddingBottom: TAB_BAR_HEIGHT + insets.bottom },
-      ]}
+      contentContainerStyle={[styles.upcomingScroll, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom }]}
     >
       {Array.from(grouped.entries()).map(([label, groupChapters]) => (
         <View key={label} style={styles.dateGroup}>
           <View style={styles.datePill}>
-            <Typography variant="caption" style={styles.datePillText}>{label}</Typography>
+            <Typography variant="kicker" color={COLORS.onInk} style={styles.datePillText}>
+              {label}
+            </Typography>
           </View>
 
           <View style={styles.dateGroupItems}>
@@ -345,14 +326,7 @@ function UpcomingTab({ insets }: { insets: ReturnType<typeof useSafeAreaInsets> 
                   chapter={ch}
                   entry={entry}
                   isRead={isRead}
-                  onToggle={() =>
-                    toggleChapterRead(
-                      entry.mangaId,
-                      entry.source,
-                      ch.id,
-                      parseFloat(ch.chapter)
-                    )
-                  }
+                  onToggle={() => toggleChapterRead(entry.mangaId, entry.source, ch.id, parseFloat(ch.chapter))}
                   index={idx}
                 />
               );
@@ -371,38 +345,30 @@ export default function WishlistScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <Typography variant="display" style={styles.title}>À lire</Typography>
+        <Typography variant="kicker" color={COLORS.accentRed}>LISTE DE LECTURE</Typography>
+        <Typography variant="hero" color={COLORS.textInk} style={styles.title}>À lire</Typography>
 
         <View style={styles.subTabs}>
-          <Pressable
-            style={styles.subTabBtn}
-            onPress={() => setActiveTab('wishlist')}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: activeTab === 'wishlist' }}
-          >
-            <Typography
-              variant="subheading"
-              style={[styles.subTabLabel, activeTab === 'wishlist' && styles.subTabLabelActive]}
+          {(['wishlist', 'upcoming'] as const).map(tab => (
+            <Pressable
+              key={tab}
+              style={styles.subTabBtn}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setActiveTab(tab);
+              }}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: activeTab === tab }}
             >
-              À lire
-            </Typography>
-            {activeTab === 'wishlist' && <View style={styles.subTabUnderline} />}
-          </Pressable>
-
-          <Pressable
-            style={styles.subTabBtn}
-            onPress={() => setActiveTab('upcoming')}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: activeTab === 'upcoming' }}
-          >
-            <Typography
-              variant="subheading"
-              style={[styles.subTabLabel, activeTab === 'upcoming' && styles.subTabLabelActive]}
-            >
-              À paraître
-            </Typography>
-            {activeTab === 'upcoming' && <View style={styles.subTabUnderline} />}
-          </Pressable>
+              <Typography
+                variant="subheading"
+                style={[styles.subTabLabel, activeTab === tab && styles.subTabLabelActive]}
+              >
+                {tab === 'wishlist' ? 'À lire' : 'À paraître'}
+              </Typography>
+              {activeTab === tab && <View style={styles.subTabLine} />}
+            </Pressable>
+          ))}
         </View>
       </View>
 
@@ -416,19 +382,19 @@ export default function WishlistScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.bg },
+  container: { flex: 1, backgroundColor: COLORS.paper },
   header: {
     paddingHorizontal: SPACING.base,
     paddingTop: SPACING.md,
     paddingBottom: 0,
-    gap: SPACING.md,
+    gap: 4,
   },
-  title: { color: COLORS.text, fontSize: 36, lineHeight: 38 },
+  title: { fontSize: 38, lineHeight: 40, marginBottom: SPACING.sm },
 
   subTabs: {
     flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomWidth: BORDERS.hair,
+    borderBottomColor: COLORS.line,
   },
   subTabBtn: {
     paddingBottom: SPACING.md,
@@ -436,34 +402,31 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   subTabLabel: {
-    color: COLORS.textMuted,
+    color: COLORS.textInkMuted,
     fontSize: 14,
-    letterSpacing: 0.4,
   },
   subTabLabelActive: {
-    color: COLORS.text,
+    color: COLORS.textInk,
   },
-  subTabUnderline: {
+  subTabLine: {
     position: 'absolute',
     bottom: -1,
     left: 0,
     right: SPACING.xl,
     height: 2,
-    backgroundColor: COLORS.accent,
+    backgroundColor: COLORS.accentRed,
     borderRadius: 1,
   },
 
   scroll: { paddingHorizontal: SPACING.base, paddingTop: SPACING.md, flexGrow: 1 },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: GUTTER,
-  },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: GUTTER },
   poster: {
     width: '100%',
     borderRadius: RADIUS.md,
+    borderWidth: BORDERS.bold,
+    borderColor: COLORS.ink,
     overflow: 'hidden',
-    backgroundColor: COLORS.surfaceRaised,
+    backgroundColor: COLORS.paperSunken,
   },
   typeBadgeWrap: {
     position: 'absolute',
@@ -477,121 +440,78 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: COLORS.accentLight,
+    backgroundColor: COLORS.accentRed,
+    borderWidth: BORDERS.bold,
+    borderColor: COLORS.accentDeep,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
   },
-  cardTitle: {
-    marginTop: SPACING.sm,
-    fontSize: 12,
-    lineHeight: 16,
-    color: COLORS.text,
-  },
+  cardTitle: { marginTop: SPACING.sm, fontSize: 12, lineHeight: 16 },
 
-  upcomingScroll: {
-    paddingHorizontal: SPACING.base,
-    paddingTop: SPACING.md,
-    gap: SPACING.lg,
-  },
+  upcomingScroll: { paddingHorizontal: SPACING.base, paddingTop: SPACING.md, gap: SPACING.lg },
   dateGroup: { gap: SPACING.sm },
   datePill: {
     alignSelf: 'flex-start',
-    backgroundColor: COLORS.surfaceRaised,
+    backgroundColor: COLORS.ink,
     borderRadius: RADIUS.full,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.xs,
-    borderWidth: 1,
-    borderColor: COLORS.border,
   },
-  datePillText: {
-    color: COLORS.textMuted,
-    fontSize: 10,
-    letterSpacing: 0.8,
-  },
+  datePillText: { fontSize: 10, letterSpacing: 1.2 },
   dateGroupItems: { gap: SPACING.sm },
 
   upcomingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.md,
-    backgroundColor: COLORS.surface,
+    backgroundColor: COLORS.paperRaised,
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    borderWidth: BORDERS.bold,
+    borderColor: COLORS.ink,
   },
-  upcomingCoverWrap: {
+  upcomingCoverFrame: {
     borderRadius: RADIUS.sm,
+    borderWidth: BORDERS.bold,
+    borderColor: COLORS.ink,
     overflow: 'hidden',
   },
-  upcomingCover: {
-    width: 48,
-    height: 68,
-  },
-  upcomingInfo: {
-    flex: 1,
-    gap: SPACING.xs,
-  },
+  upcomingCover: { width: 48, height: 68 },
+  upcomingInfo: { flex: 1, gap: SPACING.xs },
   titlePill: {
     alignSelf: 'flex-start',
-    backgroundColor: COLORS.accentMuted,
+    backgroundColor: COLORS.accentSoft,
     borderRadius: RADIUS.full,
     paddingHorizontal: SPACING.md,
     paddingVertical: 3,
-    borderWidth: 1,
-    borderColor: `${COLORS.accent}33`,
+    borderWidth: BORDERS.hair,
+    borderColor: `${COLORS.accentRed}44`,
     maxWidth: '100%',
   },
-  titlePillText: {
-    color: COLORS.accentLight,
-    fontSize: 11,
-  },
-  chapterLine: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    flexWrap: 'wrap',
-  },
-  chapterLabel: { fontSize: 14 },
-  chapterTitle: { color: COLORS.textMuted, flex: 1 },
+  titlePillText: { fontSize: 11 },
+  chapterLine: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, flexWrap: 'wrap' },
+  chapterLabel: { fontSize: 18, lineHeight: 20, letterSpacing: 0.5 },
+  chapterTitle: { flex: 1, fontSize: 12 },
   newBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: COLORS.warning,
+    backgroundColor: COLORS.accentRed,
     borderRadius: RADIUS.sm,
     paddingHorizontal: SPACING.sm,
     paddingVertical: 2,
   },
-  newBadgeText: {
-    color: '#000',
-    fontSize: 9,
-    letterSpacing: 0.6,
-    fontFamily: undefined,
-  },
-  checkBtn: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  newBadgeText: { fontSize: 9, letterSpacing: 1 },
+  checkBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
 
-  skeletonContainer: {
-    paddingHorizontal: SPACING.base,
-    paddingTop: SPACING.md,
-    gap: SPACING.md,
-  },
+  skeletonContainer: { paddingHorizontal: SPACING.base, paddingTop: SPACING.md, gap: SPACING.md },
   skeletonRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.md,
-    backgroundColor: COLORS.surface,
+    backgroundColor: COLORS.paperRaised,
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    borderWidth: BORDERS.bold,
+    borderColor: COLORS.ink,
   },
   skeletonContent: { flex: 1, gap: SPACING.xs },
 });

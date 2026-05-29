@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { useLibraryStore } from '@/lib/store/library';
 import { Typography } from '@/components/ui/Typography';
-import { COLORS, FONTS, RADIUS, SPACING } from '@/constants/theme';
+import { BORDERS, COLORS, FONTS, RADIUS, SPACING } from '@/constants/theme';
 import type { Manga, MangaChapter } from '@/lib/types';
 
 interface ChapterDetailSheetProps {
@@ -63,8 +63,9 @@ export function ChapterDetailSheet({
 
   const chapterData = entry?.chapterData?.[chapter.id];
   const readChapterIds = entry?.readChapterIds ?? [];
+  const num = parseFloat(chapter.chapter);
   const isRead = readChapterIds.includes(chapter.id) ||
-    (readChapterIds.length === 0 && parseFloat(chapter.chapter) <= (entry?.progress ?? 0));
+    (Number.isFinite(num) && num <= (entry?.progress ?? 0));
 
   const readAt = chapterData?.readAt;
   const currentPlatform = chapterData?.platform;
@@ -108,14 +109,16 @@ export function ChapterDetailSheet({
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Section 1 — Header */}
+          {/* Header */}
           <View style={styles.header}>
-            <Image
-              source={{ uri: manga.coverImage }}
-              style={styles.cover}
-              contentFit="cover"
-              cachePolicy="memory-disk"
-            />
+            <View style={styles.coverFrame}>
+              <Image
+                source={{ uri: manga.coverImage }}
+                style={styles.cover}
+                contentFit="cover"
+                cachePolicy="memory-disk"
+              />
+            </View>
 
             <View style={styles.headerCenter}>
               <Pressable
@@ -123,35 +126,35 @@ export function ChapterDetailSheet({
                 onPress={onClose}
                 accessibilityLabel="Retour"
               >
-                <Typography variant="label" numberOfLines={1} style={styles.mangaTitle}>
+                <Typography variant="label" numberOfLines={1} color={COLORS.accentRed} style={styles.mangaTitle}>
                   {displayTitle}
                 </Typography>
-                <Typography variant="label" style={styles.chevronIcon}>›</Typography>
+                <Typography variant="label" color={COLORS.accentRed}>›</Typography>
               </Pressable>
 
-              <Typography variant="bodyBold" style={styles.chapterNum}>
-                {`Ch.${chapter.chapter}${chapter.volume ? ` · Vol.${chapter.volume}` : ''}`}
+              <Typography variant="display" color={COLORS.textInk} style={styles.chapterNum}>
+                {`CH.${chapter.chapter}${chapter.volume ? ` · Vol.${chapter.volume}` : ''}`}
               </Typography>
 
               {chapter.title ? (
-                <Typography variant="label" numberOfLines={2} style={styles.chapterTitle}>
+                <Typography variant="body" color={COLORS.textInkMuted} numberOfLines={2}>
                   {chapter.title}
                 </Typography>
               ) : null}
 
               <View style={styles.dateRow}>
-                <Typography variant="caption" style={styles.dateText}>
+                <Typography variant="caption" color={COLORS.textInkFaint}>
                   {`📅 ${publishDate}`}
                 </Typography>
-                <Typography variant="caption" style={styles.dateSep}>|</Typography>
-                <Typography variant="caption" style={styles.dateText}>
+                <Typography variant="caption" color={COLORS.line}>|</Typography>
+                <Typography variant="caption" color={COLORS.textInkFaint}>
                   {`👁 ${readDate}`}
                 </Typography>
               </View>
             </View>
 
             <Pressable
-              style={styles.checkBtn}
+              style={[styles.checkBtn, isRead && styles.checkBtnRead]}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                 toggleChapterRead(entryMangaId, source, chapter.id, parseFloat(chapter.chapter));
@@ -162,8 +165,8 @@ export function ChapterDetailSheet({
             >
               <Ionicons
                 name={isRead ? 'checkmark-circle' : 'ellipse-outline'}
-                size={36}
-                color={isRead ? COLORS.accent : COLORS.textMuted}
+                size={34}
+                color={isRead ? COLORS.statusCompleted : COLORS.textInkMuted}
               />
             </Pressable>
           </View>
@@ -184,16 +187,16 @@ export function ChapterDetailSheet({
               accessibilityRole="button"
               accessibilityLabel={`Lire le chapitre ${chapter.chapter}`}
             >
-              <Ionicons name="book" size={18} color="#fff" />
-              <Typography variant="label" style={styles.readBtnText}>
+              <Ionicons name="book" size={18} color={COLORS.onInk} />
+              <Typography variant="kicker" color={COLORS.onInk} style={styles.readBtnText}>
                 LIRE LE CHAPITRE
               </Typography>
             </Pressable>
           )}
 
-          {/* Section 2 — Platform */}
+          {/* Platform */}
           <View style={styles.section}>
-            <Typography variant="caption" style={styles.sectionLabel}>OÙ AVEZ-VOUS LU ?</Typography>
+            <Typography variant="kicker" color={COLORS.textInkMuted}>OÙ AVEZ-VOUS LU ?</Typography>
             <View style={styles.pillsRow}>
               {PLATFORMS.map(platform => {
                 const isActive = currentPlatform === platform;
@@ -210,7 +213,7 @@ export function ChapterDetailSheet({
                   >
                     <Typography
                       variant="label"
-                      style={[styles.pillText, isActive && styles.pillTextActive]}
+                      color={isActive ? COLORS.accentRed : COLORS.textInkMuted}
                     >
                       {platform}
                     </Typography>
@@ -222,16 +225,16 @@ export function ChapterDetailSheet({
 
           <View style={styles.divider} />
 
-          {/* Section 3 — Rating */}
+          {/* Rating */}
           <View style={styles.section}>
-            <Typography variant="caption" style={styles.sectionLabel}>NOTER CE CHAPITRE</Typography>
+            <Typography variant="kicker" color={COLORS.textInkMuted}>NOTER CE CHAPITRE</Typography>
             <View style={styles.ratingsRow}>
               {RATINGS.map(({ value, label }) => {
                 const isActive = currentRating === value;
                 return (
                   <Pressable
                     key={value}
-                    style={styles.ratingBtn}
+                    style={[styles.ratingBtn, isActive && styles.ratingBtnActive]}
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                       updateChapterNote(entryMangaId, source, chapter.id, { rating: value });
@@ -242,11 +245,11 @@ export function ChapterDetailSheet({
                     <Ionicons
                       name={isActive ? 'star' : 'star-outline'}
                       size={24}
-                      color={isActive ? '#F59E0B' : COLORS.textMuted}
+                      color={isActive ? '#F59E0B' : COLORS.textInkMuted}
                     />
                     <Typography
                       variant="caption"
-                      style={[styles.ratingLabel, isActive && styles.ratingLabelActive]}
+                      color={isActive ? COLORS.accentRed : COLORS.textInkMuted}
                     >
                       {label}
                     </Typography>
@@ -258,9 +261,9 @@ export function ChapterDetailSheet({
 
           <View style={styles.divider} />
 
-          {/* Section 4 — Reactions */}
+          {/* Reactions */}
           <View style={styles.section}>
-            <Typography variant="caption" style={styles.sectionLabel}>RESSENTIS</Typography>
+            <Typography variant="kicker" color={COLORS.textInkMuted}>RESSENTIS</Typography>
             <View style={styles.reactionsRow}>
               {REACTIONS.map(({ emoji, label, key }) => {
                 const isActive = currentReaction === key;
@@ -280,7 +283,8 @@ export function ChapterDetailSheet({
                     <Typography style={styles.reactionEmoji}>{emoji}</Typography>
                     <Typography
                       variant="caption"
-                      style={[styles.reactionLabel, isActive && styles.reactionLabelActive]}
+                      color={isActive ? COLORS.accentRed : COLORS.textInkMuted}
+                      style={styles.reactionLabel}
                     >
                       {label}
                     </Typography>
@@ -292,33 +296,34 @@ export function ChapterDetailSheet({
 
           <View style={styles.divider} />
 
-          {/* Section 5 — Info */}
+          {/* Info */}
           <View style={styles.section}>
-            <Typography variant="caption" style={styles.sectionLabel}>INFORMATIONS</Typography>
+            <Typography variant="kicker" color={COLORS.textInkMuted}>INFORMATIONS</Typography>
             <View style={styles.infoGrid}>
               <View style={styles.infoItem}>
-                <Typography variant="caption">PAGES</Typography>
-                <Typography variant="bodyBold" style={styles.infoValue}>
+                <Typography variant="caption" color={COLORS.textInkMuted}>PAGES</Typography>
+                <Typography variant="subheading" color={COLORS.textInk}>
                   {chapter.pages} pages
                 </Typography>
               </View>
               <View style={styles.infoItem}>
-                <Typography variant="caption">LANGUE</Typography>
-                <Typography variant="bodyBold" style={styles.infoValue}>
+                <Typography variant="caption" color={COLORS.textInkMuted}>LANGUE</Typography>
+                <Typography variant="subheading" color={COLORS.textInk}>
                   {chapter.translatedLanguage === 'fr' ? 'Français' : 'Anglais'}
                 </Typography>
               </View>
             </View>
           </View>
 
-          {/* Close button */}
           <Pressable
             style={({ pressed }) => [styles.closeBtn, pressed && styles.closeBtnPressed]}
             onPress={onClose}
             accessibilityLabel="Fermer"
             accessibilityRole="button"
           >
-            <Typography variant="label" style={styles.closeBtnText}>FERMER</Typography>
+            <Typography variant="kicker" color={COLORS.textInk} style={styles.closeBtnText}>
+              FERMER
+            </Typography>
           </Pressable>
         </ScrollView>
       </View>
@@ -329,22 +334,26 @@ export function ChapterDetailSheet({
 const styles = StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: 'rgba(22,19,14,0.72)',
   },
   sheet: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'rgba(10, 11, 20, 0.97)',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    backgroundColor: COLORS.paper,
+    borderTopLeftRadius: RADIUS.xxl,
+    borderTopRightRadius: RADIUS.xxl,
+    borderTopWidth: BORDERS.bold,
+    borderLeftWidth: BORDERS.bold,
+    borderRightWidth: BORDERS.bold,
+    borderColor: COLORS.ink,
   },
   dragIndicator: {
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: COLORS.border,
+    backgroundColor: COLORS.lineStrong,
     alignSelf: 'center',
     marginTop: SPACING.md,
     marginBottom: SPACING.sm,
@@ -359,11 +368,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.base,
     paddingVertical: SPACING.base,
   },
+  coverFrame: {
+    borderWidth: BORDERS.bold,
+    borderColor: COLORS.ink,
+    borderRadius: RADIUS.sm,
+    overflow: 'hidden',
+  },
   cover: {
     width: 56,
     height: 80,
-    borderRadius: RADIUS.sm,
-    backgroundColor: COLORS.surfaceRaised,
+    backgroundColor: COLORS.paperSunken,
   },
   headerCenter: {
     flex: 1,
@@ -375,20 +389,12 @@ const styles = StyleSheet.create({
     gap: SPACING.xs,
   },
   mangaTitle: {
-    color: COLORS.accentLight,
     flex: 1,
-    fontFamily: FONTS.bodyBold,
-  },
-  chevronIcon: {
-    color: COLORS.accentLight,
-    fontSize: 16,
   },
   chapterNum: {
-    fontSize: 18,
-    lineHeight: 24,
-  },
-  chapterTitle: {
-    color: COLORS.textMuted,
+    fontSize: 24,
+    lineHeight: 26,
+    letterSpacing: 1,
   },
   dateRow: {
     flexDirection: 'row',
@@ -396,21 +402,14 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
     marginTop: SPACING.xs,
   },
-  dateText: {
-    color: COLORS.textMuted,
-    textTransform: 'none',
-    letterSpacing: 0,
-  },
-  dateSep: {
-    color: COLORS.border,
-  },
   checkBtn: {
     padding: SPACING.xs,
     marginTop: -SPACING.xs,
   },
+  checkBtnRead: {},
   divider: {
-    height: 1,
-    backgroundColor: COLORS.border,
+    height: BORDERS.hair,
+    backgroundColor: COLORS.line,
     marginHorizontal: SPACING.base,
   },
   readBtn: {
@@ -421,25 +420,24 @@ const styles = StyleSheet.create({
     marginHorizontal: SPACING.base,
     marginTop: SPACING.base,
     paddingVertical: SPACING.base,
-    borderRadius: RADIUS.lg,
-    backgroundColor: COLORS.accent,
+    borderRadius: RADIUS.sm,
+    backgroundColor: COLORS.accentRed,
+    borderWidth: BORDERS.bold,
+    borderColor: COLORS.accentDeep,
+    minHeight: 52,
   },
   readBtnPressed: {
     opacity: 0.85,
     transform: [{ scale: 0.98 }],
   },
   readBtnText: {
-    color: '#fff',
-    fontFamily: FONTS.bodyBold,
-    letterSpacing: 1,
+    letterSpacing: 1.5,
+    fontSize: 13,
   },
   section: {
     paddingHorizontal: SPACING.base,
     paddingVertical: SPACING.base,
     gap: SPACING.md,
-  },
-  sectionLabel: {
-    color: COLORS.textMuted,
   },
   pillsRow: {
     flexDirection: 'row',
@@ -450,19 +448,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
     borderRadius: RADIUS.full,
-    backgroundColor: COLORS.surfaceRaised,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    backgroundColor: COLORS.paperSunken,
+    borderWidth: BORDERS.hair,
+    borderColor: COLORS.line,
   },
   pillActive: {
-    backgroundColor: COLORS.accentMuted,
-    borderColor: COLORS.accent,
-  },
-  pillText: {
-    color: COLORS.textMuted,
-  },
-  pillTextActive: {
-    color: COLORS.accentLight,
+    backgroundColor: COLORS.accentSoft,
+    borderColor: COLORS.accentRed,
   },
   ratingsRow: {
     flexDirection: 'row',
@@ -473,14 +465,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: SPACING.xs,
     paddingVertical: SPACING.sm,
+    borderRadius: RADIUS.md,
   },
-  ratingLabel: {
-    color: COLORS.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-  },
-  ratingLabelActive: {
-    color: COLORS.accent,
+  ratingBtnActive: {
+    backgroundColor: COLORS.accentSoft,
   },
   reactionsRow: {
     flexDirection: 'row',
@@ -494,21 +482,17 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.md,
   },
   reactionBtnActive: {
-    backgroundColor: COLORS.accentMuted,
+    backgroundColor: COLORS.accentSoft,
   },
   reactionEmoji: {
     fontSize: 22,
     lineHeight: 28,
   },
   reactionLabel: {
-    color: COLORS.textMuted,
     fontSize: 9,
     textTransform: 'uppercase',
     letterSpacing: 0.4,
-    fontFamily: FONTS.body,
-  },
-  reactionLabelActive: {
-    color: COLORS.accentLight,
+    fontFamily: FONTS.headingMedium,
   },
   infoGrid: {
     flexDirection: 'row',
@@ -518,25 +502,20 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: SPACING.xs,
   },
-  infoValue: {
-    fontSize: 15,
-  },
   closeBtn: {
     marginHorizontal: SPACING.base,
     marginTop: SPACING.md,
     paddingVertical: SPACING.base,
-    borderRadius: RADIUS.lg,
-    backgroundColor: COLORS.accentMuted,
-    borderWidth: 1,
-    borderColor: COLORS.accent,
+    borderRadius: RADIUS.sm,
+    backgroundColor: COLORS.paperSunken,
+    borderWidth: BORDERS.bold,
+    borderColor: COLORS.ink,
     alignItems: 'center',
   },
   closeBtnPressed: {
     opacity: 0.7,
   },
   closeBtnText: {
-    color: COLORS.accentLight,
-    fontFamily: FONTS.bodyBold,
-    letterSpacing: 1,
+    letterSpacing: 1.5,
   },
 });

@@ -8,9 +8,11 @@ import { fr } from 'date-fns/locale';
 import React, { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useLibraryStore } from '@/lib/store/library';
-import { GlassCard } from '@/components/ui/GlassCard';
+import { Panel } from '@/components/ui/Panel';
 import { Typography } from '@/components/ui/Typography';
-import { COLORS, FONTS, RADIUS, SPACING } from '@/constants/theme';
+import { ChapterDetailSheet } from './ChapterDetailSheet';
+import { compareChapters } from '@/lib/utils/chapter';
+import { BORDERS, COLORS, FONTS, RADIUS, SPACING, HARD_SHADOW } from '@/constants/theme';
 import type { Manga, MangaChapter } from '@/lib/types';
 
 interface ChapterListProps {
@@ -50,6 +52,7 @@ function formatDate(iso: string): string {
 export function ChapterList({ chapters, entryMangaId, source, manga }: ChapterListProps) {
   const router = useRouter();
   const [expandedVolumes, setExpandedVolumes] = useState<Set<string>>(new Set());
+  const [selectedChapter, setSelectedChapter] = useState<MangaChapter | null>(null);
 
   const entry = useLibraryStore(s => s.entries.find(e => e.mangaId === entryMangaId && e.source === source));
   const toggleChapterRead = useLibraryStore(s => s.toggleChapterRead);
@@ -58,9 +61,10 @@ export function ChapterList({ chapters, entryMangaId, source, manga }: ChapterLi
   const mangaTitle = manga.title.english ?? manga.title.romaji ?? manga.title.userPreferred;
 
   const isChapterRead = (ch: MangaChapter): boolean => {
+    const num = parseFloat(ch.chapter);
     const ids = entry?.readChapterIds ?? [];
     if (ids.includes(ch.id)) return true;
-    if (ids.length === 0 && parseFloat(ch.chapter) <= (entry?.progress ?? 0)) return true;
+    if (Number.isFinite(num) && num <= (entry?.progress ?? 0)) return true;
     return false;
   };
 
@@ -78,7 +82,7 @@ export function ChapterList({ chapters, entryMangaId, source, manga }: ChapterLi
   };
 
   const sortedChapters = useMemo(
-    () => [...chapters].sort((a, b) => parseFloat(a.chapter) - parseFloat(b.chapter)),
+    () => [...chapters].sort(compareChapters),
     [chapters],
   );
 
@@ -109,9 +113,7 @@ export function ChapterList({ chapters, entryMangaId, source, manga }: ChapterLi
       if (isVolumeExpanded(vol)) {
         next.add('__initialized__');
         next.delete(vol);
-        volumeKeys.forEach(k => {
-          if (k !== vol) next.delete(k);
-        });
+        volumeKeys.forEach(k => { if (k !== vol) next.delete(k); });
       } else {
         next.add(vol);
       }
@@ -155,44 +157,51 @@ export function ChapterList({ chapters, entryMangaId, source, manga }: ChapterLi
         transition={{ type: 'spring', stiffness: 320, damping: 26 }}
       >
         {allRead ? (
-          <GlassCard style={styles.continueCard}>
+          <Panel variant="ink" style={styles.continueCard}>
             <View style={styles.continueInner}>
-              <Ionicons name="checkmark-circle" size={30} color={COLORS.success} />
+              <Ionicons name="checkmark-circle" size={30} color={COLORS.statusCompleted} />
               <View style={styles.continueCenter}>
-                <Typography variant="bodyBold" style={styles.allReadText}>
+                <Typography variant="kicker" color={COLORS.onInkMuted} style={styles.continueKicker}>
+                  TERMINÉ
+                </Typography>
+                <Typography variant="heading" color={COLORS.onInk}>
                   Tout lu !
                 </Typography>
                 {finishDate && (
-                  <Typography variant="label" style={styles.allReadDate}>
+                  <Typography variant="label" color={COLORS.onInkMuted}>
                     Terminé le {finishDate}
                   </Typography>
                 )}
               </View>
             </View>
-          </GlassCard>
+          </Panel>
         ) : nextChapter ? (
-          <GlassCard style={styles.continueCard}>
+          <Panel variant="ink" hardShadow style={styles.continueCard}>
             <View style={styles.continueInner}>
-              <Image
-                source={{ uri: manga.coverImage }}
-                style={styles.continueCover}
-                contentFit="cover"
-                cachePolicy="memory-disk"
-              />
+              <View style={styles.continueCoverFrame}>
+                <Image
+                  source={{ uri: manga.coverImage }}
+                  style={styles.continueCover}
+                  contentFit="cover"
+                  cachePolicy="memory-disk"
+                />
+              </View>
               <View style={styles.continueCenter}>
-                <Typography variant="caption" color={COLORS.accentLight} style={styles.continueKicker}>
-                  Continuer
+                <Typography variant="kicker" color={COLORS.accentRed} style={styles.continueKicker}>
+                  CONTINUER
                 </Typography>
-                <Typography variant="heading" style={styles.continueChapter}>
-                  Chapitre {nextChapter.chapter}
+                <Typography variant="display" color={COLORS.onInk} style={styles.continueChapterNum}>
+                  CH.{nextChapter.chapter}
                 </Typography>
                 {nextChapter.title ? (
-                  <Typography variant="label" style={styles.continueTitle} numberOfLines={1}>
+                  <Typography variant="label" color={COLORS.onInkMuted} numberOfLines={1}>
                     {nextChapter.title}
                   </Typography>
                 ) : null}
                 {nextChapter.volume ? (
-                  <Typography variant="caption">Vol.{nextChapter.volume}</Typography>
+                  <Typography variant="caption" color={COLORS.onInkMuted}>
+                    Vol.{nextChapter.volume}
+                  </Typography>
                 ) : null}
               </View>
               <Pressable
@@ -201,24 +210,25 @@ export function ChapterList({ chapters, entryMangaId, source, manga }: ChapterLi
                 accessibilityRole="button"
                 accessibilityLabel={`Lire le chapitre ${nextChapter.chapter}`}
               >
-                <Ionicons name="book" size={18} color="#fff" />
-                <Typography variant="label" style={styles.readBtnText}>
+                <Ionicons name="book" size={16} color={COLORS.onInk} />
+                <Typography variant="kicker" color={COLORS.onInk} style={styles.readBtnText}>
                   LIRE
                 </Typography>
               </Pressable>
             </View>
-          </GlassCard>
+          </Panel>
         ) : null}
       </MotiView>
 
       {/* Header */}
       <View style={styles.listHeader}>
         <View style={styles.listHeaderLeft}>
-          <Typography variant="heading" style={styles.heading}>
-            Tous les chapitres
+          <View style={styles.sectionMarker} />
+          <Typography variant="title" color={COLORS.textInk}>
+            Chapitres
           </Typography>
           <View style={styles.countBadge}>
-            <Typography variant="caption" style={styles.countText}>
+            <Typography variant="caption" color={COLORS.textInkMuted}>
               {totalRead}/{sortedChapters.length}
             </Typography>
           </View>
@@ -229,7 +239,7 @@ export function ChapterList({ chapters, entryMangaId, source, manga }: ChapterLi
           accessibilityRole="button"
           accessibilityLabel="Tout marquer comme lu"
         >
-          <Ionicons name="checkmark-circle-outline" size={26} color={COLORS.accentLight} />
+          <Ionicons name="checkmark-circle-outline" size={26} color={COLORS.accentRed} />
         </Pressable>
       </View>
 
@@ -240,27 +250,30 @@ export function ChapterList({ chapters, entryMangaId, source, manga }: ChapterLi
           const expanded = isVolumeExpanded(vol);
           const fullyRead = isVolumeFullyRead(volChapters);
           const readCount = volumeReadCount(volChapters);
-          const progressPct = volChapters.length
-            ? (readCount / volChapters.length) * 100
-            : 0;
+          const progressPct = volChapters.length ? (readCount / volChapters.length) * 100 : 0;
           const isActiveVol = nextChapter
             ? (nextChapter.volume ?? 'Hors volume') === vol
             : false;
 
           return (
-            <View key={vol} style={styles.volumeGroup}>
+            <Panel
+              key={vol}
+              variant="paper"
+              bordered
+              style={[styles.volumeGroup, isActiveVol && styles.volumeGroupActive]}
+            >
               {/* Volume header */}
               <Pressable
-                style={[styles.volumeHeader, isActiveVol && styles.volumeHeaderActive]}
+                style={styles.volumeHeader}
                 onPress={() => toggleVolume(vol)}
                 accessibilityRole="button"
                 accessibilityLabel={`${vol === 'Hors volume' ? 'Hors volume' : `Volume ${vol}`}, ${readCount}/${volChapters.length} lus`}
               >
                 <View style={styles.volumeHeaderLeft}>
-                  <Typography variant="bodyBold" style={styles.volumeTitle}>
+                  <Typography variant="subheading" color={COLORS.textInk}>
                     {vol === 'Hors volume' ? 'Hors volume' : `Volume ${vol}`}
                   </Typography>
-                  <Typography variant="label" style={styles.volumeCount}>
+                  <Typography variant="label" color={COLORS.textInkMuted}>
                     {readCount}/{volChapters.length}
                   </Typography>
                 </View>
@@ -290,20 +303,20 @@ export function ChapterList({ chapters, entryMangaId, source, manga }: ChapterLi
                     <Ionicons
                       name={fullyRead ? 'checkmark-circle' : 'ellipse-outline'}
                       size={24}
-                      color={fullyRead ? COLORS.success : COLORS.textMuted}
+                      color={fullyRead ? COLORS.statusCompleted : COLORS.textInkMuted}
                     />
                   </Pressable>
                   <Ionicons
                     name={expanded ? 'chevron-up' : 'chevron-down'}
                     size={18}
-                    color={COLORS.textMuted}
+                    color={COLORS.textInkMuted}
                   />
                 </View>
               </Pressable>
 
               {/* Progress bar */}
               <View style={styles.progressTrack}>
-                <View style={[styles.progressFill, { width: `${progressPct}%` }]} />
+                <View style={[styles.progressFill, { width: `${progressPct}%` as `${number}%` }]} />
               </View>
 
               {/* Chapter cards */}
@@ -324,141 +337,166 @@ export function ChapterList({ chapters, entryMangaId, source, manga }: ChapterLi
                           delay: Math.min(i * 35, 280),
                         }}
                       >
-                        <GlassCard style={styles.chapterCard} borderRadius={RADIUS.md}>
-                          <View style={styles.chapterCardInner}>
+                        <Pressable
+                          style={({ pressed }) => [
+                            styles.chapterCard,
+                            read && styles.chapterCardRead,
+                            pressed && styles.chapterCardPressed,
+                          ]}
+                          onPress={() => openReader(ch)}
+                          onLongPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                            setSelectedChapter(ch);
+                          }}
+                          accessibilityRole="button"
+                          accessibilityLabel={`${read ? 'Lu — ' : ''}Chapitre ${ch.chapter}${ch.title ? ` : ${ch.title}` : ''}`}
+                        >
+                          <View style={styles.chapterCoverFrame}>
                             <Image
                               source={{ uri: manga.coverImage }}
                               style={styles.chapterThumb}
                               contentFit="cover"
                               cachePolicy="memory-disk"
                             />
-
-                            <Pressable
-                              style={styles.chapterInfo}
-                              onPress={() => openReader(ch)}
-                              accessibilityRole="button"
-                              accessibilityLabel={`Lire le chapitre ${ch.chapter}`}
-                            >
-                              <Typography
-                                variant="bodyBold"
-                                style={[styles.chapterNum, read && styles.chapterNumRead]}
-                              >
-                                Ch.{ch.chapter}
-                              </Typography>
-                              {ch.title ? (
-                                <Typography
-                                  variant="label"
-                                  numberOfLines={2}
-                                  style={styles.chapterTitle}
-                                >
-                                  {ch.title}
-                                </Typography>
-                              ) : null}
-                              <Typography variant="caption" style={styles.chapterDate}>
-                                {dateStr}
-                                {dateStr ? ' · ' : ''}
-                                {ch.pages}p
-                              </Typography>
-                            </Pressable>
-
-                            <Pressable
-                              style={styles.checkCircle}
-                              hitSlop={8}
-                              onPress={() => {
-                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                toggleChapterRead(entryMangaId, source, ch.id, parseFloat(ch.chapter));
-                              }}
-                              accessibilityRole="checkbox"
-                              accessibilityState={{ checked: read }}
-                              accessibilityLabel={`${read ? 'Marquer non lu' : 'Marquer lu'}: chapitre ${ch.chapter}`}
-                            >
-                              <Ionicons
-                                name={read ? 'checkmark-circle' : 'ellipse-outline'}
-                                size={30}
-                                color={read ? COLORS.success : COLORS.textMuted}
-                              />
-                            </Pressable>
                           </View>
-                        </GlassCard>
+
+                          <View style={styles.chapterInfo}>
+                            <Typography
+                              variant="display"
+                              color={read ? COLORS.textInkMuted : COLORS.textInk}
+                              style={styles.chapterNum}
+                            >
+                              CH.{ch.chapter}
+                            </Typography>
+                            {ch.title ? (
+                              <Typography
+                                variant="label"
+                                color={COLORS.textInkMuted}
+                                numberOfLines={2}
+                                style={styles.chapterTitle}
+                              >
+                                {ch.title}
+                              </Typography>
+                            ) : null}
+                            <Typography variant="caption" color={COLORS.textInkFaint} style={styles.chapterDate}>
+                              {dateStr}
+                              {dateStr ? ' · ' : ''}
+                              {ch.pages}p
+                            </Typography>
+                          </View>
+
+                          <Pressable
+                            style={[styles.checkCircle, read && styles.checkCircleRead]}
+                            hitSlop={8}
+                            onPress={() => {
+                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                              toggleChapterRead(entryMangaId, source, ch.id, parseFloat(ch.chapter));
+                            }}
+                            accessibilityRole="checkbox"
+                            accessibilityState={{ checked: read }}
+                            accessibilityLabel={`${read ? 'Marquer non lu' : 'Marquer lu'}: chapitre ${ch.chapter}`}
+                          >
+                            <Ionicons
+                              name={read ? 'checkmark-circle' : 'ellipse-outline'}
+                              size={30}
+                              color={read ? COLORS.statusCompleted : COLORS.textInkMuted}
+                            />
+                          </Pressable>
+                        </Pressable>
                       </MotiView>
                     );
                   })}
                 </View>
               )}
-            </View>
+            </Panel>
           );
         })}
       </View>
+
+      <ChapterDetailSheet
+        chapter={selectedChapter}
+        manga={manga}
+        entryMangaId={entryMangaId}
+        source={source}
+        onClose={() => setSelectedChapter(null)}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { gap: SPACING.md },
-  continueCard: { borderRadius: RADIUS.xl },
+  continueCard: { borderRadius: RADIUS.xl, overflow: 'visible' },
   continueInner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.md,
     padding: SPACING.md,
   },
+  continueCoverFrame: {
+    borderWidth: BORDERS.bold,
+    borderColor: COLORS.onInkMuted,
+    borderRadius: RADIUS.sm,
+    overflow: 'hidden',
+  },
   continueCover: {
     width: 64,
     height: 92,
-    borderRadius: RADIUS.sm,
-    backgroundColor: COLORS.surfaceRaised,
+    backgroundColor: COLORS.inkSoft,
   },
   continueCenter: { flex: 1, gap: 2 },
-  continueKicker: { color: COLORS.accentLight },
-  continueChapter: { fontSize: 19, lineHeight: 24 },
-  continueTitle: { color: COLORS.textMuted },
+  continueKicker: { marginBottom: 2 },
+  continueChapterNum: { fontSize: 28, lineHeight: 30, letterSpacing: 1 },
   readBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.xs,
     alignSelf: 'stretch',
     paddingHorizontal: SPACING.base,
-    borderRadius: RADIUS.full,
-    backgroundColor: COLORS.accent,
+    borderRadius: RADIUS.sm,
+    backgroundColor: COLORS.accentRed,
     justifyContent: 'center',
+    minHeight: 44,
+    borderWidth: BORDERS.bold,
+    borderColor: COLORS.accentDeep,
   },
   readBtnPressed: {
     opacity: 0.85,
     transform: [{ scale: 0.97 }],
   },
-  readBtnText: {
-    color: '#fff',
-    fontFamily: FONTS.bodyBold,
-    letterSpacing: 1,
-    fontSize: 12,
-  },
-  allReadText: { color: COLORS.success, fontSize: 15 },
-  allReadDate: { color: COLORS.textMuted },
+  readBtnText: { letterSpacing: 1.5, fontSize: 12 },
   listHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginTop: SPACING.sm,
   },
   listHeaderLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.sm,
   },
-  heading: { fontSize: 18 },
+  sectionMarker: {
+    width: 4,
+    height: 20,
+    backgroundColor: COLORS.accentRed,
+    borderRadius: 2,
+  },
   countBadge: {
-    backgroundColor: COLORS.surfaceRaised,
+    backgroundColor: COLORS.paperSunken,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.xs,
     borderRadius: RADIUS.full,
+    borderWidth: BORDERS.hair,
+    borderColor: COLORS.line,
   },
-  countText: { color: COLORS.textMuted },
   volumesContainer: { gap: SPACING.sm },
   volumeGroup: {
-    backgroundColor: COLORS.surface,
     borderRadius: RADIUS.lg,
-    borderWidth: 1,
-    borderColor: COLORS.border,
     overflow: 'hidden',
+  },
+  volumeGroupActive: {
+    borderColor: `${COLORS.accentRed}66`,
   },
   volumeHeader: {
     flexDirection: 'row',
@@ -467,24 +505,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.base,
     paddingVertical: SPACING.md,
   },
-  volumeHeaderActive: {
-    backgroundColor: COLORS.surfaceRaised,
-  },
   volumeHeaderLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.sm,
   },
-  volumeTitle: { fontSize: 14 },
-  volumeCount: { color: COLORS.textMuted },
   volumeHeaderRight: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.md,
   },
   progressTrack: {
-    height: 4,
-    backgroundColor: COLORS.surfaceRaised,
+    height: 3,
+    backgroundColor: COLORS.paperSunken,
     marginHorizontal: SPACING.base,
     marginBottom: SPACING.sm,
     borderRadius: RADIUS.full,
@@ -492,42 +525,55 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: '100%',
-    backgroundColor: COLORS.accent,
+    backgroundColor: COLORS.accentRed,
     borderRadius: RADIUS.full,
   },
   chaptersList: {
     paddingHorizontal: SPACING.sm,
     paddingBottom: SPACING.sm,
-    gap: SPACING.sm,
+    gap: SPACING.xs,
   },
-  chapterCard: {},
-  chapterCardInner: {
+  chapterCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.md,
     padding: SPACING.sm,
-    backgroundColor: COLORS.surfaceRaised,
+    backgroundColor: COLORS.paperRaised,
+    borderRadius: RADIUS.md,
+    borderWidth: BORDERS.hair,
+    borderColor: COLORS.line,
+  },
+  chapterCardRead: {
+    backgroundColor: COLORS.paperSunken,
+  },
+  chapterCardPressed: {
+    opacity: 0.75,
+    transform: [{ scale: 0.98 }],
+  },
+  chapterCoverFrame: {
+    borderWidth: BORDERS.bold,
+    borderColor: COLORS.ink,
+    borderRadius: RADIUS.sm,
+    overflow: 'hidden',
   },
   chapterThumb: {
-    width: 56,
-    height: 80,
-    borderRadius: RADIUS.sm,
-    backgroundColor: COLORS.surface,
+    width: 52,
+    height: 74,
+    backgroundColor: COLORS.paperSunken,
   },
   chapterInfo: { flex: 1, gap: 2 },
-  chapterNum: { fontSize: 15 },
-  chapterNumRead: { color: COLORS.textMuted },
-  chapterTitle: { color: COLORS.textMuted, fontSize: 12 },
+  chapterNum: { fontSize: 18, lineHeight: 20, letterSpacing: 0.5 },
+  chapterTitle: { fontSize: 12, lineHeight: 16 },
   chapterDate: {
     marginTop: 2,
-    color: COLORS.textMuted,
-    fontSize: 10,
     textTransform: 'none',
     letterSpacing: 0,
+    fontSize: 10,
   },
   checkCircle: {
     width: 36,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  checkCircleRead: {},
 });
