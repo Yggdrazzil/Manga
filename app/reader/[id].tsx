@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { Image as ExpoImage } from 'expo-image';
+import { Image, type ImageLoadEventData } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -10,7 +10,6 @@ import {
   ActivityIndicator,
   Dimensions,
   FlatList,
-  Image as RNImage,
   Pressable,
   StyleSheet,
   View,
@@ -21,6 +20,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getChapterPages } from '@/lib/api/mangadex';
 import { useLibraryStore } from '@/lib/store/library';
 import { Typography } from '@/components/ui/Typography';
+import { chapterNumber } from '@/lib/utils/chapter';
 import { COLORS, FONTS, RADIUS, SPACING } from '@/constants/theme';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -29,25 +29,14 @@ const PLACEHOLDER_HEIGHT = SCREEN_WIDTH * 1.4;
 function ReaderPage({ uri, onTap }: { uri: string; onTap: () => void }) {
   const [ratio, setRatio] = useState<number | null>(null);
 
-  useEffect(() => {
-    let active = true;
-    RNImage.getSize(
-      uri,
-      (w, h) => {
-        if (active && h > 0) setRatio(w / h);
-      },
-      () => {
-        if (active) setRatio(null);
-      },
-    );
-    return () => {
-      active = false;
-    };
-  }, [uri]);
+  const handleLoad = useCallback((e: ImageLoadEventData) => {
+    const { width, height } = e.source;
+    if (width > 0 && height > 0) setRatio(width / height);
+  }, []);
 
   return (
     <Pressable onPress={onTap}>
-      <ExpoImage
+      <Image
         source={{ uri }}
         style={{
           width: SCREEN_WIDTH,
@@ -57,6 +46,7 @@ function ReaderPage({ uri, onTap }: { uri: string; onTap: () => void }) {
         contentFit="contain"
         transition={220}
         cachePolicy="memory-disk"
+        onLoad={handleLoad}
       />
     </Pressable>
   );
@@ -90,7 +80,7 @@ function ReaderChrome({
         style={styles.topBar}
       >
         <LinearGradient
-          colors={['rgba(0,0,0,0.85)', 'transparent']}
+          colors={['rgba(22,19,14,0.9)', 'transparent']}
           style={[styles.topGradient, { paddingTop: insets.top + SPACING.sm }]}
         >
           <Pressable
@@ -100,13 +90,13 @@ function ReaderChrome({
             accessibilityLabel="Fermer le lecteur"
             hitSlop={8}
           >
-            <Ionicons name="chevron-down" size={22} color={COLORS.text} />
+            <Ionicons name="chevron-down" size={22} color={COLORS.onInk} />
           </Pressable>
           <View style={styles.topInfo}>
-            <Typography variant="bodyBold" numberOfLines={1} style={styles.topTitle}>
+            <Typography variant="bodyBold" numberOfLines={1} color={COLORS.onInk} style={styles.topTitle}>
               {mangaTitle}
             </Typography>
-            <Typography variant="label" numberOfLines={1} color={COLORS.textSecondary}>
+            <Typography variant="label" numberOfLines={1} color={COLORS.onInkMuted}>
               Ch.{chapter}
               {title ? ` · ${title}` : ''}
             </Typography>
@@ -121,7 +111,7 @@ function ReaderChrome({
         style={[styles.pageIndicatorWrap, { bottom: insets.bottom + SPACING.lg }]}
       >
         <View style={styles.pageIndicator}>
-          <Typography variant="label" color="#fff" style={styles.pageIndicatorText}>
+          <Typography variant="display" color={COLORS.onInk} style={styles.pageIndicatorText}>
             {Math.min(current, total)} / {total}
           </Typography>
         </View>
@@ -130,13 +120,7 @@ function ReaderChrome({
   );
 }
 
-function ReaderMessage({
-  loading,
-  onBack,
-}: {
-  loading: boolean;
-  onBack: () => void;
-}) {
+function ReaderMessage({ loading, onBack }: { loading: boolean; onBack: () => void }) {
   const insets = useSafeAreaInsets();
   return (
     <View style={styles.centered}>
@@ -148,23 +132,23 @@ function ReaderMessage({
         accessibilityLabel="Retour"
         hitSlop={8}
       >
-        <Ionicons name="chevron-down" size={22} color={COLORS.text} />
+        <Ionicons name="chevron-down" size={22} color={COLORS.onInk} />
       </Pressable>
       {loading ? (
         <>
-          <ActivityIndicator color={COLORS.accent} size="large" />
-          <Typography variant="body" color={COLORS.textSecondary} style={styles.messageText}>
+          <ActivityIndicator color={COLORS.accentRed} size="large" />
+          <Typography variant="body" color={COLORS.onInkMuted} style={styles.messageText}>
             Chargement du chapitre…
           </Typography>
         </>
       ) : (
         <>
-          <Ionicons name="alert-circle-outline" size={56} color={COLORS.textMuted} />
-          <Typography variant="heading" style={styles.messageHeading}>
+          <Ionicons name="alert-circle-outline" size={56} color={COLORS.onInkMuted} />
+          <Typography variant="heading" color={COLORS.onInk} style={styles.messageHeading}>
             Impossible de charger ce chapitre
           </Typography>
           <Pressable style={styles.retryBtn} onPress={onBack}>
-            <Typography variant="bodyBold" color={COLORS.accentLight}>
+            <Typography variant="bodyBold" color={COLORS.onInk}>
               Retour
             </Typography>
           </Pressable>
@@ -207,7 +191,7 @@ export default function ReaderScreen() {
     const alreadyRead = entry?.readChapterIds?.includes(id) ?? false;
     hasMarkedRead.current = true;
     if (!alreadyRead) {
-      toggleChapterRead(entryMangaId, source, id, parseFloat(chapter));
+      toggleChapterRead(entryMangaId, source, id, chapterNumber(chapter));
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
   }, [entryMangaId, source, chapter, id, getEntry, toggleChapterRead]);
@@ -219,7 +203,7 @@ export default function ReaderScreen() {
     },
   ).current;
 
-  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 30 }).current;
+  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 60 }).current;
 
   useEffect(() => {
     if (total > 0 && currentPage >= total) markReadIfDone();
@@ -279,11 +263,9 @@ const styles = StyleSheet.create({
   retryBtn: {
     marginTop: SPACING.sm,
     paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.sm,
-    borderRadius: RADIUS.full,
-    backgroundColor: COLORS.accentMuted,
-    borderWidth: 1,
-    borderColor: `${COLORS.accent}66`,
+    paddingVertical: SPACING.md,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.accentRed,
   },
   topBar: {
     position: 'absolute',
@@ -301,12 +283,12 @@ const styles = StyleSheet.create({
   topInfo: { flex: 1 },
   topTitle: { fontSize: 15 },
   backBtn: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     borderRadius: RADIUS.full,
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: COLORS.ink,
     borderWidth: 1,
-    borderColor: COLORS.glassBorder,
+    borderColor: COLORS.lineOnInk,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -322,15 +304,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   pageIndicator: {
-    paddingHorizontal: SPACING.base,
-    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.xs,
     borderRadius: RADIUS.full,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    borderWidth: 1,
-    borderColor: COLORS.glassBorder,
+    backgroundColor: COLORS.accentRed,
   },
   pageIndicatorText: {
-    fontFamily: FONTS.bodyBold,
+    fontFamily: FONTS.display,
+    fontSize: 22,
+    lineHeight: 26,
     letterSpacing: 1,
   },
 });
