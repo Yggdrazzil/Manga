@@ -2,7 +2,7 @@ import * as Haptics from 'expo-haptics';
 import React from 'react';
 import { Pressable, StyleSheet, type PressableProps, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
-import { COLORS, FONTS, RADIUS, SPACING } from '@/constants/theme';
+import { BORDERS, COLORS, FONTS, RADIUS, SPACING } from '@/constants/theme';
 import { Typography } from './Typography';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -32,7 +32,7 @@ export function GlassButton({
   }));
 
   const handlePressIn = () => {
-    scale.value = withSpring(0.96, { stiffness: 600, damping: 25 });
+    scale.value = withSpring(0.97, { stiffness: 600, damping: 25 });
   };
 
   const handlePressOut = () => {
@@ -44,6 +44,8 @@ export function GlassButton({
     onPress?.(e);
   };
 
+  const textColor = variant === 'primary' ? COLORS.onInk : COLORS.textInk;
+
   return (
     <AnimatedPressable
       style={[animatedStyle, styles.base, styles[variant], styles[size], disabled && styles.disabled, style]}
@@ -51,14 +53,13 @@ export function GlassButton({
       onPressOut={handlePressOut}
       onPress={handlePress}
       disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: !!disabled }}
       {...rest}
     >
       {icon}
-      <Typography
-        variant="bodyBold"
-        color={variant === 'primary' ? '#fff' : COLORS.text}
-        style={styles.label}
-      >
+      <Typography variant="heading" color={textColor} style={styles.label}>
         {label}
       </Typography>
     </AnimatedPressable>
@@ -71,25 +72,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: SPACING.sm,
-    borderRadius: RADIUS.lg,
-    overflow: 'hidden',
+    borderRadius: RADIUS.md,
   },
   primary: {
-    backgroundColor: COLORS.accent,
+    backgroundColor: COLORS.accentRed,
   },
   secondary: {
-    backgroundColor: COLORS.surfaceRaised,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    backgroundColor: 'transparent',
+    borderWidth: BORDERS.bold,
+    borderColor: COLORS.ink,
   },
   ghost: {
-    backgroundColor: COLORS.accentMuted,
-    borderWidth: 1,
-    borderColor: `${COLORS.accent}44`,
+    backgroundColor: COLORS.accentSoft,
+    borderWidth: BORDERS.bold,
+    borderColor: COLORS.accentRed,
   },
   sm: { paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, height: 36 },
   md: { paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md, height: 44 },
   lg: { paddingHorizontal: SPACING.xl, paddingVertical: SPACING.base, height: 52 },
   disabled: { opacity: 0.4 },
-  label: { fontFamily: FONTS.bodyBold, letterSpacing: 0.2 },
+  label: {
+    fontFamily: FONTS.heading,
+    fontSize: 15,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
 });

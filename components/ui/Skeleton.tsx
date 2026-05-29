@@ -16,7 +16,7 @@ export function Skeleton({ width = '100%', height = 16, borderRadius = RADIUS.sm
       from={{ opacity: 0.4 }}
       animate={{ opacity: 0.8 }}
       transition={{ type: 'timing', duration: 900, loop: true }}
-      style={[{ width: width as number, height, borderRadius, backgroundColor: COLORS.surfaceRaised }, style]}
+      style={[{ width: width as number, height, borderRadius, backgroundColor: COLORS.paperSunken }, style]}
     />
   );
 }

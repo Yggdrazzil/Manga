@@ -1,7 +1,8 @@
 import { MotiView } from 'moti';
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { COLORS, SPACING } from '@/constants/theme';
+import { BORDERS, COLORS, RADIUS, SPACING } from '@/constants/theme';
+import { Halftone } from './Halftone';
 import { Typography } from './Typography';
 
 interface EmptyStateProps {
@@ -20,11 +21,16 @@ export function EmptyState({ icon, title, subtitle, action }: EmptyStateProps) {
       style={styles.container}
     >
       <View style={styles.iconWrap}>
+        <Halftone opacity={0.12} color={COLORS.onInk} />
         <Typography style={styles.emoji}>{icon}</Typography>
       </View>
-      <Typography variant="heading" style={styles.title}>{title}</Typography>
+      <Typography variant="title" style={styles.title}>
+        {title}
+      </Typography>
       {subtitle && (
-        <Typography variant="body" style={styles.subtitle}>{subtitle}</Typography>
+        <Typography variant="body" style={styles.subtitle}>
+          {subtitle}
+        </Typography>
       )}
       {action && <View style={styles.action}>{action}</View>}
     </MotiView>
@@ -40,16 +46,19 @@ const styles = StyleSheet.create({
     gap: SPACING.md,
   },
   iconWrap: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: COLORS.surfaceRaised,
+    width: 88,
+    height: 88,
+    borderRadius: RADIUS.xxl,
+    backgroundColor: COLORS.ink,
+    borderWidth: BORDERS.bold,
+    borderColor: COLORS.ink,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
     marginBottom: SPACING.sm,
   },
-  emoji: { fontSize: 36, lineHeight: 42 },
+  emoji: { fontSize: 40, lineHeight: 46 },
   title: { textAlign: 'center' },
-  subtitle: { textAlign: 'center', color: COLORS.textMuted },
+  subtitle: { textAlign: 'center', maxWidth: 280 },
   action: { marginTop: SPACING.md },
 });
