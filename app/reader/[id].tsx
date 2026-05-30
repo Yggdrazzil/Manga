@@ -21,31 +21,51 @@ import { getChapterPages } from '@/lib/api/mangadex';
 import { Typography } from '@/components/ui/Typography';
 import { COLORS, FONTS, RADIUS, SPACING } from '@/constants/theme';
 
-function ReaderPage({ uri, width, onTap }: { uri: string; width: number; onTap: () => void }) {
+function ReaderPageBase({ uri, width, onTap }: { uri: string; width: number; onTap: () => void }) {
   const [ratio, setRatio] = useState<number | null>(null);
+  const [failed, setFailed] = useState(false);
 
   const handleLoad = useCallback((e: ImageLoadEventData) => {
     const { width: w, height: h } = e.source;
     if (w > 0 && h > 0) setRatio(w / h);
+    setFailed(false);
   }, []);
+
+  const handleError = useCallback(() => setFailed(true), []);
+  const handleRetry = useCallback(() => setFailed(false), []);
+
+  const height = ratio ? width / ratio : width * 1.4;
 
   return (
     <Pressable onPress={onTap}>
-      <Image
-        source={{ uri }}
-        style={{
-          width,
-          height: ratio ? width / ratio : width * 1.4,
-          backgroundColor: '#000',
-        }}
-        contentFit="contain"
-        transition={220}
-        cachePolicy="memory-disk"
-        onLoad={handleLoad}
-      />
+      <View style={{ width, height, backgroundColor: '#0a0a0a' }}>
+        {failed ? (
+          <Pressable style={styles.pageError} onPress={handleRetry} hitSlop={8}>
+            <Ionicons name="reload" size={26} color={COLORS.onInkMuted} />
+            <Typography variant="label" color={COLORS.onInkMuted} style={styles.pageErrorText}>
+              Appuyez pour recharger
+            </Typography>
+          </Pressable>
+        ) : (
+          <Image
+            source={{ uri }}
+            style={{ width, height }}
+            contentFit="contain"
+            transition={120}
+            cachePolicy="memory-disk"
+            recyclingKey={uri}
+            onLoad={handleLoad}
+            onError={handleError}
+          />
+        )}
+      </View>
     </Pressable>
   );
 }
+
+// Memoized so scroll-driven currentPage updates in the parent don't re-render
+// (and re-fade) every mounted page — a key source of the "pages go black" bug.
+const ReaderPage = React.memo(ReaderPageBase);
 
 function ReaderChrome({
   mangaTitle,
@@ -207,7 +227,11 @@ export default function ReaderScreen() {
         showsVerticalScrollIndicator={false}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
-        windowSize={7}
+        removeClippedSubviews={false}
+        windowSize={5}
+        initialNumToRender={3}
+        maxToRenderPerBatch={3}
+        updateCellsBatchingPeriod={60}
       />
 
       <ReaderChrome
@@ -225,6 +249,13 @@ export default function ReaderScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
+  pageError: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+  },
+  pageErrorText: { textAlign: 'center' },
   centered: {
     flex: 1,
     backgroundColor: '#000',
