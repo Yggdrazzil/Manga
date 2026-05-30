@@ -1,369 +1,211 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { MotiView } from 'moti';
-import React, { useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  useWindowDimensions,
-  View,
-} from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useQuery } from '@tanstack/react-query';
-import { searchComics, type OLBook } from '@/lib/api/openlib';
 import { useComicsStore } from '@/lib/store/comics';
-import { Panel } from '@/components/ui/Panel';
 import { Typography } from '@/components/ui/Typography';
-import { BORDERS, COLORS, FONTS, RADIUS, SPACING, STATUS_LABELS } from '@/constants/theme';
-import type { ComicEntry, ReadingStatus } from '@/lib/types';
+import { BORDERS, COLORS, FONTS, RADIUS, SPACING } from '@/constants/theme';
+import type { ComicEntry } from '@/lib/types';
 
 const TAB_BAR_HEIGHT = 88;
-const GUTTER = SPACING.md;
 
-// ── SEARCH TAB ────────────────────────────────────────────────────────────────
+// ── À VOIR card ───────────────────────────────────────────────────────────────
 
-function SearchResultCard({
-  book,
-  inLibrary,
-  onAdd,
-  onOpen,
-  index,
-}: {
-  book: OLBook;
-  inLibrary: boolean;
-  onAdd: () => void;
-  onOpen: () => void;
-  index: number;
-}) {
-  return (
-    <MotiView
-      from={{ opacity: 0, translateY: 8 }}
-      animate={{ opacity: 1, translateY: 0 }}
-      transition={{ type: 'spring', stiffness: 320, damping: 26, delay: Math.min(index * 35, 350) }}
-    >
-      <Pressable style={styles.resultCard} onPress={onOpen}>
-        <View style={styles.resultCoverFrame}>
-          {book.coverImage ? (
-            <Image source={{ uri: book.coverImage }} style={styles.resultCover} contentFit="cover" cachePolicy="memory-disk" />
-          ) : (
-            <View style={[styles.resultCover, styles.resultCoverEmpty]}>
-              <Ionicons name="book" size={24} color={COLORS.textInkMuted} />
-            </View>
-          )}
-        </View>
-        <View style={styles.resultInfo}>
-          <Typography variant="subheading" color={COLORS.textInk} numberOfLines={2} style={styles.resultTitle}>
-            {book.title}
-          </Typography>
-          {book.authors.length > 0 && (
-            <Typography variant="label" color={COLORS.textInkMuted} numberOfLines={1}>
-              {book.authors.join(', ')}
-            </Typography>
-          )}
-          {book.publisher && (
-            <Typography variant="caption" color={COLORS.textInkFaint} numberOfLines={1}>
-              {book.publisher}
-              {book.publishedDate ? ` · ${book.publishedDate.slice(0, 4)}` : ''}
-            </Typography>
-          )}
-          {book.categories.length > 0 && (
-            <View style={styles.resultCategories}>
-              {book.categories.slice(0, 2).map(c => (
-                <View key={c} style={styles.categoryChip}>
-                  <Typography variant="caption" color={COLORS.accentRed} style={styles.categoryChipText}>{c}</Typography>
-                </View>
-              ))}
-            </View>
-          )}
-        </View>
-        <Pressable
-          style={({ pressed }) => [styles.addBtn, inLibrary && styles.addBtnDone, pressed && styles.addBtnPressed]}
-          onPress={inLibrary ? onOpen : onAdd}
-          hitSlop={8}
-          accessibilityLabel={inLibrary ? 'Déjà dans la bibliothèque' : 'Ajouter'}
-        >
-          <Ionicons
-            name={inLibrary ? 'checkmark' : 'add'}
-            size={18}
-            color={COLORS.onInk}
-          />
-        </Pressable>
-      </Pressable>
-    </MotiView>
-  );
-}
-
-function SearchTab({ insets }: { insets: ReturnType<typeof useSafeAreaInsets> }) {
+function BDCard({ entry, index }: { entry: ComicEntry; index: number }) {
   const router = useRouter();
-  const [query, setQuery] = useState('');
-  const [submitted, setSubmitted] = useState('');
-  const addEntry = useComicsStore(s => s.addEntry);
-  const entries = useComicsStore(s => s.entries);
-
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ['comics-search', submitted],
-    queryFn: () => searchComics(submitted),
-    enabled: submitted.trim().length >= 2,
-    staleTime: 1000 * 60 * 5,
-  });
-
-  const handleSubmit = () => {
-    setSubmitted(query.trim());
-  };
-
-  const handleAdd = (book: OLBook) => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    addEntry({
-      id: book.id,
-      title: book.title,
-      authors: book.authors,
-      coverImage: book.coverImage,
-      description: book.description,
-      publisher: book.publisher,
-      publishedDate: book.publishedDate,
-      categories: book.categories,
-      type: 'COMIC',
-    }, 'PLAN_TO_READ');
-    router.push(`/comic/${book.id}` as never);
-  };
-
-  return (
-    <ScrollView
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={[styles.searchScroll, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom }]}
-      keyboardShouldPersistTaps="handled"
-    >
-      <View style={styles.searchBarRow}>
-        <View style={styles.searchBar}>
-          <Ionicons name="search" size={18} color={COLORS.textInkMuted} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Rechercher une BD ou un comic…"
-            placeholderTextColor={COLORS.textInkMuted}
-            value={query}
-            onChangeText={setQuery}
-            onSubmitEditing={handleSubmit}
-            returnKeyType="search"
-            autoCorrect={false}
-          />
-          {query.length > 0 && (
-            <Pressable onPress={() => { setQuery(''); setSubmitted(''); }} hitSlop={8}>
-              <Ionicons name="close-circle" size={18} color={COLORS.textInkMuted} />
-            </Pressable>
-          )}
-        </View>
-        <Pressable style={styles.searchBtn} onPress={handleSubmit}>
-          <Typography variant="kicker" color={COLORS.onInk} style={styles.searchBtnText}>GO</Typography>
-        </Pressable>
-      </View>
-
-      {!submitted && (
-        <View style={styles.searchHint}>
-          <Ionicons name="library-outline" size={40} color={COLORS.textInkMuted} />
-          <Typography variant="body" color={COLORS.textInkMuted} style={styles.searchHintText}>
-            Recherchez une bande dessinée, un comic ou un roman graphique à ajouter à votre bibliothèque.
-          </Typography>
-        </View>
-      )}
-
-      {isLoading && (
-        <View style={styles.stateBox}>
-          <ActivityIndicator color={COLORS.accentRed} size="large" />
-          <Typography variant="label" color={COLORS.textInkMuted}>Recherche en cours…</Typography>
-        </View>
-      )}
-
-      {isError && (
-        <View style={styles.stateBox}>
-          <Ionicons name="cloud-offline-outline" size={40} color={COLORS.textInkMuted} />
-          <Typography variant="body" color={COLORS.textInkMuted} style={styles.stateText}>
-            Impossible de contacter Open Library. Vérifiez votre connexion.
-          </Typography>
-        </View>
-      )}
-
-      {data && data.items.length === 0 && (
-        <View style={styles.stateBox}>
-          <Ionicons name="search-outline" size={40} color={COLORS.textInkMuted} />
-          <Typography variant="body" color={COLORS.textInkMuted} style={styles.stateText}>
-            Aucun résultat pour « {submitted} »
-          </Typography>
-        </View>
-      )}
-
-      {data && data.items.length > 0 && (
-        <View style={styles.resultsList}>
-          {data.items.map((book, i) => (
-            <SearchResultCard
-              key={book.id}
-              book={book}
-              inLibrary={!!entries.find(e => e.comicId === book.id)}
-              onAdd={() => handleAdd(book)}
-              onOpen={() => router.push(`/comic/${book.id}` as never)}
-              index={i}
-            />
-          ))}
-        </View>
-      )}
-    </ScrollView>
-  );
-}
-
-// ── LIBRARY TAB ───────────────────────────────────────────────────────────────
-
-const STATUSES: ReadingStatus[] = ['READING', 'PLAN_TO_READ', 'COMPLETED', 'PAUSED', 'DROPPED'];
-type LibFilter = 'ALL' | ReadingStatus;
-
-const LIB_FILTERS: { key: LibFilter; label: string }[] = [
-  { key: 'ALL', label: 'Tout' },
-  { key: 'READING', label: STATUS_LABELS.READING },
-  { key: 'COMPLETED', label: STATUS_LABELS.COMPLETED },
-  { key: 'PLAN_TO_READ', label: STATUS_LABELS.PLAN_TO_READ },
-];
-
-function LibraryCard({ entry, index }: { entry: ComicEntry; index: number }) {
-  const router = useRouter();
+  const total = entry.totalVolumes ?? entry.comic.totalVolumes ?? 0;
   const readCount = entry.readVolumes.length;
-  const total = entry.totalVolumes ?? 0;
-  const pct = total > 0 ? Math.min(readCount / total, 1) : 0;
-  const title = entry.comic.title;
+
+  const nextVolume = useMemo(() => {
+    if (total === 0) return null;
+    for (let i = 1; i <= total; i++) {
+      if (!entry.readVolumes.includes(i)) return i;
+    }
+    return null;
+  }, [entry.readVolumes, total]);
+
+  const isNew = readCount === 0;
 
   return (
     <MotiView
-      from={{ opacity: 0, translateY: 10 }}
-      animate={{ opacity: 1, translateY: 0 }}
-      transition={{ type: 'spring', stiffness: 300, damping: 25, delay: Math.min(index * 40, 360) }}
+      from={{ opacity: 0, translateX: -12 }}
+      animate={{ opacity: 1, translateX: 0 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 26, delay: Math.min(index * 45, 400) }}
     >
-      <Pressable onPress={() => router.push(`/comic/${entry.comicId}` as never)}>
-        <Panel variant="paper" bordered style={styles.libCard}>
-          <View style={styles.libCardInner}>
-            <View style={styles.libCoverFrame}>
-              {entry.comic.coverImage ? (
-                <Image source={{ uri: entry.comic.coverImage }} style={styles.libCover} contentFit="cover" cachePolicy="memory-disk" />
-              ) : (
-                <View style={[styles.libCover, styles.libCoverEmpty]}>
-                  <Ionicons name="book" size={20} color={COLORS.textInkMuted} />
-                </View>
-              )}
+      <Pressable
+        style={styles.tvCard}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          router.push(`/comic/${entry.comicId}` as never);
+        }}
+        accessibilityRole="button"
+        accessibilityLabel={entry.comic.title}
+      >
+        <View style={styles.tvCoverWrap}>
+          {entry.comic.coverImage ? (
+            <Image source={{ uri: entry.comic.coverImage }} style={styles.tvCover} contentFit="cover" cachePolicy="memory-disk" />
+          ) : (
+            <View style={[styles.tvCover, styles.tvCoverEmpty]}>
+              <Ionicons name="book" size={22} color={COLORS.textInkMuted} />
             </View>
-            <View style={styles.libInfo}>
-              <Typography variant="subheading" color={COLORS.textInk} numberOfLines={2} style={styles.libTitle}>
-                {title}
-              </Typography>
-              {entry.comic.authors.length > 0 && (
-                <Typography variant="label" color={COLORS.textInkMuted} numberOfLines={1}>
-                  {entry.comic.authors[0]}
-                </Typography>
-              )}
-              <View style={styles.libProgressRow}>
-                <View style={styles.libProgressTrack}>
-                  <View style={[styles.libProgressFill, { width: `${pct * 100}%` as `${number}%` }]} />
-                </View>
-                <Typography variant="caption" color={COLORS.textInkMuted} style={styles.libProgressText}>
-                  {readCount}{total > 0 ? `/${total}` : ''} tome{readCount !== 1 ? 's' : ''}
+          )}
+        </View>
+
+        <View style={styles.tvBody}>
+          <Pressable
+            style={styles.tvTitlePill}
+            onPress={() => router.push(`/comic/${entry.comicId}` as never)}
+            hitSlop={4}
+          >
+            <Typography variant="caption" style={styles.tvTitlePillText} numberOfLines={1}>
+              {entry.comic.title.toUpperCase()}
+            </Typography>
+            <Ionicons name="chevron-forward" size={10} color={COLORS.textInk} />
+          </Pressable>
+
+          <Typography style={styles.tvVolume}>
+            {nextVolume != null
+              ? `Tome ${nextVolume}`
+              : total > 0
+              ? 'Terminé ✓'
+              : 'Tome 1'}
+          </Typography>
+
+          <View style={styles.tvMeta}>
+            {readCount > 0 && total > 0 && (
+              <View style={styles.tvBadge}>
+                <Typography variant="caption" style={styles.tvBadgeText}>
+                  {readCount}/{total}
                 </Typography>
               </View>
-              <View style={styles.libStatusRow}>
-                <View style={[styles.statusDot, {
-                  backgroundColor: entry.status === 'READING' ? COLORS.statusReading
-                    : entry.status === 'COMPLETED' ? COLORS.statusCompleted
-                    : entry.status === 'PLAN_TO_READ' ? COLORS.statusPlan
-                    : COLORS.textInkMuted,
-                }]} />
-                <Typography variant="caption" color={COLORS.textInkMuted}>{STATUS_LABELS[entry.status]}</Typography>
-              </View>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={COLORS.textInkMuted} />
+            )}
+            <Typography variant="caption" color={COLORS.textInkMuted}>
+              {isNew
+                ? 'À commencer'
+                : total > 0
+                ? `${readCount} tome${readCount !== 1 ? 's' : ''} lus`
+                : `${readCount} lu${readCount !== 1 ? 's' : ''}`}
+            </Typography>
           </View>
-        </Panel>
+        </View>
+
+        <Ionicons name="chevron-forward" size={16} color={COLORS.textInkFaint} />
       </Pressable>
     </MotiView>
   );
 }
 
-function LibraryTab({ insets }: { insets: ReturnType<typeof useSafeAreaInsets> }) {
-  const entries = useComicsStore(s => s.entries);
-  const [filter, setFilter] = useState<LibFilter>('ALL');
+// ── À VENIR card ──────────────────────────────────────────────────────────────
 
-  const visible = entries
-    .filter(e => filter === 'ALL' ? true : e.status === filter)
-    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+function UpcomingBDCard({ entry, index }: { entry: ComicEntry; index: number }) {
+  const router = useRouter();
+  const total = entry.totalVolumes ?? entry.comic.totalVolumes ?? 0;
+  const readCount = entry.readVolumes.length;
+  const remaining = total > 0 ? total - readCount : null;
 
   return (
-    <ScrollView
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={[styles.libScroll, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom }]}
+    <MotiView
+      from={{ opacity: 0, translateX: -12 }}
+      animate={{ opacity: 1, translateX: 0 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 26, delay: Math.min(index * 45, 400) }}
     >
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.filterTabs}
-        style={styles.filterScroll}
+      <Pressable
+        style={styles.tvCard}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          router.push(`/comic/${entry.comicId}` as never);
+        }}
       >
-        {LIB_FILTERS.map(({ key, label }) => (
-          <Pressable
-            key={key}
-            style={[styles.filterTab, filter === key && styles.filterTabActive]}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setFilter(key);
-            }}
-          >
-            <Typography variant="label" color={filter === key ? COLORS.accentRed : COLORS.textInkMuted}>
-              {label}
-            </Typography>
-          </Pressable>
-        ))}
-      </ScrollView>
+        <View style={styles.tvCoverWrap}>
+          {entry.comic.coverImage ? (
+            <Image source={{ uri: entry.comic.coverImage }} style={styles.tvCover} contentFit="cover" cachePolicy="memory-disk" />
+          ) : (
+            <View style={[styles.tvCover, styles.tvCoverEmpty]}>
+              <Ionicons name="book" size={22} color={COLORS.textInkMuted} />
+            </View>
+          )}
+        </View>
 
-      {visible.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Typography style={styles.emptyEmoji}>📚</Typography>
-          <Typography variant="heading" color={COLORS.textInk} style={styles.emptyTitle}>
-            {entries.length === 0 ? 'Bibliothèque vide' : 'Aucune œuvre ici'}
-          </Typography>
-          <Typography variant="body" color={COLORS.textInkMuted} style={styles.emptyText}>
-            {entries.length === 0
-              ? 'Utilisez l\'onglet "Rechercher" pour ajouter des BD et comics.'
-              : 'Aucune œuvre ne correspond à ce filtre.'}
-          </Typography>
+        <View style={styles.tvBody}>
+          <Pressable
+            style={styles.tvTitlePill}
+            onPress={() => router.push(`/comic/${entry.comicId}` as never)}
+            hitSlop={4}
+          >
+            <Typography variant="caption" style={styles.tvTitlePillText} numberOfLines={1}>
+              {entry.comic.title.toUpperCase()}
+            </Typography>
+            <Ionicons name="chevron-forward" size={10} color={COLORS.textInk} />
+          </Pressable>
+
+          <Typography style={styles.tvVolume}>Prochainement</Typography>
+
+          <View style={styles.tvMeta}>
+            {remaining !== null && (
+              <Typography variant="caption" color={COLORS.textInkMuted}>
+                {remaining} tome{remaining !== 1 ? 's' : ''} restant{remaining !== 1 ? 's' : ''}
+              </Typography>
+            )}
+            <View style={styles.tvBadgeInfo}>
+              <Ionicons name="time-outline" size={11} color={COLORS.textInkMuted} />
+              <Typography variant="caption" color={COLORS.textInkMuted}>Dates non disponibles</Typography>
+            </View>
+          </View>
         </View>
-      ) : (
-        <View style={styles.libList}>
-          {visible.map((entry, index) => (
-            <LibraryCard key={entry.comicId} entry={entry} index={index} />
-          ))}
-        </View>
-      )}
-    </ScrollView>
+      </Pressable>
+    </MotiView>
   );
 }
 
 // ── SCREEN ────────────────────────────────────────────────────────────────────
 
-export default function ComicsScreen() {
+export default function BDTrackerScreen() {
   const insets = useSafeAreaInsets();
-  const [activeTab, setActiveTab] = useState<'library' | 'search'>('library');
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState<'voir' | 'venir'>('voir');
+  const [refreshing] = useState(false);
+
   const entries = useComicsStore(s => s.entries);
+
+  const readingEntries = useMemo(
+    () => entries
+      .filter(e => e.status === 'READING')
+      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()),
+    [entries],
+  );
+
+  const unfinishedOngoing = useMemo(
+    () => entries
+      .filter(e => {
+        const total = e.totalVolumes ?? e.comic.totalVolumes ?? 0;
+        const remaining = total > 0 ? total - e.readVolumes.length : null;
+        return e.status !== 'COMPLETED' && e.status !== 'DROPPED' && remaining !== 0;
+      })
+      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()),
+    [entries],
+  );
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
+      {/* Header */}
       <View style={styles.header}>
         <Typography variant="kicker" color={COLORS.accentRed}>BIBLIOTHÈQUE</Typography>
-        <View style={styles.headerTitleRow}>
-          <Typography variant="hero" color={COLORS.textInk} style={styles.title}>BD & Comics</Typography>
+        <View style={styles.headerRow}>
+          <Typography variant="hero" color={COLORS.textInk} style={styles.title}>
+            BD & Comics
+          </Typography>
           <View style={styles.countBadge}>
             <Typography variant="label" color={COLORS.textInkMuted}>{entries.length}</Typography>
           </View>
         </View>
 
+        {/* Sub-tabs */}
         <View style={styles.subTabs}>
-          {(['library', 'search'] as const).map(tab => (
+          {(['voir', 'venir'] as const).map(tab => (
             <Pressable
               key={tab}
               style={styles.subTabBtn}
@@ -374,29 +216,76 @@ export default function ComicsScreen() {
               accessibilityRole="tab"
               accessibilityState={{ selected: activeTab === tab }}
             >
-              <View style={styles.subTabContent}>
-                <Ionicons
-                  name={tab === 'library' ? 'library-outline' : 'search-outline'}
-                  size={14}
-                  color={activeTab === tab ? COLORS.textInk : COLORS.textInkMuted}
-                />
-                <Typography
-                  variant="subheading"
-                  style={[styles.subTabLabel, activeTab === tab && styles.subTabLabelActive]}
-                >
-                  {tab === 'library' ? 'Ma bibliothèque' : 'Rechercher'}
-                </Typography>
-              </View>
+              <Typography
+                variant="subheading"
+                style={[styles.subTabLabel, activeTab === tab && styles.subTabLabelActive]}
+              >
+                {tab === 'voir' ? 'À VOIR' : 'À VENIR'}
+              </Typography>
               {activeTab === tab && <View style={styles.subTabLine} />}
             </Pressable>
           ))}
         </View>
       </View>
 
-      {activeTab === 'library' ? (
-        <LibraryTab insets={insets} />
-      ) : (
-        <SearchTab insets={insets} />
+      {/* À VOIR */}
+      {activeTab === 'voir' && (
+        readingEntries.length === 0 ? (
+          <ScrollView
+            contentContainerStyle={[styles.emptyWrap, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom }]}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => {}} tintColor={COLORS.accentRed} colors={[COLORS.accentRed]} />}
+          >
+            <Ionicons name="book-outline" size={56} color={COLORS.textInkMuted} />
+            <Typography variant="heading" color={COLORS.textInk} style={styles.emptyTitle}>Rien à lire</Typography>
+            <Typography variant="body" color={COLORS.textInkMuted} style={styles.emptyText}>
+              Ajoutez des BD en statut «&nbsp;En cours&nbsp;» pour les voir ici.
+            </Typography>
+            <Pressable style={styles.emptyBtn} onPress={() => router.push('/(tabs)/search' as never)}>
+              <Typography variant="bodyBold" color={COLORS.onInk}>Rechercher</Typography>
+            </Pressable>
+          </ScrollView>
+        ) : (
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={[styles.listContent, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom }]}
+          >
+            {readingEntries.map((entry, i) => (
+              <BDCard key={entry.comicId} entry={entry} index={i} />
+            ))}
+          </ScrollView>
+        )
+      )}
+
+      {/* À VENIR */}
+      {activeTab === 'venir' && (
+        unfinishedOngoing.length === 0 ? (
+          <ScrollView
+            contentContainerStyle={[styles.emptyWrap, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom }]}
+          >
+            <Ionicons name="calendar-outline" size={56} color={COLORS.textInkMuted} />
+            <Typography variant="heading" color={COLORS.textInk} style={styles.emptyTitle}>Aucune série en cours</Typography>
+            <Typography variant="body" color={COLORS.textInkMuted} style={styles.emptyText}>
+              Recherchez des BD à suivre dans l'onglet Rechercher.
+            </Typography>
+          </ScrollView>
+        ) : (
+          <>
+            <View style={styles.infoBar}>
+              <Ionicons name="information-circle-outline" size={14} color={COLORS.textInkMuted} />
+              <Typography variant="caption" color={COLORS.textInkMuted} style={styles.infoText}>
+                Dates de sortie indisponibles — séries en cours de suivi
+              </Typography>
+            </View>
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={[styles.listContent, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom }]}
+            >
+              {unfinishedOngoing.map((entry, i) => (
+                <UpcomingBDCard key={entry.comicId} entry={entry} index={i} />
+              ))}
+            </ScrollView>
+          </>
+        )
       )}
     </View>
   );
@@ -404,101 +293,133 @@ export default function ComicsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.paper },
-  header: { paddingHorizontal: SPACING.base, paddingTop: SPACING.md, paddingBottom: 0, gap: 4 },
-  headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginBottom: SPACING.sm },
-  title: { fontSize: 38, lineHeight: 40 },
+
+  header: {
+    paddingHorizontal: SPACING.base,
+    paddingTop: SPACING.md,
+    gap: 4,
+    borderBottomWidth: BORDERS.hair,
+    borderBottomColor: COLORS.line,
+    paddingBottom: 0,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    marginBottom: SPACING.sm,
+  },
+  title: { fontSize: 34, lineHeight: 36, flex: 1 },
   countBadge: {
     backgroundColor: COLORS.paperSunken,
-    paddingHorizontal: SPACING.md, paddingVertical: SPACING.xs,
-    borderRadius: RADIUS.full, borderWidth: BORDERS.hair, borderColor: COLORS.line,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
+    borderRadius: RADIUS.full,
+    borderWidth: BORDERS.hair,
+    borderColor: COLORS.line,
   },
-  subTabs: { flexDirection: 'row', borderBottomWidth: BORDERS.hair, borderBottomColor: COLORS.line },
-  subTabBtn: { paddingBottom: SPACING.md, paddingRight: SPACING.xl, position: 'relative' },
-  subTabContent: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs },
-  subTabLabel: { color: COLORS.textInkMuted, fontSize: 14 },
-  subTabLabelActive: { color: COLORS.textInk },
+
+  subTabs: { flexDirection: 'row', gap: SPACING.xl },
+  subTabBtn: { paddingBottom: SPACING.md, paddingTop: SPACING.xs, position: 'relative' },
+  subTabLabel: { color: COLORS.textInkMuted, fontSize: 13, letterSpacing: 0.8 },
+  subTabLabelActive: { color: COLORS.textInk, fontFamily: FONTS.bodyBold },
   subTabLine: {
-    position: 'absolute', bottom: -1, left: 0, right: SPACING.xl,
-    height: 2, backgroundColor: COLORS.accentRed, borderRadius: 1,
+    position: 'absolute',
+    bottom: -1,
+    left: 0,
+    right: 0,
+    height: 2,
+    backgroundColor: COLORS.accentRed,
+    borderRadius: 1,
   },
 
-  // ── SEARCH ──
-  searchScroll: { paddingHorizontal: SPACING.base, paddingTop: SPACING.md, gap: SPACING.md },
-  searchBarRow: { flexDirection: 'row', gap: SPACING.sm },
-  searchBar: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', gap: SPACING.sm,
-    backgroundColor: COLORS.paperSunken, borderRadius: RADIUS.lg,
-    borderWidth: BORDERS.bold, borderColor: COLORS.ink,
-    paddingHorizontal: SPACING.md, height: 48,
-  },
-  searchInput: {
-    flex: 1, fontFamily: FONTS.body, fontSize: 15,
-    color: COLORS.textInk, height: '100%',
-  },
-  searchBtn: {
-    height: 48, paddingHorizontal: SPACING.lg,
-    backgroundColor: COLORS.ink, borderRadius: RADIUS.lg,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  searchBtnText: { letterSpacing: 1.5, fontSize: 11 },
-  searchHint: { alignItems: 'center', gap: SPACING.md, paddingVertical: SPACING.xxl, paddingHorizontal: SPACING.lg },
-  searchHintText: { textAlign: 'center', lineHeight: 22 },
-  stateBox: { paddingVertical: SPACING.xxl, alignItems: 'center', gap: SPACING.md },
-  stateText: { textAlign: 'center' },
-  resultsList: { gap: SPACING.sm },
-  resultCard: {
-    flexDirection: 'row', alignItems: 'center', gap: SPACING.md,
-    backgroundColor: COLORS.paperRaised, borderRadius: RADIUS.lg,
-    borderWidth: BORDERS.bold, borderColor: COLORS.ink,
-    padding: SPACING.md,
-  },
-  resultCoverFrame: {
-    borderRadius: RADIUS.sm, borderWidth: BORDERS.bold, borderColor: COLORS.ink, overflow: 'hidden',
-  },
-  resultCover: { width: 52, height: 74 },
-  resultCoverEmpty: { backgroundColor: COLORS.paperSunken, alignItems: 'center', justifyContent: 'center' },
-  resultInfo: { flex: 1, gap: SPACING.xs },
-  resultTitle: { fontSize: 14, lineHeight: 18 },
-  resultCategories: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.xs, marginTop: 2 },
-  categoryChip: {
-    backgroundColor: COLORS.accentSoft, paddingHorizontal: SPACING.sm, paddingVertical: 2,
-    borderRadius: RADIUS.full, borderWidth: BORDERS.hair, borderColor: `${COLORS.accentRed}44`,
-  },
-  categoryChipText: { fontSize: 9, letterSpacing: 0.3 },
-  addBtn: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: COLORS.accentRed, borderWidth: BORDERS.bold, borderColor: COLORS.accentDeep,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  addBtnDone: { backgroundColor: COLORS.statusCompleted, borderColor: COLORS.statusCompleted },
-  addBtnPressed: { opacity: 0.8 },
+  listContent: { paddingTop: SPACING.sm },
 
-  // ── LIBRARY ──
-  libScroll: { paddingHorizontal: SPACING.base, paddingTop: SPACING.md, gap: SPACING.md },
-  filterScroll: { flexGrow: 0, marginHorizontal: -SPACING.base },
-  filterTabs: { paddingHorizontal: SPACING.base, gap: SPACING.sm },
-  filterTab: {
-    paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm,
-    borderRadius: RADIUS.full, backgroundColor: COLORS.paperSunken,
-    borderWidth: BORDERS.bold, borderColor: COLORS.line,
+  infoBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    paddingHorizontal: SPACING.base,
+    paddingVertical: SPACING.sm,
+    backgroundColor: COLORS.paperSunken,
+    borderBottomWidth: BORDERS.hair,
+    borderBottomColor: COLORS.line,
   },
-  filterTabActive: { backgroundColor: COLORS.accentSoft, borderColor: COLORS.accentRed },
-  libList: { gap: SPACING.md },
-  libCard: { borderRadius: RADIUS.lg },
-  libCardInner: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md, padding: SPACING.md },
-  libCoverFrame: { borderRadius: RADIUS.sm, borderWidth: BORDERS.bold, borderColor: COLORS.ink, overflow: 'hidden' },
-  libCover: { width: 52, height: 74 },
-  libCoverEmpty: { backgroundColor: COLORS.paperSunken, alignItems: 'center', justifyContent: 'center' },
-  libInfo: { flex: 1, gap: SPACING.xs },
-  libTitle: { fontSize: 14, lineHeight: 18 },
-  libProgressRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
-  libProgressTrack: { flex: 1, height: 4, backgroundColor: COLORS.paperSunken, borderRadius: 2, overflow: 'hidden', borderWidth: BORDERS.hair, borderColor: COLORS.line },
-  libProgressFill: { height: '100%', backgroundColor: COLORS.accentRed, borderRadius: 2 },
-  libProgressText: { minWidth: 52, textAlign: 'right', fontSize: 10 },
-  libStatusRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs },
-  statusDot: { width: 7, height: 7, borderRadius: 4 },
-  emptyState: { paddingTop: SPACING.xxl, alignItems: 'center', gap: SPACING.md, paddingHorizontal: SPACING.xl },
-  emptyEmoji: { fontSize: 48, lineHeight: 56 },
+  infoText: { flex: 1 },
+
+  // TV Time card
+  tvCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.base,
+    paddingVertical: SPACING.md,
+    gap: SPACING.md,
+    borderBottomWidth: BORDERS.hair,
+    borderBottomColor: COLORS.line,
+    backgroundColor: COLORS.paper,
+  },
+  tvCoverWrap: {
+    borderRadius: RADIUS.sm,
+    borderWidth: BORDERS.bold,
+    borderColor: COLORS.ink,
+    overflow: 'hidden',
+    flexShrink: 0,
+  },
+  tvCover: { width: 68, height: 96 },
+  tvCoverEmpty: { backgroundColor: COLORS.paperSunken, alignItems: 'center', justifyContent: 'center' },
+  tvBody: { flex: 1, gap: SPACING.xs },
+  tvTitlePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 3,
+    backgroundColor: COLORS.paperSunken,
+    borderRadius: RADIUS.full,
+    borderWidth: BORDERS.bold,
+    borderColor: COLORS.ink,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 3,
+    maxWidth: '90%',
+  },
+  tvTitlePillText: {
+    fontSize: 10,
+    letterSpacing: 0.6,
+    color: COLORS.textInk,
+    fontFamily: FONTS.bodyBold,
+    flexShrink: 1,
+  },
+  tvVolume: {
+    fontFamily: FONTS.display,
+    fontSize: 24,
+    lineHeight: 28,
+    color: COLORS.textInk,
+    letterSpacing: 0.5,
+  },
+  tvMeta: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, flexWrap: 'wrap' },
+  tvBadge: {
+    backgroundColor: COLORS.accentRed,
+    borderRadius: RADIUS.full,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 2,
+  },
+  tvBadgeText: { fontSize: 8, letterSpacing: 0.8, color: COLORS.onInk, fontFamily: FONTS.bodyBold },
+  tvBadgeInfo: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+
+  // Empty / loading
+  emptyWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.md,
+    padding: SPACING.xl,
+    paddingTop: 80,
+  },
   emptyTitle: { textAlign: 'center' },
   emptyText: { textAlign: 'center', lineHeight: 22 },
+  emptyBtn: {
+    marginTop: SPACING.sm,
+    paddingHorizontal: SPACING.xl,
+    paddingVertical: SPACING.md,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.accentRed,
+  },
 });

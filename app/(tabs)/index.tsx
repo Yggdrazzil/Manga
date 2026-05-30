@@ -1,246 +1,523 @@
-import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { MotiView } from 'moti';
-import React, { useCallback } from 'react';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  SectionList,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import * as anilist from '@/lib/api/anilist';
-import * as mangadex from '@/lib/api/mangadex';
-import { MediaRow } from '@/components/manga/MediaRow';
-import { Halftone } from '@/components/ui/Halftone';
+import { useQuery } from '@tanstack/react-query';
+import { getChaptersForLibrary } from '@/lib/api/mangadex';
+import { useLibraryStore } from '@/lib/store/library';
 import { Typography } from '@/components/ui/Typography';
-import { TypeBadge } from '@/components/ui/TypeBadge';
-import { BORDERS, COLORS, RADIUS, SPACING } from '@/constants/theme';
+import { BORDERS, COLORS, FONTS, RADIUS, SPACING } from '@/constants/theme';
+import type { LibraryEntry, MangaChapter } from '@/lib/types';
 
 const TAB_BAR_HEIGHT = 88;
 
-function HeroCard() {
+// ── Date helpers ──────────────────────────────────────────────────────────────
+
+function relativeGroup(dateStr: string): string {
+  if (!dateStr) return 'PLUS ANCIEN';
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffH = diffMs / (1000 * 60 * 60);
+  if (diffH < 24) return "AUJOURD'HUI";
+  if (diffH < 48) return 'HIER';
+  if (diffH < 7 * 24) return 'CETTE SEMAINE';
+  const d = date.getDate().toString().padStart(2, '0');
+  const months = ['JAN', 'FÉV', 'MAR', 'AVR', 'MAI', 'JUN', 'JUL', 'AOÛ', 'SEP', 'OCT', 'NOV', 'DÉC'];
+  return `${d} ${months[date.getMonth()]} ${date.getFullYear()}`;
+}
+
+function isNew(dateStr: string): boolean {
+  if (!dateStr) return false;
+  const diffH = (Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60);
+  return diffH < 48;
+}
+
+// ── À VOIR card ───────────────────────────────────────────────────────────────
+
+function TrackerCard({ entry, index }: { entry: LibraryEntry; index: number }) {
   const router = useRouter();
-  const { data } = useQuery({
-    queryKey: ['trending', 1, 1],
-    queryFn: () => anilist.getTrending(1, 6),
-  });
-
-  const hero = data?.items[0];
-  if (!hero) {
-    return <View style={styles.heroPlaceholder} />;
-  }
-
-  const title = hero.title.english ?? hero.title.romaji ?? hero.title.userPreferred;
+  const progress = entry.progress;
+  const total = entry.manga.chapters;
+  const readCount = entry.readChapterIds?.length ?? 0;
+  const remaining = total != null ? total - readCount : null;
+  const isNew0 = progress === 0;
 
   return (
     <MotiView
-      from={{ opacity: 0, translateY: 12 }}
-      animate={{ opacity: 1, translateY: 0 }}
-      transition={{ type: 'spring', stiffness: 280, damping: 28 }}
+      from={{ opacity: 0, translateX: -12 }}
+      animate={{ opacity: 1, translateX: 0 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 26, delay: Math.min(index * 45, 400) }}
     >
       <Pressable
-        style={styles.heroCard}
-        onPress={() => router.push(`/manga/${hero.id}?source=${hero.source}`)}
+        style={styles.tvCard}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          router.push(`/manga/${entry.mangaId}?source=${entry.source}` as never);
+        }}
         accessibilityRole="button"
-        accessibilityLabel={`Voir ${title}`}
+        accessibilityLabel={entry.manga.title.userPreferred}
       >
-        <Image
-          source={{ uri: hero.bannerImage ?? hero.coverImage }}
-          style={StyleSheet.absoluteFillObject}
-          contentFit="cover"
-          cachePolicy="memory-disk"
-        />
-        <LinearGradient
-          colors={['rgba(22,19,14,0.1)', 'rgba(22,19,14,0.65)', COLORS.ink]}
-          locations={[0.3, 0.65, 1]}
-          style={StyleSheet.absoluteFillObject}
-        />
-        <Halftone opacity={0.03} />
-        <View style={styles.heroContent}>
-          <View style={styles.heroMeta}>
-            <TypeBadge type={hero.type} />
-            {hero.year && (
-              <Typography variant="kicker" color={COLORS.onInkMuted}>
-                {hero.year}
-              </Typography>
-            )}
-          </View>
-          <Typography variant="hero" color={COLORS.onInk} style={styles.heroTitle} numberOfLines={2}>
-            {title}
-          </Typography>
-          {hero.genres.slice(0, 3).length > 0 && (
-            <View style={styles.heroGenres}>
-              {hero.genres.slice(0, 3).map(g => (
-                <View key={g} style={styles.genreChip}>
-                  <Typography variant="label" color={COLORS.onInkMuted}>{g}</Typography>
-                </View>
-              ))}
+        <View style={styles.tvCoverWrap}>
+          {entry.manga.coverImage ? (
+            <Image source={{ uri: entry.manga.coverImage }} style={styles.tvCover} contentFit="cover" cachePolicy="memory-disk" />
+          ) : (
+            <View style={[styles.tvCover, styles.tvCoverEmpty]}>
+              <Ionicons name="book" size={22} color={COLORS.textInkMuted} />
             </View>
           )}
+        </View>
+
+        <View style={styles.tvBody}>
+          <Pressable
+            style={styles.tvTitlePill}
+            onPress={() => router.push(`/manga/${entry.mangaId}?source=${entry.source}` as never)}
+            hitSlop={4}
+          >
+            <Typography variant="caption" style={styles.tvTitlePillText} numberOfLines={1}>
+              {entry.manga.title.userPreferred.toUpperCase()}
+            </Typography>
+            <Ionicons name="chevron-forward" size={10} color={COLORS.textInk} />
+          </Pressable>
+
+          <Typography style={styles.tvChapter}>
+            {isNew0 ? 'Ch. 1' : `Ch. ${progress + 1}`}
+          </Typography>
+
+          <View style={styles.tvMeta}>
+            {remaining !== null && remaining > 0 && (
+              <View style={styles.tvBadge}>
+                <Typography variant="caption" style={styles.tvBadgeText}>
+                  +{remaining}
+                </Typography>
+              </View>
+            )}
+            <Typography variant="caption" color={COLORS.textInkMuted}>
+              {isNew0 ? 'À commencer' : `${progress} lus`}
+              {total != null ? ` / ${total}` : ''}
+            </Typography>
+          </View>
+        </View>
+
+        <Ionicons name="chevron-forward" size={16} color={COLORS.textInkFaint} />
+      </Pressable>
+    </MotiView>
+  );
+}
+
+// ── À VENIR card ──────────────────────────────────────────────────────────────
+
+function ChapterCard({
+  chapter,
+  entry,
+  index,
+}: {
+  chapter: MangaChapter;
+  entry: LibraryEntry;
+  index: number;
+}) {
+  const router = useRouter();
+  const nouveau = isNew(chapter.publishAt);
+
+  return (
+    <MotiView
+      from={{ opacity: 0, translateX: -12 }}
+      animate={{ opacity: 1, translateX: 0 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 26, delay: Math.min(index * 40, 400) }}
+    >
+      <Pressable
+        style={styles.tvCard}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          router.push(`/manga/${entry.mangaId}?source=${entry.source}` as never);
+        }}
+      >
+        <View style={styles.tvCoverWrap}>
+          {entry.manga.coverImage ? (
+            <Image source={{ uri: entry.manga.coverImage }} style={styles.tvCover} contentFit="cover" cachePolicy="memory-disk" />
+          ) : (
+            <View style={[styles.tvCover, styles.tvCoverEmpty]}>
+              <Ionicons name="book" size={22} color={COLORS.textInkMuted} />
+            </View>
+          )}
+        </View>
+
+        <View style={styles.tvBody}>
+          <Pressable
+            style={styles.tvTitlePill}
+            onPress={() => router.push(`/manga/${entry.mangaId}?source=${entry.source}` as never)}
+            hitSlop={4}
+          >
+            <Typography variant="caption" style={styles.tvTitlePillText} numberOfLines={1}>
+              {entry.manga.title.userPreferred.toUpperCase()}
+            </Typography>
+            <Ionicons name="chevron-forward" size={10} color={COLORS.textInk} />
+          </Pressable>
+
+          <Typography style={styles.tvChapter}>
+            Ch. {chapter.chapter}
+          </Typography>
+
+          {chapter.title && (
+            <Typography variant="label" color={COLORS.textInkMuted} numberOfLines={1} style={styles.tvChapterTitle}>
+              {chapter.title}
+            </Typography>
+          )}
+
+          <View style={styles.tvMeta}>
+            {nouveau && (
+              <View style={[styles.tvBadge, styles.tvBadgeNew]}>
+                <Typography variant="caption" style={[styles.tvBadgeText, styles.tvBadgeNewText]}>NOUVEAU</Typography>
+              </View>
+            )}
+            {chapter.isReadable && (
+              <View style={[styles.tvBadge, styles.tvBadgeReadable]}>
+                <Typography variant="caption" style={[styles.tvBadgeText, { color: COLORS.onInk }]}>LISIBLE</Typography>
+              </View>
+            )}
+          </View>
         </View>
       </Pressable>
     </MotiView>
   );
 }
 
-export default function DiscoverScreen() {
+// ── Section header ─────────────────────────────────────────────────────────────
+
+function SectionHeader({ title }: { title: string }) {
+  return (
+    <View style={styles.sectionHeaderWrap}>
+      <View style={styles.sectionPill}>
+        <Typography variant="caption" style={styles.sectionPillText}>{title}</Typography>
+      </View>
+    </View>
+  );
+}
+
+// ── SCREEN ────────────────────────────────────────────────────────────────────
+
+export default function MangaTrackerScreen() {
   const insets = useSafeAreaInsets();
-  const queryClient = useQueryClient();
-  const [refreshing, setRefreshing] = React.useState(false);
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState<'voir' | 'venir'>('voir');
+  const [refreshing, setRefreshing] = useState(false);
 
-  const { data: trending, isLoading: trendingLoading } = useQuery({
-    queryKey: ['trending', 1, 20],
-    queryFn: () => anilist.getTrending(1, 20),
+  const entries = useLibraryStore(s => s.entries);
+  const readingEntries = useMemo(
+    () => entries.filter(e => e.status === 'READING').sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()),
+    [entries],
+  );
+
+  // Build MangaDex ID lookup for À venir
+  const mangadexIdMap = useMemo(() => {
+    const map = new Map<string, LibraryEntry>();
+    for (const e of entries) {
+      if (e.source === 'mangadex') map.set(e.mangaId, e);
+      else if (e.manga.mangadexId) map.set(e.manga.mangadexId, e);
+    }
+    return map;
+  }, [entries]);
+
+  const mangadexIds = useMemo(() => Array.from(mangadexIdMap.keys()), [mangadexIdMap]);
+
+  const {
+    data: recentChapters,
+    isLoading: chaptersLoading,
+    refetch,
+  } = useQuery({
+    queryKey: ['library-chapters', mangadexIds.join(',')],
+    queryFn: () => getChaptersForLibrary(mangadexIds),
+    enabled: mangadexIds.length > 0,
+    staleTime: 1000 * 60 * 15,
   });
 
-  const { data: manhwa, isLoading: manhwaLoading } = useQuery({
-    queryKey: ['manhwa'],
-    queryFn: () => anilist.getManhwa(1, 20),
-  });
+  // Build section list data for À venir
+  const avenir = useMemo(() => {
+    if (!recentChapters) return [];
+    const readIds = new Set(entries.flatMap(e => e.readChapterIds ?? []));
 
-  const { data: webtoons, isLoading: webtoonsLoading } = useQuery({
-    queryKey: ['webtoons'],
-    queryFn: () => mangadex.getWebtoons(1, 20),
-  });
+    const unread = recentChapters
+      .filter(ch => !readIds.has(ch.id) && mangadexIdMap.has(ch.mangaId))
+      .sort((a, b) => new Date(b.publishAt).getTime() - new Date(a.publishAt).getTime());
 
-  const { data: popular, isLoading: popularLoading } = useQuery({
-    queryKey: ['popular'],
-    queryFn: () => anilist.getPopular(1, 20),
-  });
+    const groups = new Map<string, MangaChapter[]>();
+    for (const ch of unread) {
+      const grp = relativeGroup(ch.publishAt);
+      if (!groups.has(grp)) groups.set(grp, []);
+      groups.get(grp)!.push(ch);
+    }
 
-  const { data: manhua } = useQuery({
-    queryKey: ['manhua'],
-    queryFn: () => anilist.getManhua(1, 20),
-  });
+    return Array.from(groups.entries()).map(([title, data]) => ({ title, data }));
+  }, [recentChapters, entries, mangadexIdMap]);
 
-  const onRefresh = useCallback(async () => {
+  const onRefresh = async () => {
     setRefreshing(true);
-    await queryClient.invalidateQueries({ queryKey: ['trending'] });
-    await queryClient.invalidateQueries({ queryKey: ['manhwa'] });
-    await queryClient.invalidateQueries({ queryKey: ['popular'] });
+    await refetch();
     setRefreshing(false);
-  }, [queryClient]);
+  };
+
+  const isEmpty = readingEntries.length === 0;
+  const avenirEmpty = avenir.length === 0 && !chaptersLoading;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.content, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom }]}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={COLORS.accentRed}
-            colors={[COLORS.accentRed]}
-          />
-        }
-      >
-        <MotiView
-          from={{ opacity: 0, translateY: -12 }}
-          animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: 'spring', stiffness: 350, damping: 28 }}
-          style={styles.header}
-        >
-          <Typography variant="kicker" color={COLORS.accentRed}>
-            MANGA TRACKER
+      {/* Header */}
+      <View style={styles.header}>
+        <Typography variant="kicker" color={COLORS.accentRed}>BIBLIOTHÈQUE</Typography>
+        <View style={styles.headerRow}>
+          <Typography variant="hero" color={COLORS.textInk} style={styles.title}>
+            Manga & Webtoon
           </Typography>
-          <Typography variant="hero" color={COLORS.textInk} style={styles.appTitle}>
-            Découvrir
-          </Typography>
-        </MotiView>
-
-        <HeroCard />
-
-        <View style={styles.rows}>
-          <MediaRow
-            title="TENDANCES"
-            mangas={trending?.items}
-            isLoading={trendingLoading}
-          />
-          <MediaRow
-            title="MANHWA"
-            mangas={manhwa?.items}
-            isLoading={manhwaLoading}
-          />
-          <MediaRow
-            title="WEBTOONS"
-            mangas={webtoons?.items}
-            isLoading={webtoonsLoading}
-          />
-          <MediaRow
-            title="TOP MANGA"
-            mangas={popular?.items}
-            isLoading={popularLoading}
-            cardWidth={130}
-          />
-          {manhua && (
-            <MediaRow
-              title="MANHUA"
-              mangas={manhua.items}
-              cardWidth={110}
-            />
-          )}
+          <View style={styles.countBadge}>
+            <Typography variant="label" color={COLORS.textInkMuted}>{entries.length}</Typography>
+          </View>
         </View>
-      </ScrollView>
+
+        {/* Sub-tabs */}
+        <View style={styles.subTabs}>
+          {(['voir', 'venir'] as const).map(tab => (
+            <Pressable
+              key={tab}
+              style={styles.subTabBtn}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setActiveTab(tab);
+              }}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: activeTab === tab }}
+            >
+              <Typography
+                variant="subheading"
+                style={[styles.subTabLabel, activeTab === tab && styles.subTabLabelActive]}
+              >
+                {tab === 'voir' ? 'À VOIR' : 'À VENIR'}
+              </Typography>
+              {activeTab === tab && <View style={styles.subTabLine} />}
+            </Pressable>
+          ))}
+        </View>
+      </View>
+
+      {/* À VOIR */}
+      {activeTab === 'voir' && (
+        isEmpty ? (
+          <ScrollView
+            contentContainerStyle={[styles.emptyWrap, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom }]}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accentRed} colors={[COLORS.accentRed]} />}
+          >
+            <Ionicons name="book-outline" size={56} color={COLORS.textInkMuted} />
+            <Typography variant="heading" color={COLORS.textInk} style={styles.emptyTitle}>Rien à lire</Typography>
+            <Typography variant="body" color={COLORS.textInkMuted} style={styles.emptyText}>
+              Ajoutez des mangas en statut «&nbsp;En cours&nbsp;» pour les voir ici.
+            </Typography>
+            <Pressable style={styles.emptyBtn} onPress={() => router.push('/(tabs)/search' as never)}>
+              <Typography variant="bodyBold" color={COLORS.onInk}>Rechercher</Typography>
+            </Pressable>
+          </ScrollView>
+        ) : (
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={[styles.listContent, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom }]}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accentRed} colors={[COLORS.accentRed]} />}
+          >
+            {readingEntries.map((entry, i) => (
+              <TrackerCard key={`${entry.mangaId}-${entry.source}`} entry={entry} index={i} />
+            ))}
+          </ScrollView>
+        )
+      )}
+
+      {/* À VENIR */}
+      {activeTab === 'venir' && (
+        chaptersLoading ? (
+          <View style={styles.loadingWrap}>
+            <ActivityIndicator color={COLORS.accentRed} size="large" />
+            <Typography variant="body" color={COLORS.textInkMuted}>Chargement du fil de chapitres…</Typography>
+          </View>
+        ) : avenirEmpty ? (
+          <ScrollView
+            contentContainerStyle={[styles.emptyWrap, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom }]}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accentRed} colors={[COLORS.accentRed]} />}
+          >
+            <Ionicons name="calendar-outline" size={56} color={COLORS.textInkMuted} />
+            <Typography variant="heading" color={COLORS.textInk} style={styles.emptyTitle}>Pas de nouveaux chapitres</Typography>
+            <Typography variant="body" color={COLORS.textInkMuted} style={styles.emptyText}>
+              Aucun nouveau chapitre sur MangaDex dans les 14 derniers jours pour vos mangas.
+            </Typography>
+          </ScrollView>
+        ) : (
+          <SectionList
+            sections={avenir}
+            keyExtractor={item => item.id}
+            renderSectionHeader={({ section }) => <SectionHeader title={section.title} />}
+            renderItem={({ item, index }) => {
+              const entry = mangadexIdMap.get(item.mangaId);
+              if (!entry) return null;
+              return <ChapterCard chapter={item} entry={entry} index={index} />;
+            }}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={[styles.listContent, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom }]}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accentRed} colors={[COLORS.accentRed]} />}
+          />
+        )
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.paper },
-  content: { paddingTop: SPACING.md },
+
   header: {
     paddingHorizontal: SPACING.base,
-    marginBottom: SPACING.lg,
+    paddingTop: SPACING.md,
     gap: 4,
+    borderBottomWidth: BORDERS.hair,
+    borderBottomColor: COLORS.line,
+    paddingBottom: 0,
   },
-  appTitle: {
-    fontSize: 38,
-    lineHeight: 40,
-  },
-  heroCard: {
-    height: 260,
-    marginHorizontal: SPACING.base,
-    borderRadius: RADIUS.lg,
-    borderWidth: BORDERS.bold,
-    borderColor: COLORS.ink,
-    overflow: 'hidden',
-    marginBottom: SPACING.xl,
-    backgroundColor: COLORS.ink,
-    justifyContent: 'flex-end',
-  },
-  heroPlaceholder: {
-    height: 260,
-    marginHorizontal: SPACING.base,
-    borderRadius: RADIUS.lg,
-    borderWidth: BORDERS.bold,
-    borderColor: COLORS.ink,
-    backgroundColor: COLORS.ink,
-    marginBottom: SPACING.xl,
-  },
-  heroContent: {
-    padding: SPACING.base,
-    gap: SPACING.sm,
-  },
-  heroMeta: {
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.sm,
+    marginBottom: SPACING.sm,
   },
-  heroTitle: {
-    fontSize: 30,
-    lineHeight: 32,
+  title: { fontSize: 34, lineHeight: 36, flex: 1 },
+  countBadge: {
+    backgroundColor: COLORS.paperSunken,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
+    borderRadius: RADIUS.full,
+    borderWidth: BORDERS.hair,
+    borderColor: COLORS.line,
   },
-  heroGenres: {
+
+  subTabs: { flexDirection: 'row', gap: SPACING.xl },
+  subTabBtn: { paddingBottom: SPACING.md, paddingTop: SPACING.xs, position: 'relative' },
+  subTabLabel: { color: COLORS.textInkMuted, fontSize: 13, letterSpacing: 0.8 },
+  subTabLabelActive: { color: COLORS.textInk, fontFamily: FONTS.bodyBold },
+  subTabLine: {
+    position: 'absolute',
+    bottom: -1,
+    left: 0,
+    right: 0,
+    height: 2,
+    backgroundColor: COLORS.accentRed,
+    borderRadius: 1,
+  },
+
+  listContent: { paddingTop: SPACING.sm },
+
+  // TV Time card
+  tvCard: {
     flexDirection: 'row',
-    gap: SPACING.sm,
-    flexWrap: 'wrap',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.base,
+    paddingVertical: SPACING.md,
+    gap: SPACING.md,
+    borderBottomWidth: BORDERS.hair,
+    borderBottomColor: COLORS.line,
+    backgroundColor: COLORS.paper,
   },
-  genreChip: {
-    backgroundColor: COLORS.lineOnInk,
+  tvCoverWrap: {
+    borderRadius: RADIUS.sm,
+    borderWidth: BORDERS.bold,
+    borderColor: COLORS.ink,
+    overflow: 'hidden',
+    flexShrink: 0,
+  },
+  tvCover: { width: 68, height: 96 },
+  tvCoverEmpty: { backgroundColor: COLORS.paperSunken, alignItems: 'center', justifyContent: 'center' },
+  tvBody: { flex: 1, gap: SPACING.xs },
+  tvTitlePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 3,
+    backgroundColor: COLORS.paperSunken,
+    borderRadius: RADIUS.full,
+    borderWidth: BORDERS.bold,
+    borderColor: COLORS.ink,
     paddingHorizontal: SPACING.sm,
     paddingVertical: 3,
-    borderRadius: RADIUS.sm,
-    borderWidth: BORDERS.hair,
-    borderColor: COLORS.lineOnInk,
+    maxWidth: '90%',
   },
-  rows: { gap: 0 },
+  tvTitlePillText: {
+    fontSize: 10,
+    letterSpacing: 0.6,
+    color: COLORS.textInk,
+    fontFamily: FONTS.bodyBold,
+    flexShrink: 1,
+  },
+  tvChapter: {
+    fontFamily: FONTS.display,
+    fontSize: 24,
+    lineHeight: 28,
+    color: COLORS.textInk,
+    letterSpacing: 0.5,
+  },
+  tvChapterTitle: { fontSize: 12 },
+  tvMeta: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, flexWrap: 'wrap' },
+  tvBadge: {
+    backgroundColor: COLORS.accentRed,
+    borderRadius: RADIUS.full,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 2,
+  },
+  tvBadgeNew: { backgroundColor: '#e8a12b' },
+  tvBadgeReadable: { backgroundColor: COLORS.statusCompleted },
+  tvBadgeText: { fontSize: 8, letterSpacing: 0.8, color: COLORS.onInk, fontFamily: FONTS.bodyBold },
+  tvBadgeNewText: { color: '#1a1a1a' },
+
+  // Section header
+  sectionHeaderWrap: { alignItems: 'center', paddingVertical: SPACING.md },
+  sectionPill: {
+    backgroundColor: COLORS.ink,
+    borderRadius: RADIUS.full,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.xs,
+  },
+  sectionPillText: {
+    color: COLORS.onInk,
+    fontSize: 10,
+    letterSpacing: 1,
+    fontFamily: FONTS.bodyBold,
+  },
+
+  // Empty / loading states
+  emptyWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.md,
+    padding: SPACING.xl,
+    paddingTop: 80,
+  },
+  emptyTitle: { textAlign: 'center' },
+  emptyText: { textAlign: 'center', lineHeight: 22 },
+  emptyBtn: {
+    marginTop: SPACING.sm,
+    paddingHorizontal: SPACING.xl,
+    paddingVertical: SPACING.md,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.accentRed,
+  },
+  loadingWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.md,
+  },
 });

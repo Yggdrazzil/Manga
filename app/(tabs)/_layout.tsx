@@ -10,7 +10,7 @@ export default function TabsLayout() {
         headerShown: false,
       }}
     >
-      <Tabs.Screen name="index" options={{ title: 'Découvrir' }} />
+      <Tabs.Screen name="index" options={{ title: 'Manga & Webtoon' }} />
       <Tabs.Screen name="wishlist" options={{ title: 'BD & Comics' }} />
       <Tabs.Screen name="search" options={{ title: 'Rechercher' }} />
       <Tabs.Screen name="profile" options={{ title: 'Profil' }} />

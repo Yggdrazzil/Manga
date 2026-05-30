@@ -159,5 +159,6 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 9,
     letterSpacing: 0.6,
+    textAlign: 'center',
   },
 });
