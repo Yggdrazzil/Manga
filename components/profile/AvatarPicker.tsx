@@ -12,6 +12,7 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { getPopularCharacters, type CharacterAvatar } from '@/lib/api/anilist';
 import { Typography } from '@/components/ui/Typography';
@@ -29,6 +30,7 @@ const H_PADDING = SPACING.base;
 
 export function AvatarPicker({ visible, current, onSelect, onClose }: AvatarPickerProps) {
   const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
 
   const { data: characters, isLoading, isError, refetch } = useQuery({
     queryKey: ['popular-characters'],
@@ -130,7 +132,7 @@ export function AvatarPicker({ visible, current, onSelect, onClose }: AvatarPick
             keyExtractor={item => String(item.id)}
             numColumns={columns}
             columnWrapperStyle={styles.row}
-            contentContainerStyle={styles.grid}
+            contentContainerStyle={[styles.grid, { paddingBottom: insets.bottom + SPACING.xl }]}
             showsVerticalScrollIndicator={false}
           />
         )}
@@ -142,7 +144,7 @@ export function AvatarPicker({ visible, current, onSelect, onClose }: AvatarPick
 const styles = StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(22,19,14,0.72)',
+    backgroundColor: 'rgba(22,19,14,0.92)',
   },
   sheet: {
     position: 'absolute',

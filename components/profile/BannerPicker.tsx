@@ -14,6 +14,7 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { getPopularBanners } from '@/lib/api/anilist';
 import { Typography } from '@/components/ui/Typography';
@@ -92,6 +93,7 @@ function BannerCard({
 
 export function BannerPicker({ visible, current, entries, onSelect, onClose }: BannerPickerProps) {
   const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const cardWidth = width - H_PAD * 2;
 
   const { data: popularBanners, isLoading, isError, refetch } = useQuery({
@@ -134,7 +136,7 @@ export function BannerPicker({ visible, current, entries, onSelect, onClose }: B
 
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + SPACING.xl }]}
         >
           {libraryBanners.length > 0 && (
             <View style={styles.section}>
@@ -212,7 +214,7 @@ export function BannerPicker({ visible, current, entries, onSelect, onClose }: B
 const styles = StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(22,19,14,0.72)',
+    backgroundColor: 'rgba(22,19,14,0.92)',
   },
   sheet: {
     position: 'absolute',
