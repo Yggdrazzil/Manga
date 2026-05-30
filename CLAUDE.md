@@ -33,3 +33,6 @@ Manga reader/manager application. Always explore before coding. Use plan mode fo
 - Branch: feature/* or fix/*
 - Commit messages: imperative, ≤72 chars, focus on WHY
 - Never force-push main; never --no-verify
+
+## Tooling
+- Knowledge-graph tooling (graphify) is documented separately — see @.claude/graphify.md

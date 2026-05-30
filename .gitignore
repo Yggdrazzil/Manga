@@ -17,3 +17,6 @@ yarn-error.*
 .env
 .env.local
 .env.production
+
+# graphify generated knowledge graph (tool output, not source)
+graphify-out/
