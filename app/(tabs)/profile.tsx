@@ -136,12 +136,23 @@ function HistoryRow({ entry }: { entry: LibraryEntry }) {
   );
 }
 
+const BD_COLOR = '#1F6F8B';
+
+const BD_STATUS_COLORS: Record<ReadingStatus, string> = {
+  READING: BD_COLOR,
+  COMPLETED: COLORS.statusCompleted,
+  PLAN_TO_READ: COLORS.textInkMuted,
+  PAUSED: COLORS.statusPaused,
+  DROPPED: COLORS.statusDropped,
+};
+
 function BDHistoryRow({ entry }: { entry: BDSeriesEntry }) {
   const router = useRouter();
   const readCount = entry.readVolumes.length;
   const total = entry.series.totalVolumes;
   const percent = total > 0 ? Math.min(readCount / total, 1) : 0;
   const relative = formatDistanceToNow(new Date(entry.updatedAt), { addSuffix: true, locale: fr });
+  const statusColor = BD_STATUS_COLORS[entry.status];
 
   return (
     <Pressable onPress={() => router.push(`/comic/${entry.seriesId}` as never)}>
@@ -159,19 +170,24 @@ function BDHistoryRow({ entry }: { entry: BDSeriesEntry }) {
           <View style={styles.rowInfo}>
             <Typography variant="subheading" numberOfLines={2} color={COLORS.textInk} style={styles.rowTitle}>{entry.series.title}</Typography>
             <View style={styles.rowMeta}>
-              <StatusBadge status={entry.status} compact />
+              <View style={[styles.bdStatusPill, { backgroundColor: `${statusColor}22`, borderColor: `${statusColor}44` }]}>
+                <View style={[styles.bdStatusDot, { backgroundColor: statusColor }]} />
+                <Typography variant="label" style={[styles.bdStatusLabel, { color: statusColor }]}>
+                  {STATUS_LABELS[entry.status]}
+                </Typography>
+              </View>
               <Typography variant="label" color={COLORS.textInkMuted}>{relative}</Typography>
             </View>
             <View style={styles.progressRow}>
               <View style={styles.progressTrack}>
-                <View style={[styles.progressFill, { width: `${percent * 100}%` as `${number}%`, backgroundColor: '#1F6F8B' }]} />
+                <View style={[styles.progressFill, { width: `${percent * 100}%` as `${number}%`, backgroundColor: statusColor }]} />
               </View>
               <Typography variant="label" color={COLORS.textInkMuted} style={styles.progressText}>
                 {readCount}{total > 0 ? `/${total}` : ''} t.
               </Typography>
             </View>
           </View>
-          <View style={[styles.plusBtn, { backgroundColor: '#1F6F8B' }]}>
+          <View style={[styles.plusBtn, { backgroundColor: BD_COLOR }]}>
             <Typography style={[styles.plusLabel, { fontSize: 10 }]}>BD</Typography>
           </View>
         </View>
@@ -546,6 +562,13 @@ const styles = StyleSheet.create({
     marginLeft: SPACING.xs,
   },
   bdCountText: { fontSize: 9, letterSpacing: 0.6 },
+  bdStatusPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: SPACING.sm, paddingVertical: 2,
+    borderRadius: RADIUS.full, borderWidth: 1,
+  },
+  bdStatusDot: { width: 6, height: 6, borderRadius: 3 },
+  bdStatusLabel: { fontSize: 11, fontWeight: '600' },
   filterScroll: { flexGrow: 0, marginHorizontal: -SPACING.base },
   filterTabs: { paddingHorizontal: SPACING.base, gap: SPACING.sm },
   filterTab: {
