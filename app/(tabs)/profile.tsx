@@ -16,6 +16,7 @@ import { Panel } from '@/components/ui/Panel';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Typography } from '@/components/ui/Typography';
 import { AvatarPicker } from '@/components/profile/AvatarPicker';
+import { BannerPicker } from '@/components/profile/BannerPicker';
 import { Ionicons } from '@expo/vector-icons';
 
 const TAB_BAR_HEIGHT = 88;
@@ -139,13 +140,17 @@ export default function ProfileScreen() {
   const entries = useLibraryStore(s => s.entries);
   const avatar = useLibraryStore(s => s.avatar);
   const setAvatar = useLibraryStore(s => s.setAvatar);
+  const banner = useLibraryStore(s => s.banner);
+  const setBanner = useLibraryStore(s => s.setBanner);
   const getStats = useLibraryStore(s => s.getStats);
   const stats = getStats();
   const [filter, setFilter] = useState<Filter>('ALL');
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [bannerPickerOpen, setBannerPickerOpen] = useState(false);
 
   const featured = entries.find(e => e.manga.bannerImage) ?? entries[0];
-  const backdrop = featured?.manga.bannerImage ?? featured?.manga.coverImage;
+  const autoBanner = featured?.manga.bannerImage ?? featured?.manga.coverImage;
+  const backdrop = banner ?? autoBanner;
 
   const visible = entries
     .filter(e => (filter === 'ALL' ? true : e.status === filter))
@@ -169,6 +174,21 @@ export default function ProfileScreen() {
             locations={[0, 0.55, 1]}
             style={StyleSheet.absoluteFillObject}
           />
+          <Pressable
+            style={[styles.bannerEditBtn, { top: insets.top + SPACING.sm }]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setBannerPickerOpen(true);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Changer le fond de profil"
+            hitSlop={8}
+          >
+            <Ionicons name="image-outline" size={15} color={COLORS.onInk} />
+            <Typography variant="kicker" color={COLORS.onInk} style={styles.bannerEditLabel}>
+              FOND
+            </Typography>
+          </Pressable>
           <MotiView
             from={{ opacity: 0, translateY: 12 }}
             animate={{ opacity: 1, translateY: 0 }}
@@ -313,6 +333,14 @@ export default function ProfileScreen() {
         onSelect={setAvatar}
         onClose={() => setPickerOpen(false)}
       />
+
+      <BannerPicker
+        visible={bannerPickerOpen}
+        current={banner}
+        entries={entries}
+        onSelect={setBanner}
+        onClose={() => setBannerPickerOpen(false)}
+      />
     </View>
   );
 }
@@ -364,6 +392,20 @@ const styles = StyleSheet.create({
   },
   avatarEmoji: { fontSize: 38, lineHeight: 44 },
   username: { fontSize: 28, lineHeight: 30 },
+  bannerEditBtn: {
+    position: 'absolute',
+    right: SPACING.base,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    backgroundColor: 'rgba(22,19,14,0.55)',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs + 2,
+    borderRadius: RADIUS.full,
+    borderWidth: BORDERS.hair,
+    borderColor: 'rgba(255,255,255,0.18)',
+  },
+  bannerEditLabel: { letterSpacing: 1.2, fontSize: 9 },
 
   statStrip: {
     flexDirection: 'row',

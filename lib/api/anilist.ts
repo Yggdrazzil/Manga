@@ -252,6 +252,46 @@ export async function getPopularCharacters(perPage = 48): Promise<CharacterAvata
     .filter(c => c.image);
 }
 
+export interface BannerBackground {
+  id: number;
+  title: string;
+  uri: string;
+}
+
+interface BannerPageResponse {
+  Page: {
+    media: Array<{
+      id: number;
+      title: { english?: string | null; romaji?: string | null; userPreferred: string };
+      bannerImage?: string | null;
+      coverImage: { extraLarge?: string | null };
+    }>;
+  };
+}
+
+export async function getPopularBanners(perPage = 40): Promise<BannerBackground[]> {
+  const data = await request<BannerPageResponse>(`
+    query ($perPage: Int) {
+      Page(page: 1, perPage: $perPage) {
+        media(sort: POPULARITY_DESC, type: MANGA, isAdult: false) {
+          id
+          title { english romaji userPreferred }
+          bannerImage
+          coverImage { extraLarge }
+        }
+      }
+    }
+  `, { perPage });
+
+  return data.Page.media
+    .filter(m => m.bannerImage)
+    .map(m => ({
+      id: m.id,
+      title: m.title.english ?? m.title.romaji ?? m.title.userPreferred,
+      uri: m.bannerImage!,
+    }));
+}
+
 export async function getMangaById(id: string): Promise<Manga> {
   const data = await request<MediaResponse>(`
     query ($id: Int) {

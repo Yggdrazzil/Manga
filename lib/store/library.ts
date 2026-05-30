@@ -7,7 +7,9 @@ import { maxChapterProgress } from '@/lib/utils/chapter';
 interface LibraryState {
   entries: LibraryEntry[];
   avatar?: string;
+  banner?: string;
   setAvatar: (uri: string) => void;
+  setBanner: (uri: string) => void;
   addEntry: (manga: Manga, status: ReadingStatus) => void;
   updateProgress: (mangaId: string, source: string, progress: number) => void;
   updateStatus: (mangaId: string, source: string, status: ReadingStatus) => void;
@@ -27,8 +29,10 @@ export const useLibraryStore = create<LibraryState>()(
     (set, get) => ({
       entries: [],
       avatar: undefined,
+      banner: undefined,
 
       setAvatar: (uri) => set({ avatar: uri }),
+      setBanner: (uri) => set({ banner: uri }),
 
       addEntry: (manga, status) => {
         const existing = get().getEntry(manga.id, manga.source);
