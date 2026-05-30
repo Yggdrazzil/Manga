@@ -428,16 +428,18 @@ interface MDAggregateResponse {
 }
 
 // The /aggregate endpoint returns the complete chapter map (every chapter
-// number with its volume) in a single request — including chapters that are
-// only available as external links (e.g. One Piece on MangaPlus), which the
-// readable feed filters out. This is the authoritative source for the count.
+// number with its volume) in a single request. Called WITHOUT a language
+// filter it yields the true full list across all languages — the only
+// reliable count for ongoing series like One Piece (1100+ chapters), where
+// AniList reports null and a language-filtered feed only sees a few uploads.
 export async function getChapterAggregate(
   mangaId: string,
   lang?: string[],
 ): Promise<Array<{ chapter: string; volume?: string; id: string }>> {
-  const data = await fetchMD<MDAggregateResponse>(`/manga/${mangaId}/aggregate`, {
-    translatedLanguage: lang ?? ['en', 'fr'],
-  });
+  const params: Record<string, unknown> = {};
+  if (lang && lang.length > 0) params.translatedLanguage = lang;
+
+  const data = await fetchMD<MDAggregateResponse>(`/manga/${mangaId}/aggregate`, params);
 
   const volumes = Array.isArray(data.volumes)
     ? data.volumes
@@ -510,7 +512,9 @@ export async function getTrackingChapters(
   const languages = lang ?? ['en', 'fr'];
 
   const [aggResult, metaResult] = await Promise.allSettled([
-    getChapterAggregate(mangaId, languages),
+    // Full list across ALL languages = the real chapter count.
+    getChapterAggregate(mangaId),
+    // Metadata (title/date) + in-app readability, scoped to en/fr.
     getChapterFeedMeta(mangaId, languages),
   ]);
 

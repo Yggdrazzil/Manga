@@ -5,7 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { MotiView } from 'moti';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -18,9 +18,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { getChapterPages } from '@/lib/api/mangadex';
-import { useLibraryStore } from '@/lib/store/library';
 import { Typography } from '@/components/ui/Typography';
-import { chapterNumber } from '@/lib/utils/chapter';
 import { COLORS, FONTS, RADIUS, SPACING } from '@/constants/theme';
 
 function ReaderPage({ uri, width, onTap }: { uri: string; width: number; onTap: () => void }) {
@@ -157,12 +155,10 @@ function ReaderMessage({ loading, onBack }: { loading: boolean; onBack: () => vo
 
 export default function ReaderScreen() {
   const router = useRouter();
-  const { id, chapter, title, entryMangaId, source, mangaTitle } = useLocalSearchParams<{
+  const { id, chapter, title, mangaTitle } = useLocalSearchParams<{
     id: string;
     chapter: string;
     title?: string;
-    entryMangaId: string;
-    source: string;
     mangaTitle?: string;
   }>();
 
@@ -170,10 +166,6 @@ export default function ReaderScreen() {
   const [chromeVisible, setChromeVisible] = useState(true);
   const toggleChrome = useCallback(() => setChromeVisible(v => !v), []);
   const [currentPage, setCurrentPage] = useState(1);
-  const hasMarkedRead = useRef(false);
-
-  const toggleChapterRead = useLibraryStore(s => s.toggleChapterRead);
-  const getEntry = useLibraryStore(s => s.getEntry);
 
   const { data: pages, isLoading, isError } = useQuery({
     queryKey: ['chapter-pages', id],
@@ -183,17 +175,9 @@ export default function ReaderScreen() {
 
   const total = pages?.length ?? 0;
 
-  const markReadIfDone = useCallback(() => {
-    if (hasMarkedRead.current || !entryMangaId || !source || !chapter) return;
-    const entry = getEntry(entryMangaId, source);
-    const alreadyRead = entry?.readChapterIds?.includes(id) ?? false;
-    hasMarkedRead.current = true;
-    if (!alreadyRead) {
-      toggleChapterRead(entryMangaId, source, id, chapterNumber(chapter));
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    }
-  }, [entryMangaId, source, chapter, id, getEntry, toggleChapterRead]);
-
+  // Reading is intentionally decoupled from tracking: finishing a chapter in
+  // the reader does NOT mark it read. Checking chapters off is a separate,
+  // manual action done from the "À propos" tab.
   const onViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
       const first = viewableItems.find(v => v.isViewable && v.index != null);
@@ -202,10 +186,6 @@ export default function ReaderScreen() {
   ).current;
 
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 50 }).current;
-
-  useEffect(() => {
-    if (total > 0 && currentPage >= total) markReadIfDone();
-  }, [currentPage, total, markReadIfDone]);
 
   const handleBack = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -227,8 +207,6 @@ export default function ReaderScreen() {
         showsVerticalScrollIndicator={false}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
-        onEndReachedThreshold={0.1}
-        onEndReached={markReadIfDone}
         windowSize={7}
       />
 

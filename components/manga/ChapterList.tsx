@@ -15,11 +15,14 @@ import { compareChapters } from '@/lib/utils/chapter';
 import { BORDERS, COLORS, RADIUS, SPACING } from '@/constants/theme';
 import type { Manga, MangaChapter } from '@/lib/types';
 
+type ChapterListMode = 'track' | 'read';
+
 interface ChapterListProps {
   chapters: MangaChapter[];
   entryMangaId: string;
   source: string;
   manga: Manga;
+  mode: ChapterListMode;
 }
 
 function groupByVolume(chapters: MangaChapter[]): Map<string, MangaChapter[]> {
@@ -49,8 +52,9 @@ function formatDate(iso: string): string {
   }
 }
 
-export function ChapterList({ chapters, entryMangaId, source, manga }: ChapterListProps) {
+export function ChapterList({ chapters, entryMangaId, source, manga, mode }: ChapterListProps) {
   const router = useRouter();
+  const isTrack = mode === 'track';
   const [expandedVolumes, setExpandedVolumes] = useState<Set<string>>(new Set());
   const [selectedChapter, setSelectedChapter] = useState<MangaChapter | null>(null);
 
@@ -81,6 +85,11 @@ export function ChapterList({ chapters, entryMangaId, source, manga }: ChapterLi
     );
   };
 
+  const toggleRead = (ch: MangaChapter) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    toggleChapterRead(entryMangaId, source, ch.id, parseFloat(ch.chapter));
+  };
+
   const sortedChapters = useMemo(
     () => [...chapters].sort(compareChapters),
     [chapters],
@@ -89,16 +98,18 @@ export function ChapterList({ chapters, entryMangaId, source, manga }: ChapterLi
   const volumeMap = useMemo(() => groupByVolume(sortedChapters), [sortedChapters]);
   const volumeKeys = useMemo(() => sortedVolumeKeys(volumeMap), [volumeMap]);
 
-  const nextChapter = useMemo(
-    () => sortedChapters.find(ch => !isChapterRead(ch)),
+  // Track mode: the next unread chapter drives the auto-expanded volume.
+  // Read mode: the first chapter is where reading starts.
+  const focusChapter = useMemo(() => {
+    if (isTrack) return sortedChapters.find(ch => !isChapterRead(ch)) ?? null;
+    return sortedChapters[0] ?? null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [sortedChapters, entry?.readChapterIds, entry?.progress],
-  );
+  }, [sortedChapters, entry?.readChapterIds, entry?.progress, isTrack]);
 
   const firstExpandedVolume = useMemo(() => {
-    if (!nextChapter) return null;
-    return nextChapter.volume ?? 'Hors volume';
-  }, [nextChapter]);
+    if (!focusChapter) return null;
+    return focusChapter.volume ?? 'Hors volume';
+  }, [focusChapter]);
 
   const isVolumeExpanded = (vol: string) => {
     if (expandedVolumes.has(vol)) return true;
@@ -150,13 +161,13 @@ export function ChapterList({ chapters, entryMangaId, source, manga }: ChapterLi
 
   return (
     <View style={styles.container}>
-      {/* Continue card */}
+      {/* Header card: read = "commencer la lecture", track = "tout lu" */}
       <MotiView
         from={{ opacity: 0, translateY: 8 }}
         animate={{ opacity: 1, translateY: 0 }}
         transition={{ type: 'spring', stiffness: 320, damping: 26 }}
       >
-        {allRead ? (
+        {isTrack && allRead ? (
           <Panel variant="ink" style={styles.continueCard}>
             <View style={styles.continueInner}>
               <Ionicons name="checkmark-circle" size={30} color={COLORS.statusCompleted} />
@@ -175,7 +186,7 @@ export function ChapterList({ chapters, entryMangaId, source, manga }: ChapterLi
               </View>
             </View>
           </Panel>
-        ) : nextChapter && nextChapter.isReadable !== false ? (
+        ) : !isTrack && focusChapter ? (
           <Panel variant="ink" hardShadow style={styles.continueCard}>
             <View style={styles.continueInner}>
               <View style={styles.continueCoverFrame}>
@@ -188,27 +199,22 @@ export function ChapterList({ chapters, entryMangaId, source, manga }: ChapterLi
               </View>
               <View style={styles.continueCenter}>
                 <Typography variant="kicker" color={COLORS.accentRed} style={styles.continueKicker}>
-                  CONTINUER
+                  LECTURE
                 </Typography>
                 <Typography variant="display" color={COLORS.onInk} style={styles.continueChapterNum}>
-                  CH.{nextChapter.chapter}
+                  CH.{focusChapter.chapter}
                 </Typography>
-                {nextChapter.title ? (
+                {focusChapter.title ? (
                   <Typography variant="label" color={COLORS.onInkMuted} numberOfLines={1}>
-                    {nextChapter.title}
-                  </Typography>
-                ) : null}
-                {nextChapter.volume ? (
-                  <Typography variant="caption" color={COLORS.onInkMuted}>
-                    Vol.{nextChapter.volume}
+                    {focusChapter.title}
                   </Typography>
                 ) : null}
               </View>
               <Pressable
                 style={({ pressed }) => [styles.readBtn, pressed && styles.readBtnPressed]}
-                onPress={() => openReader(nextChapter)}
+                onPress={() => openReader(focusChapter)}
                 accessibilityRole="button"
-                accessibilityLabel={`Lire le chapitre ${nextChapter.chapter}`}
+                accessibilityLabel={`Lire le chapitre ${focusChapter.chapter}`}
               >
                 <Ionicons name="book" size={16} color={COLORS.onInk} />
                 <Typography variant="kicker" color={COLORS.onInk} style={styles.readBtnText}>
@@ -225,22 +231,24 @@ export function ChapterList({ chapters, entryMangaId, source, manga }: ChapterLi
         <View style={styles.listHeaderLeft}>
           <View style={styles.sectionMarker} />
           <Typography variant="title" color={COLORS.textInk}>
-            Chapitres
+            {isTrack ? 'Chapitres' : 'Lecture'}
           </Typography>
           <View style={styles.countBadge}>
             <Typography variant="caption" color={COLORS.textInkMuted}>
-              {totalRead}/{sortedChapters.length}
+              {isTrack ? `${totalRead}/${sortedChapters.length}` : `${sortedChapters.length}`}
             </Typography>
           </View>
         </View>
-        <Pressable
-          onPress={markAllRead}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel="Tout marquer comme lu"
-        >
-          <Ionicons name="checkmark-circle-outline" size={26} color={COLORS.accentRed} />
-        </Pressable>
+        {isTrack && (
+          <Pressable
+            onPress={markAllRead}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Tout marquer comme lu"
+          >
+            <Ionicons name="checkmark-done-circle-outline" size={26} color={COLORS.accentRed} />
+          </Pressable>
+        )}
       </View>
 
       {/* Volume groups */}
@@ -251,8 +259,8 @@ export function ChapterList({ chapters, entryMangaId, source, manga }: ChapterLi
           const fullyRead = isVolumeFullyRead(volChapters);
           const readCount = volumeReadCount(volChapters);
           const progressPct = volChapters.length ? (readCount / volChapters.length) * 100 : 0;
-          const isActiveVol = nextChapter
-            ? (nextChapter.volume ?? 'Hors volume') === vol
+          const isActiveVol = focusChapter
+            ? (focusChapter.volume ?? 'Hors volume') === vol
             : false;
 
           return (
@@ -267,45 +275,47 @@ export function ChapterList({ chapters, entryMangaId, source, manga }: ChapterLi
                 style={styles.volumeHeader}
                 onPress={() => toggleVolume(vol)}
                 accessibilityRole="button"
-                accessibilityLabel={`${vol === 'Hors volume' ? 'Hors volume' : `Volume ${vol}`}, ${readCount}/${volChapters.length} lus`}
+                accessibilityLabel={`${vol === 'Hors volume' ? 'Hors volume' : `Volume ${vol}`}${isTrack ? `, ${readCount}/${volChapters.length} lus` : `, ${volChapters.length} chapitres`}`}
               >
                 <View style={styles.volumeHeaderLeft}>
                   <Typography variant="subheading" color={COLORS.textInk}>
                     {vol === 'Hors volume' ? 'Chapitres' : `Volume ${vol}`}
                   </Typography>
                   <Typography variant="label" color={COLORS.textInkMuted}>
-                    {readCount}/{volChapters.length}
+                    {isTrack ? `${readCount}/${volChapters.length}` : `${volChapters.length}`}
                   </Typography>
                 </View>
 
                 <View style={styles.volumeHeaderRight}>
-                  <Pressable
-                    hitSlop={8}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      if (fullyRead) {
-                        for (const ch of volChapters) {
-                          if (isChapterRead(ch)) {
-                            toggleChapterRead(entryMangaId, source, ch.id, parseFloat(ch.chapter));
+                  {isTrack && (
+                    <Pressable
+                      hitSlop={8}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        if (fullyRead) {
+                          for (const ch of volChapters) {
+                            if (isChapterRead(ch)) {
+                              toggleChapterRead(entryMangaId, source, ch.id, parseFloat(ch.chapter));
+                            }
                           }
+                        } else {
+                          markVolumeRead(
+                            entryMangaId,
+                            source,
+                            volChapters.map(ch => ({ id: ch.id, num: parseFloat(ch.chapter) })),
+                          );
                         }
-                      } else {
-                        markVolumeRead(
-                          entryMangaId,
-                          source,
-                          volChapters.map(ch => ({ id: ch.id, num: parseFloat(ch.chapter) })),
-                        );
-                      }
-                    }}
-                    accessibilityRole="button"
-                    accessibilityLabel={fullyRead ? 'Décocher le volume' : 'Marquer le volume comme lu'}
-                  >
-                    <Ionicons
-                      name={fullyRead ? 'checkmark-circle' : 'ellipse-outline'}
-                      size={24}
-                      color={fullyRead ? COLORS.statusCompleted : COLORS.textInkMuted}
-                    />
-                  </Pressable>
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel={fullyRead ? 'Décocher le volume' : 'Marquer le volume comme lu'}
+                    >
+                      <Ionicons
+                        name={fullyRead ? 'checkmark-circle' : 'ellipse-outline'}
+                        size={24}
+                        color={fullyRead ? COLORS.statusCompleted : COLORS.textInkMuted}
+                      />
+                    </Pressable>
+                  )}
                   <Ionicons
                     name={expanded ? 'chevron-up' : 'chevron-down'}
                     size={18}
@@ -314,22 +324,19 @@ export function ChapterList({ chapters, entryMangaId, source, manga }: ChapterLi
                 </View>
               </Pressable>
 
-              {/* Progress bar */}
-              <View style={styles.progressTrack}>
-                <View style={[styles.progressFill, { width: `${progressPct}%` as `${number}%` }]} />
-              </View>
+              {/* Progress bar (track only) */}
+              {isTrack && (
+                <View style={styles.progressTrack}>
+                  <View style={[styles.progressFill, { width: `${progressPct}%` as `${number}%` }]} />
+                </View>
+              )}
 
               {/* Chapter cards */}
               {expanded && (
-                <View style={styles.chaptersList}>
+                <View style={[styles.chaptersList, !isTrack && styles.chaptersListRead]}>
                   {volChapters.map((ch, i) => {
                     const read = isChapterRead(ch);
-                    const readable = ch.isReadable !== false;
                     const dateStr = formatDate(ch.publishAt);
-                    const toggle = () => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                      toggleChapterRead(entryMangaId, source, ch.id, parseFloat(ch.chapter));
-                    };
                     return (
                       <MotiView
                         key={ch.id}
@@ -345,17 +352,17 @@ export function ChapterList({ chapters, entryMangaId, source, manga }: ChapterLi
                         <Pressable
                           style={({ pressed }) => [
                             styles.chapterCard,
-                            read && styles.chapterCardRead,
+                            isTrack && read && styles.chapterCardRead,
                             pressed && styles.chapterCardPressed,
                           ]}
-                          onPress={() => (readable ? openReader(ch) : toggle())}
+                          onPress={() => (isTrack ? toggleRead(ch) : openReader(ch))}
                           onLongPress={() => {
                             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                             setSelectedChapter(ch);
                           }}
-                          accessibilityRole={readable ? 'button' : 'checkbox'}
-                          accessibilityState={readable ? undefined : { checked: read }}
-                          accessibilityLabel={`${read ? 'Lu — ' : ''}Chapitre ${ch.chapter}${ch.title ? ` : ${ch.title}` : ''}`}
+                          accessibilityRole={isTrack ? 'checkbox' : 'button'}
+                          accessibilityState={isTrack ? { checked: read } : undefined}
+                          accessibilityLabel={`${isTrack && read ? 'Lu — ' : ''}Chapitre ${ch.chapter}${ch.title ? ` : ${ch.title}` : ''}`}
                         >
                           <View style={styles.chapterCoverFrame}>
                             <Image
@@ -369,7 +376,7 @@ export function ChapterList({ chapters, entryMangaId, source, manga }: ChapterLi
                           <View style={styles.chapterInfo}>
                             <Typography
                               variant="display"
-                              color={read ? COLORS.textInkMuted : COLORS.textInk}
+                              color={isTrack && read ? COLORS.textInkMuted : COLORS.textInk}
                               style={styles.chapterNum}
                             >
                               CH.{ch.chapter}
@@ -393,20 +400,26 @@ export function ChapterList({ chapters, entryMangaId, source, manga }: ChapterLi
                             )}
                           </View>
 
-                          <Pressable
-                            style={[styles.checkCircle, read && styles.checkCircleRead]}
-                            hitSlop={8}
-                            onPress={toggle}
-                            accessibilityRole="checkbox"
-                            accessibilityState={{ checked: read }}
-                            accessibilityLabel={`${read ? 'Marquer non lu' : 'Marquer lu'}: chapitre ${ch.chapter}`}
-                          >
-                            <Ionicons
-                              name={read ? 'checkmark-circle' : 'ellipse-outline'}
-                              size={30}
-                              color={read ? COLORS.statusCompleted : COLORS.textInkMuted}
-                            />
-                          </Pressable>
+                          {isTrack ? (
+                            <Pressable
+                              style={styles.checkCircle}
+                              hitSlop={8}
+                              onPress={() => toggleRead(ch)}
+                              accessibilityRole="checkbox"
+                              accessibilityState={{ checked: read }}
+                              accessibilityLabel={`${read ? 'Marquer non lu' : 'Marquer lu'}: chapitre ${ch.chapter}`}
+                            >
+                              <Ionicons
+                                name={read ? 'checkmark-circle' : 'ellipse-outline'}
+                                size={30}
+                                color={read ? COLORS.statusCompleted : COLORS.textInkMuted}
+                              />
+                            </Pressable>
+                          ) : (
+                            <View style={styles.readChip}>
+                              <Ionicons name="book-outline" size={16} color={COLORS.accentRed} />
+                            </View>
+                          )}
                         </Pressable>
                       </MotiView>
                     );
@@ -538,6 +551,9 @@ const styles = StyleSheet.create({
     paddingBottom: SPACING.sm,
     gap: SPACING.xs,
   },
+  chaptersListRead: {
+    paddingTop: SPACING.sm,
+  },
   chapterCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -580,5 +596,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  checkCircleRead: {},
+  readChip: {
+    width: 36,
+    height: 36,
+    borderRadius: RADIUS.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.accentSoft,
+    borderWidth: BORDERS.hair,
+    borderColor: `${COLORS.accentRed}44`,
+  },
 });
