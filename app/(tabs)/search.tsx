@@ -107,6 +107,64 @@ function parseYear(value?: string | number): number | undefined {
   return isNaN(y) ? undefined : y;
 }
 
+// ── Series / volume helpers ───────────────────────────────────────────────────
+
+function extractVolumeNumber(title: string): number | undefined {
+  // Match: "tome 8", "t. 3", "vol. 2", "volume 12", "#5"
+  const m = title.match(/\btome\s+(\d+)|\bt\.\s*(\d+)|\bvol(?:ume)?\.?\s*(\d+)|#(\d+)/i);
+  if (!m) return undefined;
+  const n = m[1] ?? m[2] ?? m[3] ?? m[4];
+  return parseInt(n, 10);
+}
+
+function seriesKey(title: string): string {
+  // Strip volume suffix to get the base series name, then normalize for comparison
+  return title
+    .replace(/[,\s]+tome\s+\d+\b.*/i, '')
+    .replace(/[,\s]+t\.\s*\d+\b.*/i, '')
+    .replace(/[,\s]+vol(?:ume)?\.?\s*\d+\b.*/i, '')
+    .replace(/\s+#\d+\b.*/i, '')
+    .toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '') // strip accents for robust matching
+    .replace(/[^a-z0-9]/g, '');
+}
+
+function getTitle(r: UnifiedResult): string {
+  return r.kind === 'manga' ? r.data.title.userPreferred : r.data.title;
+}
+
+// Sort by series group (preserving API relevance order between groups) then
+// by volume number within a group. Year is only a last-resort fallback.
+// This is robust against unreliable Open Library publication dates.
+function sortBySeriesAndVolume(results: UnifiedResult[]): UnifiedResult[] {
+  const seriesFirstIndex = new Map<string, number>();
+  results.forEach((r, i) => {
+    const k = seriesKey(getTitle(r));
+    if (!seriesFirstIndex.has(k)) seriesFirstIndex.set(k, i);
+  });
+
+  return [...results].sort((a, b) => {
+    const titleA = getTitle(a);
+    const titleB = getTitle(b);
+    const keyA = seriesKey(titleA);
+    const keyB = seriesKey(titleB);
+
+    if (keyA === keyB) {
+      const volA = extractVolumeNumber(titleA);
+      const volB = extractVolumeNumber(titleB);
+      if (volA !== undefined && volB !== undefined) return volA - volB;
+      // No volume on one side: put the series overview (no vol) before volumes
+      if (volA !== undefined) return 1;
+      if (volB !== undefined) return -1;
+      // Both have no volume indicator: fall back to year
+      return (a.year ?? 9999) - (b.year ?? 9999);
+    }
+
+    // Different series: preserve the order the API returned them (relevance)
+    return (seriesFirstIndex.get(keyA) ?? 0) - (seriesFirstIndex.get(keyB) ?? 0);
+  });
+}
+
 async function searchAll(query: string, filter: FilterType): Promise<UnifiedResult[]> {
   if (!query.trim()) return [];
 
@@ -121,22 +179,18 @@ async function searchAll(query: string, filter: FilterType): Promise<UnifiedResu
   const bd: UnifiedResult[] = (bdSettled.status === 'fulfilled' ? bdSettled.value : [])
     .map(b => ({ kind: 'bd' as const, data: b, year: parseYear(b.publishedDate) }));
 
-  // Merge, deduplicate by normalized title, sort chronologically
   const all = [...manga, ...bd];
+
+  // Deduplicate by normalized full title
   const seen = new Set<string>();
   const deduped = all.filter(r => {
-    const key = (r.kind === 'manga' ? r.data.title.userPreferred : r.data.title)
-      .toLowerCase().replace(/[^a-z0-9]/g, '');
+    const key = getTitle(r).toLowerCase().replace(/[^a-z0-9]/g, '');
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
   });
 
-  return deduped.sort((a, b) => {
-    const ya = a.year ?? 9999;
-    const yb = b.year ?? 9999;
-    return ya - yb;
-  });
+  return sortBySeriesAndVolume(deduped);
 }
 
 // ── Result card ───────────────────────────────────────────────────────────────
