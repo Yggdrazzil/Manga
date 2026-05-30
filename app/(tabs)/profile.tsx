@@ -10,8 +10,9 @@ import { Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from 'react
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BORDERS, COLORS, FONTS, RADIUS, SPACING, STATUS_LABELS } from '@/constants/theme';
 import { useLibraryStore } from '@/lib/store/library';
+import { useComicsStore } from '@/lib/store/comics';
 import { confirmAction } from '@/lib/utils/confirm';
-import type { LibraryEntry, ReadingStatus } from '@/lib/types';
+import type { BDSeriesEntry, LibraryEntry, ReadingStatus } from '@/lib/types';
 import { Panel } from '@/components/ui/Panel';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Typography } from '@/components/ui/Typography';
@@ -135,9 +136,54 @@ function HistoryRow({ entry }: { entry: LibraryEntry }) {
   );
 }
 
+function BDHistoryRow({ entry }: { entry: BDSeriesEntry }) {
+  const router = useRouter();
+  const readCount = entry.readVolumes.length;
+  const total = entry.series.totalVolumes;
+  const percent = total > 0 ? Math.min(readCount / total, 1) : 0;
+  const relative = formatDistanceToNow(new Date(entry.updatedAt), { addSuffix: true, locale: fr });
+
+  return (
+    <Pressable onPress={() => router.push(`/comic/${entry.seriesId}` as never)}>
+      <Panel variant="paper" bordered style={styles.row}>
+        <View style={styles.rowInner}>
+          <View style={styles.rowCoverFrame}>
+            {entry.series.coverImage ? (
+              <Image source={{ uri: entry.series.coverImage }} style={styles.rowCover} contentFit="cover" cachePolicy="memory-disk" />
+            ) : (
+              <View style={[styles.rowCover, { backgroundColor: COLORS.paperSunken, alignItems: 'center', justifyContent: 'center' }]}>
+                <Ionicons name="book" size={18} color={COLORS.textInkMuted} />
+              </View>
+            )}
+          </View>
+          <View style={styles.rowInfo}>
+            <Typography variant="subheading" numberOfLines={2} color={COLORS.textInk} style={styles.rowTitle}>{entry.series.title}</Typography>
+            <View style={styles.rowMeta}>
+              <StatusBadge status={entry.status} compact />
+              <Typography variant="label" color={COLORS.textInkMuted}>{relative}</Typography>
+            </View>
+            <View style={styles.progressRow}>
+              <View style={styles.progressTrack}>
+                <View style={[styles.progressFill, { width: `${percent * 100}%` as `${number}%`, backgroundColor: '#1F6F8B' }]} />
+              </View>
+              <Typography variant="label" color={COLORS.textInkMuted} style={styles.progressText}>
+                {readCount}{total > 0 ? `/${total}` : ''} t.
+              </Typography>
+            </View>
+          </View>
+          <View style={[styles.plusBtn, { backgroundColor: '#1F6F8B' }]}>
+            <Typography style={[styles.plusLabel, { fontSize: 10 }]}>BD</Typography>
+          </View>
+        </View>
+      </Panel>
+    </Pressable>
+  );
+}
+
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const entries = useLibraryStore(s => s.entries);
+  const bdEntries = useComicsStore(s => s.entries);
   const avatar = useLibraryStore(s => s.avatar);
   const setAvatar = useLibraryStore(s => s.setAvatar);
   const banner = useLibraryStore(s => s.banner);
@@ -224,11 +270,11 @@ export default function ProfileScreen() {
 
         {/* Stats strip — ink world */}
         <View style={styles.statStrip}>
-          <StatPill value={stats.totalEntries} label="ŒUVRES" />
+          <StatPill value={stats.totalEntries} label="MANGA" />
+          <View style={styles.statDivider} />
+          <StatPill value={bdEntries.length} label="SÉRIES BD" />
           <View style={styles.statDivider} />
           <StatPill value={stats.chaptersRead} label="CHAPITRES" />
-          <View style={styles.statDivider} />
-          <StatPill value={stats.averageScore > 0 ? stats.averageScore.toFixed(1) : '—'} label="NOTE MOY." />
         </View>
 
         <View style={styles.body}>
@@ -323,6 +369,39 @@ export default function ProfileScreen() {
                 </MotiView>
               ))}
             </View>
+          )}
+
+          {/* BD & Comics section */}
+          {bdEntries.length > 0 && (
+            <MotiView
+              from={{ opacity: 0, translateY: 12 }}
+              animate={{ opacity: 1, translateY: 0 }}
+              transition={{ type: 'spring', stiffness: 280, damping: 25, delay: 100 }}
+            >
+              <View style={styles.libraryHeaderRow}>
+                <View style={[styles.sectionMarker, { backgroundColor: '#1F6F8B' }]} />
+                <Typography variant="title" color={COLORS.textInk}>BD & Comics</Typography>
+                <View style={styles.bdCountBadge}>
+                  <Typography variant="caption" color={COLORS.onInk} style={styles.bdCountText}>
+                    {bdEntries.reduce((acc, e) => acc + e.readVolumes.length, 0)} tomes lus
+                  </Typography>
+                </View>
+              </View>
+              <View style={styles.list}>
+                {bdEntries
+                  .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+                  .map((entry, index) => (
+                    <MotiView
+                      key={entry.seriesId}
+                      from={{ opacity: 0, translateY: 12 }}
+                      animate={{ opacity: 1, translateY: 0 }}
+                      transition={{ type: 'spring', stiffness: 300, damping: 25, delay: Math.min(index, 8) * 45 }}
+                    >
+                      <BDHistoryRow entry={entry} />
+                    </MotiView>
+                  ))}
+              </View>
+            </MotiView>
           )}
         </View>
       </ScrollView>
@@ -457,7 +536,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: SPACING.sm,
     marginBottom: -SPACING.sm,
+    flexWrap: 'wrap',
   },
+  bdCountBadge: {
+    backgroundColor: '#1F6F8B',
+    borderRadius: RADIUS.full,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 2,
+    marginLeft: SPACING.xs,
+  },
+  bdCountText: { fontSize: 9, letterSpacing: 0.6 },
   filterScroll: { flexGrow: 0, marginHorizontal: -SPACING.base },
   filterTabs: { paddingHorizontal: SPACING.base, gap: SPACING.sm },
   filterTab: {

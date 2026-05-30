@@ -82,27 +82,37 @@ export interface PaginatedResult<T> {
   currentPage: number;
 }
 
-export interface Comic {
-  id: string;           // Google Books volume ID
-  title: string;
-  authors: string[];
+// ── BD / Comics series model ──────────────────────────────────────────────────
+
+export interface BDVolume {
+  num: number;            // tome number (1, 2, 3 …)
+  workId: string;         // Open Library work ID, e.g. "OL24228254W"
+  title: string;          // full title with tome suffix
+  subtitle?: string;      // episode name, e.g. "L'Ivoire du Magohamoth" (lazy-loaded)
   coverImage?: string;
-  description?: string;
+  description?: string;   // per-tome synopsis (lazy-loaded)
   publisher?: string;
   publishedDate?: string;
-  categories: string[];
-  totalVolumes?: number;
+  authors: string[];
+}
+
+export interface BDSeries {
+  id: string;             // kebab-case series key, e.g. "lanfeust-de-troy"
+  title: string;          // series name without tome suffix, e.g. "Lanfeust de Troy"
+  authors: string[];
+  coverImage?: string;    // cover of the first available tome
+  totalVolumes: number;   // max tome number detected from Open Library search
+  volumes: BDVolume[];    // sorted by num; may not cover every num if OL gaps exist
   type: 'BD' | 'COMIC';
 }
 
-export interface ComicEntry {
-  comicId: string;
-  status: ReadingStatus;
-  readVolumes: number[];   // volume numbers the user has marked as read
-  totalVolumes?: number;   // user-defined (may differ from comic.totalVolumes)
+export interface BDSeriesEntry {
+  seriesId: string;
+  status: ReadingStatus;  // auto-computed on toggle; manual override via updateStatus
+  readVolumes: number[];  // sorted list of tome numbers the user has read
   addedAt: string;
   updatedAt: string;
-  comic: Comic;
+  series: BDSeries;
 }
 
 export interface ReadingStats {

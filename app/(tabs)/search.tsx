@@ -18,12 +18,19 @@ import { useQuery } from '@tanstack/react-query';
 import * as anilist from '@/lib/api/anilist';
 import * as mangadex from '@/lib/api/mangadex';
 import * as jikan from '@/lib/api/jikan';
-import { searchComics, type OLBook } from '@/lib/api/openlib';
+import {
+  searchComics,
+  searchSeriesVolumes,
+  extractVolumeNumber,
+  seriesKeyFromTitle,
+  seriesTitleFromFull,
+  type OLBook,
+} from '@/lib/api/openlib';
 import { useComicsStore } from '@/lib/store/comics';
 import { Typography } from '@/components/ui/Typography';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { BORDERS, COLORS, FONTS, RADIUS, SPACING, TYPE_LABELS } from '@/constants/theme';
-import type { Manga, MediaType } from '@/lib/types';
+import type { BDSeries, Manga, MediaType } from '@/lib/types';
 
 const TAB_BAR_HEIGHT = 88;
 
@@ -75,7 +82,6 @@ async function searchManga(query: string, filter: FilterType): Promise<Manga[]> 
     return r.items;
   }
 
-  // ALL: hit all manga APIs
   const [al, md, jk] = await Promise.allSettled([
     anilist.searchManga(query, 1, 12),
     mangadex.searchManga(query, 1, 8),
@@ -107,60 +113,31 @@ function parseYear(value?: string | number): number | undefined {
   return isNaN(y) ? undefined : y;
 }
 
-// ── Series / volume helpers ───────────────────────────────────────────────────
-
-function extractVolumeNumber(title: string): number | undefined {
-  // Match: "tome 8", "t. 3", "vol. 2", "volume 12", "#5"
-  const m = title.match(/\btome\s+(\d+)|\bt\.\s*(\d+)|\bvol(?:ume)?\.?\s*(\d+)|#(\d+)/i);
-  if (!m) return undefined;
-  const n = m[1] ?? m[2] ?? m[3] ?? m[4];
-  return parseInt(n, 10);
-}
-
-function seriesKey(title: string): string {
-  // Strip volume suffix to get the base series name, then normalize for comparison
-  return title
-    .replace(/[,\s]+tome\s+\d+\b.*/i, '')
-    .replace(/[,\s]+t\.\s*\d+\b.*/i, '')
-    .replace(/[,\s]+vol(?:ume)?\.?\s*\d+\b.*/i, '')
-    .replace(/\s+#\d+\b.*/i, '')
-    .toLowerCase()
-    .normalize('NFD').replace(/[̀-ͯ]/g, '') // strip accents for robust matching
-    .replace(/[^a-z0-9]/g, '');
-}
-
 function getTitle(r: UnifiedResult): string {
   return r.kind === 'manga' ? r.data.title.userPreferred : r.data.title;
 }
 
-// Sort by series group (preserving API relevance order between groups) then
-// by volume number within a group. Year is only a last-resort fallback.
-// This is robust against unreliable Open Library publication dates.
 function sortBySeriesAndVolume(results: UnifiedResult[]): UnifiedResult[] {
   const seriesFirstIndex = new Map<string, number>();
   results.forEach((r, i) => {
-    const k = seriesKey(getTitle(r));
+    const k = seriesKeyFromTitle(getTitle(r));
     if (!seriesFirstIndex.has(k)) seriesFirstIndex.set(k, i);
   });
 
   return [...results].sort((a, b) => {
     const titleA = getTitle(a);
     const titleB = getTitle(b);
-    const keyA = seriesKey(titleA);
-    const keyB = seriesKey(titleB);
+    const keyA = seriesKeyFromTitle(titleA);
+    const keyB = seriesKeyFromTitle(titleB);
 
     if (keyA === keyB) {
       const volA = extractVolumeNumber(titleA);
       const volB = extractVolumeNumber(titleB);
       if (volA !== undefined && volB !== undefined) return volA - volB;
-      // No volume on one side: put the series overview (no vol) before volumes
       if (volA !== undefined) return 1;
       if (volB !== undefined) return -1;
-      // Both have no volume indicator: fall back to year
       return (a.year ?? 9999) - (b.year ?? 9999);
     }
-
-    // Different series: preserve the order the API returned them (relevance)
     return (seriesFirstIndex.get(keyA) ?? 0) - (seriesFirstIndex.get(keyB) ?? 0);
   });
 }
@@ -180,8 +157,6 @@ async function searchAll(query: string, filter: FilterType): Promise<UnifiedResu
     .map(b => ({ kind: 'bd' as const, data: b, year: parseYear(b.publishedDate) }));
 
   const all = [...manga, ...bd];
-
-  // Deduplicate by normalized full title
   const seen = new Set<string>();
   const deduped = all.filter(r => {
     const key = getTitle(r).toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -198,36 +173,47 @@ async function searchAll(query: string, filter: FilterType): Promise<UnifiedResu
 function ResultCard({
   result,
   index,
-  inBDLibrary,
+  isRead,
+  isTracked,
   onAddBD,
 }: {
   result: UnifiedResult;
   index: number;
-  inBDLibrary: boolean;
-  onAddBD: () => void;
+  isRead: boolean;
+  isTracked: boolean;
+  onAddBD: () => Promise<void>;
 }) {
   const router = useRouter();
+  const [adding, setAdding] = useState(false);
 
+  const title = getTitle(result);
   const coverUri = result.kind === 'manga' ? result.data.coverImage : result.data.coverImage;
-  const title = result.kind === 'manga' ? result.data.title.userPreferred : result.data.title;
-  const authors = result.kind === 'manga'
-    ? result.data.authors
-    : result.data.authors;
+  const authors = result.data.authors;
   const publisher = result.kind === 'bd' ? result.data.publisher : undefined;
   const year = result.year;
 
-  const typeLabel = result.kind === 'bd'
-    ? 'BD'
-    : (TYPE_LABELS[result.data.type] ?? 'MANGA');
-
+  const typeLabel = result.kind === 'bd' ? 'BD' : (TYPE_LABELS[result.data.type] ?? 'MANGA');
   const typeBg = result.kind === 'bd' ? '#1F6F8B' : COLORS.accentRed;
 
-  const handlePress = () => {
+  const handleCardPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (result.kind === 'manga') {
       router.push(`/manga/${result.data.id}?source=${result.data.source}` as never);
     } else {
-      router.push(`/comic/${result.data.id}` as never);
+      const sid = seriesKeyFromTitle(title);
+      const seriesTitle = seriesTitleFromFull(title);
+      router.push(`/comic/${sid}?title=${encodeURIComponent(seriesTitle)}` as never);
+    }
+  };
+
+  const handleAdd = async () => {
+    if (adding) return;
+    setAdding(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      await onAddBD();
+    } finally {
+      setAdding(false);
     }
   };
 
@@ -237,7 +223,7 @@ function ResultCard({
       animate={{ opacity: 1, translateY: 0 }}
       transition={{ type: 'spring', stiffness: 300, damping: 26, delay: Math.min(index * 30, 360) }}
     >
-      <Pressable style={styles.card} onPress={handlePress}>
+      <Pressable style={styles.card} onPress={handleCardPress}>
         <View style={styles.coverFrame}>
           {coverUri ? (
             <Image source={{ uri: coverUri }} style={styles.cover} contentFit="cover" cachePolicy="memory-disk" />
@@ -269,8 +255,8 @@ function ResultCard({
           )}
 
           {publisher && (
-            <Typography variant="caption" color={COLORS.textInkFaint} numberOfLines={1}>
-              {publisher}
+            <Typography variant="caption" color={COLORS.textInkFaint} numberOfLines={1} style={styles.publisher}>
+              {publisher.toUpperCase()}
             </Typography>
           )}
         </View>
@@ -279,18 +265,23 @@ function ResultCard({
           <Pressable
             style={({ pressed }) => [
               styles.addBtn,
-              inBDLibrary && styles.addBtnDone,
-              pressed && { opacity: 0.8 },
+              isRead && styles.addBtnRead,
+              isTracked && !isRead && styles.addBtnTracked,
+              pressed && { opacity: 0.75 },
             ]}
-            onPress={e => {
-              e.stopPropagation();
-              if (!inBDLibrary) onAddBD();
-              else handlePress();
-            }}
+            onPress={e => { e.stopPropagation(); void handleAdd(); }}
             hitSlop={8}
-            accessibilityLabel={inBDLibrary ? 'Déjà dans la bibliothèque' : 'Ajouter'}
+            accessibilityLabel={isRead ? 'Lu' : 'Marquer comme lu'}
           >
-            <Ionicons name={inBDLibrary ? 'checkmark' : 'add'} size={18} color={COLORS.onInk} />
+            {adding ? (
+              <ActivityIndicator size="small" color={COLORS.onInk} />
+            ) : (
+              <Ionicons
+                name={isRead ? 'checkmark' : 'add'}
+                size={18}
+                color={COLORS.onInk}
+              />
+            )}
           </Pressable>
         ) : (
           <Ionicons name="chevron-forward" size={16} color={COLORS.textInkFaint} />
@@ -304,14 +295,14 @@ function ResultCard({
 
 export default function SearchScreen() {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [filter, setFilter] = useState<FilterType>('ALL');
   const inputRef = useRef<TextInput>(null);
 
-  const addComicEntry = useComicsStore(s => s.addEntry);
-  const comicEntries = useComicsStore(s => s.entries);
+  const addOrUpdateSeries = useComicsStore(s => s.addOrUpdateSeries);
+  const isVolumeRead = useComicsStore(s => s.isVolumeRead);
+  const getEntry = useComicsStore(s => s.getEntry);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQuery(query), 450);
@@ -325,47 +316,81 @@ export default function SearchScreen() {
     staleTime: 1000 * 60 * 2,
   });
 
-  const handleAddBD = useCallback((book: OLBook) => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    addComicEntry({
-      id: book.id,
-      title: book.title,
+  const handleAddBD = useCallback(async (book: OLBook) => {
+    const volNum = extractVolumeNumber(book.title);
+    const seriesTitle = seriesTitleFromFull(book.title);
+    const seriesId = seriesKeyFromTitle(book.title);
+
+    if (!volNum) {
+      // Series-level entry without a volume number — add as vol 1 placeholder
+      const series: BDSeries = {
+        id: seriesId,
+        title: seriesTitle,
+        authors: book.authors,
+        coverImage: book.coverImage,
+        totalVolumes: 1,
+        volumes: [],
+        type: 'BD',
+      };
+      addOrUpdateSeries(series, 1);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      return;
+    }
+
+    // Fetch all volumes for this series so we know totalVolumes
+    const { volumes, totalVolumes } = await searchSeriesVolumes(seriesTitle);
+
+    const series: BDSeries = {
+      id: seriesId,
+      title: seriesTitle,
       authors: book.authors,
-      coverImage: book.coverImage,
-      description: book.description,
-      publisher: book.publisher,
-      publishedDate: book.publishedDate,
-      categories: book.categories,
-      type: 'COMIC',
-    }, 'PLAN_TO_READ');
-    router.push(`/comic/${book.id}` as never);
-  }, [addComicEntry, router]);
+      coverImage: volumes.find(v => v.num === 1)?.coverImage ?? book.coverImage,
+      totalVolumes,
+      volumes,
+      type: 'BD',
+    };
+
+    addOrUpdateSeries(series, volNum);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  }, [addOrUpdateSeries]);
 
   const renderItem = useCallback(({ item, index }: { item: UnifiedResult; index: number }) => {
-    const isBDInLib = item.kind === 'bd'
-      ? !!comicEntries.find(e => e.comicId === item.data.id)
-      : false;
+    if (item.kind !== 'bd') {
+      return (
+        <ResultCard
+          result={item}
+          index={index}
+          isRead={false}
+          isTracked={false}
+          onAddBD={async () => {}}
+        />
+      );
+    }
+
+    const volNum = extractVolumeNumber(item.data.title);
+    const sid = seriesKeyFromTitle(item.data.title);
+    const tracked = !!getEntry(sid);
+    const read = volNum != null ? isVolumeRead(sid, volNum) : false;
 
     return (
       <ResultCard
         result={item}
         index={index}
-        inBDLibrary={isBDInLib}
-        onAddBD={() => item.kind === 'bd' && handleAddBD(item.data)}
+        isRead={read}
+        isTracked={tracked}
+        onAddBD={() => handleAddBD(item.data)}
       />
     );
-  }, [comicEntries, handleAddBD]);
+  }, [getEntry, isVolumeRead, handleAddBD]);
 
   const showEmpty = debouncedQuery.length >= 2 && !isLoading && (!results || results.length === 0);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Header */}
       <View style={styles.header}>
         <Typography variant="kicker" color={COLORS.accentRed}>DÉCOUVERTE</Typography>
         <Typography variant="hero" color={COLORS.textInk} style={styles.title}>Rechercher</Typography>
 
-        {/* Unified search bar */}
         <View style={styles.inputWrap}>
           <Ionicons name="search" size={20} color={COLORS.textInkMuted} style={styles.searchIcon} />
           <TextInput
@@ -387,7 +412,6 @@ export default function SearchScreen() {
           {isFetching && <ActivityIndicator size="small" color={COLORS.accentRed} style={styles.spinner} />}
         </View>
 
-        {/* Filter pills */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -411,12 +435,11 @@ export default function SearchScreen() {
         </ScrollView>
       </View>
 
-      {/* States */}
       {debouncedQuery.length < 2 && (
         <EmptyState
           icon="🔍"
           title="Cherchez votre prochaine lecture"
-          subtitle="Manga, manhwa, webtoon, BD, comics… tout est dans une seule recherche, trié par ordre de parution."
+          subtitle="Manga, manhwa, webtoon, BD, comics… tout en une seule recherche, trié par ordre de parution."
         />
       )}
 
@@ -500,7 +523,6 @@ const styles = StyleSheet.create({
 
   list: { paddingHorizontal: SPACING.base, paddingTop: SPACING.md, gap: SPACING.sm },
 
-  // Result card
   card: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -522,13 +544,10 @@ const styles = StyleSheet.create({
   coverEmpty: { backgroundColor: COLORS.paperSunken, alignItems: 'center', justifyContent: 'center' },
   info: { flex: 1, gap: SPACING.xs },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
-  typeBadge: {
-    borderRadius: RADIUS.full,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 2,
-  },
+  typeBadge: { borderRadius: RADIUS.full, paddingHorizontal: SPACING.sm, paddingVertical: 2 },
   typeBadgeText: { fontSize: 8, letterSpacing: 0.8, color: COLORS.onInk, fontFamily: FONTS.bodyBold },
   cardTitle: { fontSize: 14, lineHeight: 18 },
+  publisher: { fontSize: 9, letterSpacing: 0.6 },
   addBtn: {
     width: 36,
     height: 36,
@@ -540,7 +559,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexShrink: 0,
   },
-  addBtnDone: { backgroundColor: COLORS.statusCompleted, borderColor: COLORS.statusCompleted },
+  addBtnRead: { backgroundColor: COLORS.statusCompleted, borderColor: COLORS.statusCompleted },
+  addBtnTracked: { backgroundColor: COLORS.ink, borderColor: COLORS.lineOnInk },
 
   loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: SPACING.md },
 });
