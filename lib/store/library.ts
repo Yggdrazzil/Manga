@@ -22,6 +22,7 @@ interface LibraryState {
   toggleChapterRead: (mangaId: string, source: string, chapterId: string, chapterNum: number) => void;
   updateChapterNote: (mangaId: string, source: string, chapterId: string, note: Partial<ChapterNote>) => void;
   markVolumeRead: (mangaId: string, source: string, chapters: Array<{ id: string; num: number }>) => void;
+  unmarkAllRead: (mangaId: string, source: string) => void;
 }
 
 export const useLibraryStore = create<LibraryState>()(
@@ -155,6 +156,16 @@ export const useLibraryStore = create<LibraryState>()(
             const chapterData = { ...(e.chapterData ?? {}), [chapterId]: { ...(e.chapterData?.[chapterId] ?? {}), ...note } };
             return { ...e, chapterData, updatedAt: new Date().toISOString() };
           }),
+        }));
+      },
+
+      unmarkAllRead: (mangaId, source) => {
+        set(state => ({
+          entries: state.entries.map(e =>
+            e.mangaId === mangaId && e.source === source
+              ? { ...e, readChapterIds: [], progress: 0, updatedAt: new Date().toISOString() }
+              : e
+          ),
         }));
       },
 

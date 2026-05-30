@@ -11,7 +11,7 @@ export default function TabsLayout() {
       }}
     >
       <Tabs.Screen name="index" options={{ title: 'Découvrir' }} />
-      <Tabs.Screen name="wishlist" options={{ title: 'À lire' }} />
+      <Tabs.Screen name="wishlist" options={{ title: 'BD & Comics' }} />
       <Tabs.Screen name="search" options={{ title: 'Rechercher' }} />
       <Tabs.Screen name="profile" options={{ title: 'Profil' }} />
     </Tabs>

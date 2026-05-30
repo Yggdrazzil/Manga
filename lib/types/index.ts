@@ -82,6 +82,29 @@ export interface PaginatedResult<T> {
   currentPage: number;
 }
 
+export interface Comic {
+  id: string;           // Google Books volume ID
+  title: string;
+  authors: string[];
+  coverImage?: string;
+  description?: string;
+  publisher?: string;
+  publishedDate?: string;
+  categories: string[];
+  totalVolumes?: number;
+  type: 'BD' | 'COMIC';
+}
+
+export interface ComicEntry {
+  comicId: string;
+  status: ReadingStatus;
+  readVolumes: number[];   // volume numbers the user has marked as read
+  totalVolumes?: number;   // user-defined (may differ from comic.totalVolumes)
+  addedAt: string;
+  updatedAt: string;
+  comic: Comic;
+}
+
 export interface ReadingStats {
   totalEntries: number;
   chaptersRead: number;
