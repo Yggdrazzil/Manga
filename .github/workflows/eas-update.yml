@@ -35,4 +35,6 @@ jobs:
         run: npm ci
 
       - name: Publier la mise à jour
-        run: eas update --branch preview --message "${{ github.event.head_commit.message || 'mise à jour manuelle' }}" --non-interactive
+        env:
+          COMMIT_MSG: ${{ github.event.head_commit.message || 'mise à jour manuelle' }}
+        run: eas update --branch preview --message "$COMMIT_MSG" --non-interactive
