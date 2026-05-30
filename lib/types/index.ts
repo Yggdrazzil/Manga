@@ -85,12 +85,12 @@ export interface PaginatedResult<T> {
 // ── BD / Comics series model ──────────────────────────────────────────────────
 
 export interface BDVolume {
-  num: number;            // tome number (1, 2, 3 …)
-  workId: string;         // Open Library work ID, e.g. "OL24228254W"
+  num: number;
+  workId?: string;        // Open Library work ID, present only when sourced from OL
   title: string;          // full title with tome suffix
-  subtitle?: string;      // episode name, e.g. "L'Ivoire du Magohamoth" (lazy-loaded)
+  subtitle?: string;      // episode name in French from BnF, e.g. "L'Ivoire du Magohamoth"
   coverImage?: string;
-  description?: string;   // per-tome synopsis (lazy-loaded)
+  description?: string;   // per-tome synopsis from Google Books FR
   publisher?: string;
   publishedDate?: string;
   authors: string[];
@@ -100,9 +100,10 @@ export interface BDSeries {
   id: string;             // kebab-case series key, e.g. "lanfeust-de-troy"
   title: string;          // series name without tome suffix, e.g. "Lanfeust de Troy"
   authors: string[];
-  coverImage?: string;    // cover of the first available tome
-  totalVolumes: number;   // max tome number detected from Open Library search
-  volumes: BDVolume[];    // sorted by num; may not cover every num if OL gaps exist
+  coverImage?: string;
+  description?: string;   // series-level synopsis from Wikipedia FR
+  totalVolumes: number;
+  volumes: BDVolume[];    // sorted by num; pre-fetched at add-time, no lazy loads
   type: 'BD' | 'COMIC';
 }
 

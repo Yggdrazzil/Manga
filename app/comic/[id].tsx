@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
-import { getVolumeDetail, searchSeriesVolumes } from '@/lib/api/openlib';
+import { consolidateBDSeries } from '@/lib/api/bdconsolidate';
 import { useComicsStore } from '@/lib/store/comics';
 import { confirmAction } from '@/lib/utils/confirm';
 import { Panel } from '@/components/ui/Panel';
@@ -24,35 +24,19 @@ import type { BDSeries, BDVolume, ReadingStatus } from '@/lib/types';
 
 const STATUSES: ReadingStatus[] = ['READING', 'PLAN_TO_READ', 'COMPLETED', 'PAUSED', 'DROPPED'];
 
-// ── Volume row ────────────────────────────────────────────────────────────────
+// ── Volume row — purely presentational, all data pre-loaded at add-time ───────
 
 function VolumeRow({
   volume,
   isRead,
   onToggle,
-  onDetailLoad,
 }: {
   volume: BDVolume;
   isRead: boolean;
   onToggle: () => void;
-  onDetailLoad: (detail: { subtitle?: string; description?: string; publisher?: string }) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
-
-  const { data: detail, isLoading: loadingDetail } = useQuery({
-    queryKey: ['vol-detail', volume.workId],
-    queryFn: async () => {
-      const d = await getVolumeDetail(volume.workId);
-      onDetailLoad(d);
-      return d;
-    },
-    enabled: expanded,
-    staleTime: Infinity,
-  });
-
-  const subtitle = detail?.subtitle ?? volume.subtitle;
-  const description = detail?.description ?? volume.description;
-  const publisher = detail?.publisher ?? volume.publisher;
+  const { subtitle, description, publisher } = volume;
 
   return (
     <View style={[styles.volumeRow, isRead && styles.volumeRowRead]}>
@@ -95,15 +79,11 @@ function VolumeRow({
           )}
         </View>
 
-        {loadingDetail ? (
-          <ActivityIndicator size="small" color={COLORS.accentRed} />
-        ) : (
-          <Ionicons
-            name={expanded ? 'chevron-up' : 'chevron-down'}
-            size={14}
-            color={COLORS.textInkFaint}
-          />
-        )}
+        <Ionicons
+          name={expanded ? 'chevron-up' : 'chevron-down'}
+          size={14}
+          color={COLORS.textInkFaint}
+        />
       </Pressable>
 
       {expanded && (
@@ -135,24 +115,12 @@ export default function SeriesDetailScreen() {
   const removeEntry = useComicsStore(s => s.removeEntry);
   const toggleVolumeRead = useComicsStore(s => s.toggleVolumeRead);
   const updateStatus = useComicsStore(s => s.updateStatus);
-  const updateVolumeDetail = useComicsStore(s => s.updateVolumeDetail);
 
-  // If the series isn't in the store yet, fetch from OL using the title param
+  // If the series isn't in the store yet, run the full consolidation pipeline
   const seriesTitle = entry?.series.title ?? (titleParam ? decodeURIComponent(titleParam) : '');
   const { data: fetchedSeries, isLoading: loadingSeries } = useQuery({
     queryKey: ['series-preview', id],
-    queryFn: async () => {
-      const { volumes, totalVolumes } = await searchSeriesVolumes(seriesTitle);
-      return {
-        id: id!,
-        title: seriesTitle,
-        authors: volumes[0]?.authors ?? [],
-        coverImage: volumes[0]?.coverImage,
-        totalVolumes,
-        volumes,
-        type: 'BD' as const,
-      } satisfies BDSeries;
-    },
+    queryFn: () => consolidateBDSeries(seriesTitle),
     enabled: !entry && !!seriesTitle,
     staleTime: 1000 * 60 * 10,
   });
@@ -195,12 +163,6 @@ export default function SeriesDetailScreen() {
     });
   };
 
-  const handleVolumeDetailLoad = useCallback((
-    volNum: number,
-    detail: { subtitle?: string; description?: string; publisher?: string },
-  ) => {
-    if (entry) updateVolumeDetail(id!, volNum, detail);
-  }, [entry, id, updateVolumeDetail]);
 
   if (isLoading) {
     return (
@@ -355,6 +317,25 @@ export default function SeriesDetailScreen() {
             </Panel>
           </MotiView>
 
+          {/* Series description (from Wikipedia FR) */}
+          {series.description && (
+            <MotiView
+              from={{ opacity: 0, translateY: 12 }}
+              animate={{ opacity: 1, translateY: 0 }}
+              transition={{ type: 'spring', stiffness: 280, damping: 25, delay: 180 }}
+            >
+              <View style={styles.sectionHeaderRow}>
+                <View style={styles.sectionMarker} />
+                <Typography variant="title" color={COLORS.textInk}>Synopsis</Typography>
+              </View>
+              <Panel variant="paper" bordered style={styles.synopsisCard}>
+                <Typography variant="body" color={COLORS.textInkMuted} style={styles.synopsisText}>
+                  {series.description}
+                </Typography>
+              </Panel>
+            </MotiView>
+          )}
+
           {/* Volume list */}
           {series.volumes.length > 0 && (
             <MotiView
@@ -379,7 +360,6 @@ export default function SeriesDetailScreen() {
                         volume={vol}
                         isRead={isRead}
                         onToggle={() => handleToggle(vol.num)}
-                        onDetailLoad={detail => handleVolumeDetailLoad(vol.num, detail)}
                       />
                     </React.Fragment>
                   );
@@ -474,4 +454,6 @@ const styles = StyleSheet.create({
     paddingTop: 0,
   },
   volumeDesc: { lineHeight: 22, fontSize: 13 },
+  synopsisCard: { borderRadius: RADIUS.lg, padding: SPACING.base },
+  synopsisText: { lineHeight: 24, fontSize: 14 },
 });

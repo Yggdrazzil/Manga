@@ -20,17 +20,17 @@ import * as mangadex from '@/lib/api/mangadex';
 import * as jikan from '@/lib/api/jikan';
 import {
   searchComics,
-  searchSeriesVolumes,
   extractVolumeNumber,
   seriesKeyFromTitle,
   seriesTitleFromFull,
   type OLBook,
 } from '@/lib/api/openlib';
+import { consolidateBDSeries } from '@/lib/api/bdconsolidate';
 import { useComicsStore } from '@/lib/store/comics';
 import { Typography } from '@/components/ui/Typography';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { BORDERS, COLORS, FONTS, RADIUS, SPACING, TYPE_LABELS } from '@/constants/theme';
-import type { BDSeries, Manga, MediaType } from '@/lib/types';
+import type { Manga, MediaType } from '@/lib/types';
 
 const TAB_BAR_HEIGHT = 88;
 
@@ -317,38 +317,12 @@ export default function SearchScreen() {
   });
 
   const handleAddBD = useCallback(async (book: OLBook) => {
-    const volNum = extractVolumeNumber(book.title);
+    const volNum = extractVolumeNumber(book.title) ?? 1;
     const seriesTitle = seriesTitleFromFull(book.title);
-    const seriesId = seriesKeyFromTitle(book.title);
 
-    if (!volNum) {
-      // Series-level entry without a volume number — add as vol 1 placeholder
-      const series: BDSeries = {
-        id: seriesId,
-        title: seriesTitle,
-        authors: book.authors,
-        coverImage: book.coverImage,
-        totalVolumes: 1,
-        volumes: [],
-        type: 'BD',
-      };
-      addOrUpdateSeries(series, 1);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      return;
-    }
-
-    // Fetch all volumes for this series so we know totalVolumes
-    const { volumes, totalVolumes } = await searchSeriesVolumes(seriesTitle);
-
-    const series: BDSeries = {
-      id: seriesId,
-      title: seriesTitle,
-      authors: book.authors,
-      coverImage: volumes.find(v => v.num === 1)?.coverImage ?? book.coverImage,
-      totalVolumes,
-      volumes,
-      type: 'BD',
-    };
+    // Full multi-source consolidation (BnF + Google Books + OL + Wikipedia)
+    // runs in one shot so the detail screen is instantly rich, no lazy loads
+    const series = await consolidateBDSeries(seriesTitle, book.authors[0]);
 
     addOrUpdateSeries(series, volNum);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
