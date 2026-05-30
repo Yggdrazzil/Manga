@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
-import { getComicById } from '@/lib/api/googlebooks';
+import { getComicById } from '@/lib/api/openlib';
 import { useComicsStore } from '@/lib/store/comics';
 import { confirmAction } from '@/lib/utils/confirm';
 import { Panel } from '@/components/ui/Panel';
@@ -69,7 +69,14 @@ export default function ComicDetailScreen() {
     staleTime: 1000 * 60 * 60,
   });
 
-  const effectiveComic = comic;
+  // Work detail endpoint doesn't return author names — fall back to stored entry data
+  const effectiveComic = comic
+    ? {
+        ...comic,
+        authors: comic.authors.length > 0 ? comic.authors : (entry?.comic.authors ?? []),
+        coverImage: comic.coverImage ?? entry?.comic.coverImage,
+      }
+    : entry?.comic;
   const totalVolumes = entry?.totalVolumes ?? 0;
   const readCount = entry?.readVolumes.length ?? 0;
 
@@ -217,9 +224,6 @@ export default function ComicDetailScreen() {
                 <InfoItem label="Éditeur" value={effectiveComic.publisher || '—'} />
                 {effectiveComic.publishedDate && (
                   <InfoItem label="Parution" value={effectiveComic.publishedDate.slice(0, 4)} />
-                )}
-                {effectiveComic.averageRating != null && (
-                  <InfoItem label="Note" value={`${effectiveComic.averageRating.toFixed(1)}/5`} highlight />
                 )}
               </View>
             </Panel>

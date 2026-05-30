@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
-import { searchComics, type GoogleBook } from '@/lib/api/googlebooks';
+import { searchComics, type OLBook } from '@/lib/api/openlib';
 import { useComicsStore } from '@/lib/store/comics';
 import { Panel } from '@/components/ui/Panel';
 import { Typography } from '@/components/ui/Typography';
@@ -34,7 +34,7 @@ function SearchResultCard({
   onOpen,
   index,
 }: {
-  book: GoogleBook;
+  book: OLBook;
   inLibrary: boolean;
   onAdd: () => void;
   onOpen: () => void;
@@ -116,7 +116,7 @@ function SearchTab({ insets }: { insets: ReturnType<typeof useSafeAreaInsets> })
     setSubmitted(query.trim());
   };
 
-  const handleAdd = (book: GoogleBook) => {
+  const handleAdd = (book: OLBook) => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     addEntry({
       id: book.id,
@@ -182,7 +182,7 @@ function SearchTab({ insets }: { insets: ReturnType<typeof useSafeAreaInsets> })
         <View style={styles.stateBox}>
           <Ionicons name="cloud-offline-outline" size={40} color={COLORS.textInkMuted} />
           <Typography variant="body" color={COLORS.textInkMuted} style={styles.stateText}>
-            Impossible de contacter Google Books. Vérifiez votre connexion.
+            Impossible de contacter Open Library. Vérifiez votre connexion.
           </Typography>
         </View>
       )}

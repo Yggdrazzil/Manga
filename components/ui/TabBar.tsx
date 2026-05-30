@@ -16,8 +16,8 @@ import { Typography } from './Typography';
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
 const TABS: Array<{ route: string; icon: IoniconName; iconActive: IoniconName; label: string }> = [
-  { route: 'index', icon: 'compass-outline', iconActive: 'compass', label: 'Découvrir' },
-  { route: 'wishlist', icon: 'bookmark-outline', iconActive: 'bookmark', label: 'À lire' },
+  { route: 'index', icon: 'compass-outline', iconActive: 'compass', label: 'Manga & Webtoon' },
+  { route: 'wishlist', icon: 'book-outline', iconActive: 'book', label: 'BD & Comics' },
   { route: 'search', icon: 'search-outline', iconActive: 'search', label: 'Rechercher' },
   { route: 'profile', icon: 'person-circle-outline', iconActive: 'person-circle', label: 'Profil' },
 ];
