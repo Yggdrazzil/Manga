@@ -56,8 +56,19 @@ export function parseBnFTitle(full: string): { num?: number; episode: string } {
 }
 
 function cleanAuthor(raw: string): string {
-  // BnF format: "Christophe Arleston. Auteur" or "Arleston. Scénariste"
-  return raw.replace(/\.\s*(Auteur|Scénariste|Dessinateur|Coloriste|Illustrateur|Développeur|Traducteur)[^,]*/gi, '').trim();
+  let s = raw
+    // Strip job title suffixes: "Arleston. Scénariste"
+    .replace(/\.\s*(Auteur|Scénariste|Dessinateur|Coloriste|Illustrateur|Graphiste|Lettreur|Encreur|Développeur|Traducteur)[^,]*/gi, '')
+    // Strip birth/death year parentheses: "(1963-....)" or "(1963-2020)"
+    .replace(/\s*\(\d{4}[^)]*\)/g, '')
+    // Strip trailing ellipsis artifacts
+    .replace(/\.+\s*$/, '')
+    .trim();
+  // Reverse "Last, First" → "First Last" — single comma, both halves non-empty,
+  // no digits (handles "Van Hamme, Jean" and "Díaz Canales, Juan")
+  const reverseMatch = /^([^,\d]+),\s*([^,\d]+)$/.exec(s);
+  if (reverseMatch) s = `${reverseMatch[2].trim()} ${reverseMatch[1].trim()}`;
+  return s;
 }
 
 function cleanPublisher(raw: string): string {

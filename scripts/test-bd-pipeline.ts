@@ -22,6 +22,10 @@ async function main() {
     try {
       const s = await consolidateBDSeries(title);
       const ms = Date.now() - t0;
+      if (!s) {
+        console.log(`\n━━━ ${title} — ${ms}ms — NULL (aucune source)`);
+        continue;
+      }
       const n = s.volumes.length;
       const withSubtitle = s.volumes.filter(v => v.subtitle).length;
       const withCover = s.volumes.filter(v => v.coverImage).length;
