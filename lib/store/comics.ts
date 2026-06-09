@@ -4,18 +4,28 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { BDSeries, BDSeriesEntry, BDVolume, ReadingStatus } from '../types';
 
 // Auto-computes the "natural" status from read progress.
-// Manual overrides (PAUSED, DROPPED) are applied separately via updateStatus.
+// Manual overrides (PAUSED, DROPPED) are preserved across toggles unless the
+// series becomes COMPLETED.
 function computeStatus(readVolumes: number[], totalVolumes: number): ReadingStatus {
   if (readVolumes.length === 0) return 'PLAN_TO_READ';
   if (totalVolumes > 0 && readVolumes.length >= totalVolumes) return 'COMPLETED';
   return 'READING';
 }
 
+function nextStatus(current: ReadingStatus, readVolumes: number[], totalVolumes: number): ReadingStatus {
+  const natural = computeStatus(readVolumes, totalVolumes);
+  const isManualHold = current === 'PAUSED' || current === 'DROPPED';
+  return isManualHold && natural !== 'COMPLETED' ? current : natural;
+}
+
 interface ComicsState {
   entries: BDSeriesEntry[];
 
-  // Add a series if new, or just mark a volume as read if series already tracked.
-  addOrUpdateSeries: (series: BDSeries, volumeNum: number) => void;
+  // Add a series if new. When volumeNum is provided, also mark that volume read.
+  addOrUpdateSeries: (series: BDSeries, volumeNum?: number) => void;
+
+  // Replace stored series data (refreshed consolidation) while keeping progress.
+  refreshSeries: (series: BDSeries) => void;
 
   // Remove a series from tracking entirely.
   removeEntry: (seriesId: string) => void;
@@ -44,11 +54,12 @@ export const useComicsStore = create<ComicsState>()(
 
       addOrUpdateSeries: (series, volumeNum) => {
         const existing = get().getEntry(series.id);
+        // Only volume numbers ≥ 1 are real tomes — guards against phantom "volume 0"
+        const markVolume = volumeNum != null && volumeNum >= 1 ? volumeNum : undefined;
         if (existing) {
-          // Series already tracked — just mark the volume as read if not yet done.
-          if (existing.readVolumes.includes(volumeNum)) return;
-          const readVolumes = [...existing.readVolumes, volumeNum].sort((a, b) => a - b);
-          const status = computeStatus(readVolumes, existing.series.totalVolumes);
+          if (markVolume == null || existing.readVolumes.includes(markVolume)) return;
+          const readVolumes = [...existing.readVolumes, markVolume].sort((a, b) => a - b);
+          const status = nextStatus(existing.status, readVolumes, existing.series.totalVolumes);
           set(state => ({
             entries: state.entries.map(e =>
               e.seriesId === series.id
@@ -58,7 +69,7 @@ export const useComicsStore = create<ComicsState>()(
           }));
           return;
         }
-        const readVolumes = [volumeNum];
+        const readVolumes = markVolume != null ? [markVolume] : [];
         const entry: BDSeriesEntry = {
           seriesId: series.id,
           status: computeStatus(readVolumes, series.totalVolumes),
@@ -68,6 +79,17 @@ export const useComicsStore = create<ComicsState>()(
           series,
         };
         set(state => ({ entries: [entry, ...state.entries] }));
+      },
+
+      refreshSeries: series => {
+        set(state => ({
+          entries: state.entries.map(e => {
+            if (e.seriesId !== series.id) return e;
+            // Keep user progress; recompute status against the fresh totalVolumes
+            const status = nextStatus(e.status, e.readVolumes, series.totalVolumes);
+            return { ...e, series, status, updatedAt: new Date().toISOString() };
+          }),
+        }));
       },
 
       removeEntry: seriesId => {
@@ -82,7 +104,7 @@ export const useComicsStore = create<ComicsState>()(
             const readVolumes = alreadyRead
               ? e.readVolumes.filter(v => v !== volumeNum)
               : [...e.readVolumes, volumeNum].sort((a, b) => a - b);
-            const status = computeStatus(readVolumes, e.series.totalVolumes);
+            const status = nextStatus(e.status, readVolumes, e.series.totalVolumes);
             return { ...e, readVolumes, status, updatedAt: new Date().toISOString() };
           }),
         }));

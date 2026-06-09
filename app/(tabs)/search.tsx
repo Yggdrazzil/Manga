@@ -7,6 +7,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Keyboard,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -185,6 +186,7 @@ function ResultCard({
 }) {
   const router = useRouter();
   const [adding, setAdding] = useState(false);
+  const [addFailed, setAddFailed] = useState(false);
 
   const title = getTitle(result);
   const coverUri = result.kind === 'manga' ? result.data.coverImage : result.data.coverImage;
@@ -193,7 +195,7 @@ function ResultCard({
   const year = result.year;
 
   const typeLabel = result.kind === 'bd' ? 'BD' : (TYPE_LABELS[result.data.type] ?? 'MANGA');
-  const typeBg = result.kind === 'bd' ? '#1F6F8B' : COLORS.accentRed;
+  const typeBg = result.kind === 'bd' ? COLORS.cyan : COLORS.accentRed;
 
   const handleCardPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -209,9 +211,14 @@ function ResultCard({
   const handleAdd = async () => {
     if (adding) return;
     setAdding(true);
+    setAddFailed(false);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
       await onAddBD();
+    } catch {
+      setAddFailed(true);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      setTimeout(() => setAddFailed(false), 3000);
     } finally {
       setAdding(false);
     }
@@ -271,13 +278,20 @@ function ResultCard({
             ]}
             onPress={e => { e.stopPropagation(); void handleAdd(); }}
             hitSlop={8}
-            accessibilityLabel={isRead ? 'Lu' : 'Marquer comme lu'}
+            accessibilityRole="button"
+            accessibilityLabel={
+              addFailed ? 'Échec — réessayer'
+              : isRead ? 'Lu'
+              : isTracked ? 'Suivi — marquer comme lu'
+              : 'Ajouter à la bibliothèque'
+            }
+            accessibilityState={{ busy: adding }}
           >
             {adding ? (
               <ActivityIndicator size="small" color={COLORS.onInk} />
             ) : (
               <Ionicons
-                name={isRead ? 'checkmark' : 'add'}
+                name={addFailed ? 'alert' : isRead ? 'checkmark' : isTracked ? 'bookmark' : 'add'}
                 size={18}
                 color={COLORS.onInk}
               />
@@ -301,15 +315,17 @@ export default function SearchScreen() {
   const inputRef = useRef<TextInput>(null);
 
   const addOrUpdateSeries = useComicsStore(s => s.addOrUpdateSeries);
-  const isVolumeRead = useComicsStore(s => s.isVolumeRead);
-  const getEntry = useComicsStore(s => s.getEntry);
+  // Subscribe to the entries array itself (not the stable getter functions),
+  // so result cards re-render when the library changes — fixes the "+" button
+  // never turning into a checkmark after an add.
+  const comicsEntries = useComicsStore(s => s.entries);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQuery(query), 450);
     return () => clearTimeout(t);
   }, [query]);
 
-  const { data: results, isLoading, isFetching } = useQuery({
+  const { data: results, isLoading, isFetching, isError } = useQuery({
     queryKey: ['unified-search', debouncedQuery, filter],
     queryFn: () => searchAll(debouncedQuery, filter),
     enabled: debouncedQuery.length >= 2,
@@ -317,14 +333,14 @@ export default function SearchScreen() {
   });
 
   const handleAddBD = useCallback(async (book: OLBook) => {
-    const volNum = extractVolumeNumber(book.title) ?? 1;
+    // Specific tome in the result → mark it read; series-level result → just track
+    const volNum = extractVolumeNumber(book.title);
     const seriesTitle = seriesTitleFromFull(book.title);
 
-    // Full multi-source consolidation (BnF + Google Books + OL + Wikipedia)
-    // runs in one shot so the detail screen is instantly rich, no lazy loads
     const series = await consolidateBDSeries(seriesTitle, book.authors[0]);
+    if (!series) throw new Error('Aucune donnée trouvée pour cette série');
 
-    addOrUpdateSeries(series, volNum);
+    addOrUpdateSeries(series, volNum ?? undefined);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   }, [addOrUpdateSeries]);
 
@@ -343,8 +359,9 @@ export default function SearchScreen() {
 
     const volNum = extractVolumeNumber(item.data.title);
     const sid = seriesKeyFromTitle(item.data.title);
-    const tracked = !!getEntry(sid);
-    const read = volNum != null ? isVolumeRead(sid, volNum) : false;
+    const entry = comicsEntries.find(e => e.seriesId === sid);
+    const tracked = !!entry;
+    const read = volNum != null ? (entry?.readVolumes.includes(volNum) ?? false) : false;
 
     return (
       <ResultCard
@@ -355,9 +372,11 @@ export default function SearchScreen() {
         onAddBD={() => handleAddBD(item.data)}
       />
     );
-  }, [getEntry, isVolumeRead, handleAddBD]);
+  }, [comicsEntries, handleAddBD]);
 
-  const showEmpty = debouncedQuery.length >= 2 && !isLoading && (!results || results.length === 0);
+  const showNetworkError = debouncedQuery.length >= 2 && !isLoading && isError;
+  const showEmpty =
+    debouncedQuery.length >= 2 && !isLoading && !isError && (!results || results.length === 0);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -377,6 +396,7 @@ export default function SearchScreen() {
             returnKeyType="search"
             autoCorrect={false}
             autoCapitalize="none"
+            accessibilityLabel="Rechercher des mangas ou BD"
           />
           {query.length > 0 && (
             <Pressable onPress={() => { setQuery(''); setDebouncedQuery(''); }} style={styles.clearBtn}>
@@ -417,6 +437,14 @@ export default function SearchScreen() {
         />
       )}
 
+      {showNetworkError && (
+        <EmptyState
+          icon="📡"
+          title="Erreur réseau"
+          subtitle="Impossible de contacter les serveurs. Vérifiez votre connexion puis réessayez."
+        />
+      )}
+
       {showEmpty && (
         <EmptyState
           icon="😔"
@@ -441,6 +469,8 @@ export default function SearchScreen() {
           showsVerticalScrollIndicator={false}
           removeClippedSubviews
           windowSize={7}
+          keyboardShouldPersistTaps="handled"
+          onScrollBeginDrag={Keyboard.dismiss}
         />
       )}
     </View>

@@ -27,7 +27,7 @@ const TEXT = {
   ink: '#1A1611', // primary on paper
   inkSoft: '#403A30',
   inkMuted: '#6E6656', // secondary
-  inkFaint: '#9C9382', // captions
+  inkFaint: '#7A7163', // captions — ≥3:1 on paper (WCAG AA large text)
   onInk: '#F4EFE3', // primary on ink panels
   onInkMuted: '#B7AD99',
 };
@@ -44,12 +44,8 @@ export const COLORS = {
   // ---- Legacy keys (remapped to Ink Manga) ----
   bg: PAPER.base,
   surface: PAPER.raised,
-  surfaceRaised: PAPER.sunken,
-  glassBorder: 'rgba(26, 22, 17, 0.14)',
   accent: ACCENT.red,
-  accentLight: ACCENT.redBright,
-  accentMuted: ACCENT.redSoft,
-  cyan: '#1F6F8B', // secondary ink-teal accent
+  cyan: '#1F6F8B', // secondary ink-teal accent (BD identity)
   cyanMuted: 'rgba(31, 111, 139, 0.14)',
   text: TEXT.ink,
   textSecondary: TEXT.inkMuted,
@@ -75,10 +71,8 @@ export const COLORS = {
   paper: PAPER.base,
   paperRaised: PAPER.raised,
   paperSunken: PAPER.sunken,
-  paperDim: PAPER.dim,
 
   ink: INK.base,
-  inkRaised: INK.raised,
   inkSoft: INK.soft,
 
   textInk: TEXT.ink,
@@ -99,6 +93,15 @@ export const COLORS = {
   lineOnInk: 'rgba(244, 239, 227, 0.16)',
 
   halftone: 'rgba(26, 22, 17, 0.9)', // dot ink for screentone
+} as const;
+
+/** Ink scrims for overlays on images / modals — single source instead of 8 hand-written rgba. */
+export const SCRIMS = {
+  subtle: 'rgba(22, 19, 14, 0.4)',
+  medium: 'rgba(22, 19, 14, 0.6)',
+  heavy: 'rgba(22, 19, 14, 0.85)',
+  full: 'rgba(22, 19, 14, 0.92)',
+  paper: 'rgba(244, 239, 227, 0.85)',
 } as const;
 
 export const SPACING = {
@@ -138,19 +141,10 @@ export const HARD_SHADOW = {
   elevation: 4,
 } as const;
 
-export const SOFT_SHADOW = {
-  shadowColor: '#16130E',
-  shadowOffset: { width: 0, height: 6 },
-  shadowOpacity: 0.16,
-  shadowRadius: 16,
-  elevation: 6,
-} as const;
-
 export const FONTS = {
   display: 'BebasNeue_400Regular', // condensed impact caps (numbers, SFX, kickers)
   serif: 'Fraunces_600SemiBold', // editorial titles
   serifBlack: 'Fraunces_900Black', // hero / big editorial
-  serifItalic: 'Fraunces_600SemiBold_Italic', // accents
   heading: 'SpaceGrotesk_700Bold', // UI headings
   headingMedium: 'SpaceGrotesk_500Medium', // UI labels
   body: 'Nunito_400Regular',

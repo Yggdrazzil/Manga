@@ -7,6 +7,7 @@ import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import React, { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import { useReducedMotion } from 'react-native-reanimated';
 import { useLibraryStore } from '@/lib/store/library';
 import { Panel } from '@/components/ui/Panel';
 import { Typography } from '@/components/ui/Typography';
@@ -56,6 +57,7 @@ function formatDate(iso: string): string {
 
 export function ChapterList({ chapters, entryMangaId, source, manga, mode }: ChapterListProps) {
   const router = useRouter();
+  const reduceMotion = useReducedMotion();
   const isTrack = mode === 'track';
   const [expandedVolumes, setExpandedVolumes] = useState<Set<string>>(new Set());
   const [selectedChapter, setSelectedChapter] = useState<MangaChapter | null>(null);
@@ -164,7 +166,7 @@ export function ChapterList({ chapters, entryMangaId, source, manga, mode }: Cha
     <View style={styles.container}>
       {/* Header card */}
       <MotiView
-        from={{ opacity: 0, translateY: 8 }}
+        from={reduceMotion ? { opacity: 1, translateY: 0 } : { opacity: 0, translateY: 8 }}
         animate={{ opacity: 1, translateY: 0 }}
         transition={{ type: 'spring', stiffness: 320, damping: 26 }}
       >
@@ -265,7 +267,7 @@ export function ChapterList({ chapters, entryMangaId, source, manga, mode }: Cha
             return (
               <MotiView
                 key={ch.id}
-                from={{ opacity: 0, translateY: 4 }}
+                from={reduceMotion ? { opacity: 1, translateY: 0 } : { opacity: 0, translateY: 4 }}
                 animate={{ opacity: 1, translateY: 0 }}
                 transition={{
                   type: 'spring',
@@ -393,7 +395,7 @@ export function ChapterList({ chapters, entryMangaId, source, manga, mode }: Cha
                       return (
                         <MotiView
                           key={ch.id}
-                          from={{ opacity: 0, translateY: 6 }}
+                          from={reduceMotion ? { opacity: 1, translateY: 0 } : { opacity: 0, translateY: 6 }}
                           animate={{ opacity: 1, translateY: 0 }}
                           transition={{ type: 'spring', stiffness: 360, damping: 28, delay: Math.min(i * 35, 280) }}
                         >

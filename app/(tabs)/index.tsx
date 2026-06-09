@@ -45,15 +45,24 @@ function isNew(dateStr: string): boolean {
   return diffH < 48;
 }
 
-// ── À VOIR card ───────────────────────────────────────────────────────────────
+// ── À LIRE card ───────────────────────────────────────────────────────────────
 
 function TrackerCard({ entry, index }: { entry: LibraryEntry; index: number }) {
   const router = useRouter();
+  const updateProgress = useLibraryStore(s => s.updateProgress);
   const progress = entry.progress;
   const total = entry.manga.chapters;
-  const readCount = entry.readChapterIds?.length ?? 0;
-  const remaining = total != null ? total - readCount : null;
+  // Single source of truth for display: the progress watermark
+  const remaining = total != null ? Math.max(total - progress, 0) : null;
   const isNew0 = progress === 0;
+  const isCaughtUp = total != null && progress >= total;
+
+  const handleQuickCheckIn = (e: { stopPropagation: () => void }) => {
+    e.stopPropagation();
+    if (isCaughtUp) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    updateProgress(entry.mangaId, entry.source, progress + 1);
+  };
 
   return (
     <MotiView
@@ -93,7 +102,9 @@ function TrackerCard({ entry, index }: { entry: LibraryEntry; index: number }) {
           </Pressable>
 
           <Typography style={styles.tvChapter}>
-            {isNew0 ? 'Ch. 1' : `Ch. ${progress + 1}`}
+            {isCaughtUp
+              ? (entry.manga.status === 'COMPLETED' ? 'Série terminée' : 'À jour ✓')
+              : isNew0 ? 'Ch. 1' : `Ch. ${progress + 1}`}
           </Typography>
 
           <View style={styles.tvMeta}>
@@ -111,7 +122,19 @@ function TrackerCard({ entry, index }: { entry: LibraryEntry; index: number }) {
           </View>
         </View>
 
-        <Ionicons name="chevron-forward" size={16} color={COLORS.textInkFaint} />
+        {isCaughtUp ? (
+          <Ionicons name="checkmark-circle" size={28} color={COLORS.statusCompleted} />
+        ) : (
+          <Pressable
+            onPress={handleQuickCheckIn}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel={`Marquer le chapitre ${progress + 1} comme lu`}
+            style={({ pressed }) => [styles.quickCheckIn, pressed && { transform: [{ scale: 0.92 }] }]}
+          >
+            <Ionicons name="add-circle" size={30} color={COLORS.accentRed} />
+          </Pressable>
+        )}
       </Pressable>
     </MotiView>
   );
@@ -302,7 +325,7 @@ export default function MangaTrackerScreen() {
                 variant="subheading"
                 style={[styles.subTabLabel, activeTab === tab && styles.subTabLabelActive]}
               >
-                {tab === 'voir' ? 'À VOIR' : 'À VENIR'}
+                {tab === 'voir' ? 'À LIRE' : 'À VENIR'}
               </Typography>
               {activeTab === tab && <View style={styles.subTabLine} />}
             </Pressable>
@@ -310,7 +333,7 @@ export default function MangaTrackerScreen() {
         </View>
       </View>
 
-      {/* À VOIR */}
+      {/* À LIRE */}
       {activeTab === 'voir' && (
         isEmpty ? (
           <ScrollView
@@ -352,9 +375,13 @@ export default function MangaTrackerScreen() {
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accentRed} colors={[COLORS.accentRed]} />}
           >
             <Ionicons name="calendar-outline" size={56} color={COLORS.textInkMuted} />
-            <Typography variant="heading" color={COLORS.textInk} style={styles.emptyTitle}>Pas de nouveaux chapitres</Typography>
+            <Typography variant="heading" color={COLORS.textInk} style={styles.emptyTitle}>
+              {mangadexIds.length === 0 ? 'Aucune série liée à MangaDex' : 'Pas de nouveaux chapitres'}
+            </Typography>
             <Typography variant="body" color={COLORS.textInkMuted} style={styles.emptyText}>
-              Aucun nouveau chapitre sur MangaDex dans les 14 derniers jours pour vos mangas.
+              {mangadexIds.length === 0
+                ? 'Ajoutez des mangas disponibles sur MangaDex pour voir leurs nouveaux chapitres ici.'
+                : 'Aucun nouveau chapitre sur MangaDex dans les 14 derniers jours pour vos mangas.'}
             </Typography>
           </ScrollView>
         ) : (
@@ -476,10 +503,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.sm,
     paddingVertical: 2,
   },
-  tvBadgeNew: { backgroundColor: '#e8a12b' },
+  tvBadgeNew: { backgroundColor: COLORS.warning },
   tvBadgeReadable: { backgroundColor: COLORS.statusCompleted },
   tvBadgeText: { fontSize: 8, letterSpacing: 0.8, color: COLORS.onInk, fontFamily: FONTS.bodyBold },
-  tvBadgeNewText: { color: '#1a1a1a' },
+  tvBadgeNewText: { color: COLORS.onInk },
+  quickCheckIn: { padding: SPACING.xs },
 
   // Section header
   sectionHeaderWrap: { alignItems: 'center', paddingVertical: SPACING.md },

@@ -116,11 +116,17 @@ export default function SeriesDetailScreen() {
   const toggleVolumeRead = useComicsStore(s => s.toggleVolumeRead);
   const updateStatus = useComicsStore(s => s.updateStatus);
 
-  // If the series isn't in the store yet, run the full consolidation pipeline
-  const seriesTitle = entry?.series.title ?? (titleParam ? decodeURIComponent(titleParam) : '');
-  const { data: fetchedSeries, isLoading: loadingSeries } = useQuery({
-    queryKey: ['series-preview', id],
-    queryFn: () => consolidateBDSeries(seriesTitle),
+  // If the series isn't in the store yet, run the full consolidation pipeline.
+  // expo-router already decodes params — no manual decodeURIComponent (it
+  // crashes on titles containing a literal "%").
+  const seriesTitle = entry?.series.title ?? titleParam ?? '';
+  const { data: fetchedSeries, isLoading: loadingSeries, isError: previewError, refetch: retryPreview } = useQuery({
+    queryKey: ['series-preview', id, seriesTitle],
+    queryFn: async () => {
+      const result = await consolidateBDSeries(seriesTitle);
+      if (!result) throw new Error('Aucune donnée trouvée pour cette série');
+      return result;
+    },
     enabled: !entry && !!seriesTitle,
     staleTime: 1000 * 60 * 10,
   });
@@ -143,10 +149,30 @@ export default function SeriesDetailScreen() {
     if (entry) {
       updateStatus(id!, status);
     } else if (series) {
-      addOrUpdateSeries(series, 0);
+      // Track the series without marking any volume read
+      addOrUpdateSeries(series);
       updateStatus(series.id, status);
     }
   }, [entry, series, id, updateStatus, addOrUpdateSeries]);
+
+  const refreshSeries = useComicsStore(s => s.refreshSeries);
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefreshSeries = useCallback(async () => {
+    if (!entry || refreshing) return;
+    setRefreshing(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      const fresh = await consolidateBDSeries(entry.series.title);
+      if (fresh) {
+        refreshSeries(fresh);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    } catch {
+      // silent — stored data stays usable
+    } finally {
+      setRefreshing(false);
+    }
+  }, [entry, refreshing, refreshSeries]);
 
   const handleRemove = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -187,7 +213,19 @@ export default function SeriesDetailScreen() {
         </Pressable>
         <View style={styles.errorState}>
           <Ionicons name="alert-circle-outline" size={56} color={COLORS.textInkMuted} />
-          <Typography variant="heading" color={COLORS.textInk}>Série introuvable</Typography>
+          <Typography variant="heading" color={COLORS.textInk}>
+            {previewError ? 'Impossible de charger cette série' : 'Série introuvable'}
+          </Typography>
+          {previewError && (
+            <Pressable
+              style={styles.retryBtn}
+              onPress={() => retryPreview()}
+              accessibilityRole="button"
+              accessibilityLabel="Réessayer"
+            >
+              <Typography variant="label" color={COLORS.accentRed}>Réessayer</Typography>
+            </Pressable>
+          )}
         </View>
       </View>
     );
@@ -269,6 +307,22 @@ export default function SeriesDetailScreen() {
                   <Typography variant="heading" color={COLORS.textInk}>
                     {entry ? 'Votre suivi' : 'Ajouter à la bibliothèque'}
                   </Typography>
+                  {entry && (
+                    <Pressable
+                      onPress={handleRefreshSeries}
+                      hitSlop={10}
+                      style={styles.refreshBtn}
+                      accessibilityRole="button"
+                      accessibilityLabel="Actualiser les données de la série"
+                      accessibilityState={{ busy: refreshing }}
+                    >
+                      {refreshing ? (
+                        <ActivityIndicator size="small" color={COLORS.cyan} />
+                      ) : (
+                        <Ionicons name="refresh" size={16} color={COLORS.cyan} />
+                      )}
+                    </Pressable>
+                  )}
                 </View>
 
                 {/* Status picker */}
@@ -384,11 +438,20 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   errorState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: SPACING.md, padding: SPACING.xl },
+  retryBtn: {
+    marginTop: SPACING.sm,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.sm,
+    borderWidth: BORDERS.bold,
+    borderColor: COLORS.accentRed,
+    borderRadius: RADIUS.sm,
+  },
+  refreshBtn: { marginLeft: 'auto', padding: SPACING.xs },
   hero: { height: 320, backgroundColor: COLORS.ink, justifyContent: 'flex-end' },
   heroBottom: { padding: SPACING.base, gap: SPACING.sm },
   heroMeta: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginBottom: SPACING.xs },
   typeBadge: {
-    backgroundColor: '#1F6F8B',
+    backgroundColor: COLORS.cyan,
     borderRadius: RADIUS.sm,
     paddingHorizontal: SPACING.sm,
     paddingVertical: 3,

@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import { MotiView } from 'moti';
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BORDERS, COLORS, FONTS, RADIUS, SPACING, STATUS_LABELS } from '@/constants/theme';
@@ -33,8 +33,9 @@ const STATUS_COLORS: Record<ReadingStatus, string> = {
 type Filter = 'ALL' | ReadingStatus;
 
 const FILTERS: { key: Filter; label: string }[] = [
-  { key: 'ALL', label: 'Historique' },
+  { key: 'ALL', label: 'Tout' },
   { key: 'READING', label: STATUS_LABELS.READING },
+  { key: 'PLAN_TO_READ', label: STATUS_LABELS.PLAN_TO_READ },
   { key: 'COMPLETED', label: STATUS_LABELS.COMPLETED },
   { key: 'PAUSED', label: STATUS_LABELS.PAUSED },
   { key: 'DROPPED', label: STATUS_LABELS.DROPPED },
@@ -70,7 +71,23 @@ function StatusBar({ status, count, total }: { status: ReadingStatus; count: num
 function HistoryRow({ entry }: { entry: LibraryEntry }) {
   const router = useRouter();
   const updateProgress = useLibraryStore(s => s.updateProgress);
+  const updateStatus = useLibraryStore(s => s.updateStatus);
   const removeEntry = useLibraryStore(s => s.removeEntry);
+
+  const maxChapters = entry.manga.chapters;
+  const isCaughtUp = maxChapters != null && entry.progress >= maxChapters;
+
+  const handlePlusOne = () => {
+    if (isCaughtUp) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const newProgress = entry.progress + 1;
+    updateProgress(entry.mangaId, entry.source, newProgress);
+    // Finishing the last chapter of a finished series completes the entry
+    if (maxChapters != null && newProgress >= maxChapters && entry.manga.status === 'COMPLETED') {
+      updateStatus(entry.mangaId, entry.source, 'COMPLETED');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+  };
 
   const title = entry.manga.title.english ?? entry.manga.title.romaji ?? entry.manga.title.userPreferred;
   const percent = entry.manga.chapters ? Math.min(entry.progress / entry.manga.chapters, 1) : 0;
@@ -120,23 +137,27 @@ function HistoryRow({ entry }: { entry: LibraryEntry }) {
               </Typography>
             </View>
           </View>
-          <TouchableOpacity
-            style={styles.plusBtn}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              updateProgress(entry.mangaId, entry.source, entry.progress + 1);
-            }}
-            accessibilityLabel="Ajouter un chapitre"
-          >
-            <Typography style={styles.plusLabel}>+1</Typography>
-          </TouchableOpacity>
+          {isCaughtUp ? (
+            <View style={styles.plusBtnDone}>
+              <Ionicons name="checkmark" size={16} color={COLORS.statusCompleted} />
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={styles.plusBtn}
+              onPress={handlePlusOne}
+              accessibilityRole="button"
+              accessibilityLabel="Marquer le prochain chapitre comme lu"
+            >
+              <Typography style={styles.plusLabel}>+1</Typography>
+            </TouchableOpacity>
+          )}
         </View>
       </Panel>
     </Pressable>
   );
 }
 
-const BD_COLOR = '#1F6F8B';
+const BD_COLOR = COLORS.cyan;
 
 const BD_STATUS_COLORS: Record<ReadingStatus, string> = {
   READING: BD_COLOR,
@@ -148,8 +169,22 @@ const BD_STATUS_COLORS: Record<ReadingStatus, string> = {
 
 function BDHistoryRow({ entry }: { entry: BDSeriesEntry }) {
   const router = useRouter();
+  const toggleVolumeRead = useComicsStore(s => s.toggleVolumeRead);
   const readCount = entry.readVolumes.length;
   const total = entry.series.totalVolumes;
+
+  const nextVolume = (() => {
+    for (let i = 1; i <= total; i++) {
+      if (!entry.readVolumes.includes(i)) return i;
+    }
+    return null;
+  })();
+
+  const handlePlusOne = () => {
+    if (nextVolume == null) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    toggleVolumeRead(entry.seriesId, nextVolume);
+  };
   const percent = total > 0 ? Math.min(readCount / total, 1) : 0;
   const relative = formatDistanceToNow(new Date(entry.updatedAt), { addSuffix: true, locale: fr });
   const statusColor = BD_STATUS_COLORS[entry.status];
@@ -187,9 +222,20 @@ function BDHistoryRow({ entry }: { entry: BDSeriesEntry }) {
               </Typography>
             </View>
           </View>
-          <View style={[styles.plusBtn, { backgroundColor: BD_COLOR }]}>
-            <Typography style={[styles.plusLabel, { fontSize: 10 }]}>BD</Typography>
-          </View>
+          {nextVolume != null ? (
+            <TouchableOpacity
+              style={[styles.plusBtn, { backgroundColor: BD_COLOR }]}
+              onPress={handlePlusOne}
+              accessibilityRole="button"
+              accessibilityLabel={`Marquer le tome ${nextVolume} comme lu`}
+            >
+              <Typography style={styles.plusLabel}>+1</Typography>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.plusBtnDone}>
+              <Ionicons name="checkmark" size={16} color={COLORS.statusCompleted} />
+            </View>
+          )}
         </View>
       </Panel>
     </Pressable>
@@ -205,18 +251,30 @@ export default function ProfileScreen() {
   const banner = useLibraryStore(s => s.banner);
   const setBanner = useLibraryStore(s => s.setBanner);
   const getStats = useLibraryStore(s => s.getStats);
-  const stats = getStats();
   const [filter, setFilter] = useState<Filter>('ALL');
   const [pickerOpen, setPickerOpen] = useState(false);
   const [bannerPickerOpen, setBannerPickerOpen] = useState(false);
+
+  // Memoized: getStats builds genre histograms — too heavy for every keystroke
+  const stats = useMemo(() => getStats(), [entries]);
 
   const featured = entries.find(e => e.manga.bannerImage) ?? entries[0];
   const autoBanner = featured?.manga.bannerImage ?? featured?.manga.coverImage;
   const backdrop = banner ?? autoBanner;
 
-  const visible = entries
-    .filter(e => (filter === 'ALL' ? true : e.status === filter))
-    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+  const visible = useMemo(
+    () => entries
+      .filter(e => (filter === 'ALL' ? true : e.status === filter))
+      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()),
+    [entries, filter],
+  );
+
+  // Copy of the array before sort — .sort() mutates, and bdEntries IS the
+  // persisted Zustand array
+  const sortedBdEntries = useMemo(
+    () => [...bdEntries].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()),
+    [bdEntries],
+  );
 
   const statuses: ReadingStatus[] = ['READING', 'COMPLETED', 'PLAN_TO_READ', 'PAUSED', 'DROPPED'];
 
@@ -367,7 +425,7 @@ export default function ProfileScreen() {
                 </Typography>
                 <Typography variant="body" color={COLORS.textInkMuted} style={styles.emptyText}>
                   {entries.length === 0
-                    ? "Ajoutez des œuvres à votre bibliothèque depuis l'écran Découvrir."
+                    ? "Ajoutez des œuvres à votre bibliothèque depuis l'onglet Rechercher."
                     : 'Aucune œuvre ne correspond à ce filtre pour le moment.'}
                 </Typography>
               </View>
@@ -395,7 +453,7 @@ export default function ProfileScreen() {
               transition={{ type: 'spring', stiffness: 280, damping: 25, delay: 100 }}
             >
               <View style={styles.libraryHeaderRow}>
-                <View style={[styles.sectionMarker, { backgroundColor: '#1F6F8B' }]} />
+                <View style={[styles.sectionMarker, { backgroundColor: COLORS.cyan }]} />
                 <Typography variant="title" color={COLORS.textInk}>BD & Comics</Typography>
                 <View style={styles.bdCountBadge}>
                   <Typography variant="caption" color={COLORS.onInk} style={styles.bdCountText}>
@@ -404,9 +462,7 @@ export default function ProfileScreen() {
                 </View>
               </View>
               <View style={styles.list}>
-                {bdEntries
-                  .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-                  .map((entry, index) => (
+                {sortedBdEntries.map((entry, index) => (
                     <MotiView
                       key={entry.seriesId}
                       from={{ opacity: 0, translateY: 12 }}
@@ -415,7 +471,7 @@ export default function ProfileScreen() {
                     >
                       <BDHistoryRow entry={entry} />
                     </MotiView>
-                  ))}
+                ))}
               </View>
             </MotiView>
           )}
@@ -555,7 +611,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   bdCountBadge: {
-    backgroundColor: '#1F6F8B',
+    backgroundColor: COLORS.cyan,
     borderRadius: RADIUS.full,
     paddingHorizontal: SPACING.sm,
     paddingVertical: 2,
@@ -619,6 +675,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   plusLabel: { fontFamily: FONTS.display, fontSize: 16, color: COLORS.onInk, letterSpacing: 0.5 },
+  plusBtnDone: {
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   emptyCard: { borderRadius: RADIUS.xl },
   emptyInner: { padding: SPACING.xl, alignItems: 'center', gap: SPACING.md },
   emptyEmoji: { fontSize: 48, lineHeight: 56 },

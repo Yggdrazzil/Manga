@@ -1,9 +1,5 @@
 import { BebasNeue_400Regular } from '@expo-google-fonts/bebas-neue';
-import {
-  Fraunces_600SemiBold,
-  Fraunces_600SemiBold_Italic,
-  Fraunces_900Black,
-} from '@expo-google-fonts/fraunces';
+import { Fraunces_600SemiBold, Fraunces_900Black } from '@expo-google-fonts/fraunces';
 import { Nunito_400Regular, Nunito_600SemiBold, Nunito_700Bold } from '@expo-google-fonts/nunito';
 import { SpaceGrotesk_500Medium, SpaceGrotesk_700Bold } from '@expo-google-fonts/space-grotesk';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -34,7 +30,6 @@ export default function RootLayout() {
     BebasNeue_400Regular,
     Fraunces_600SemiBold,
     Fraunces_900Black,
-    Fraunces_600SemiBold_Italic,
     SpaceGrotesk_500Medium,
     SpaceGrotesk_700Bold,
     Nunito_400Regular,

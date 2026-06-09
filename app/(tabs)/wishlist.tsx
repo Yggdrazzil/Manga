@@ -13,10 +13,11 @@ import type { BDSeriesEntry } from '@/lib/types';
 
 const TAB_BAR_HEIGHT = 88;
 
-// ── À VOIR card ───────────────────────────────────────────────────────────────
+// ── À LIRE card ───────────────────────────────────────────────────────────────
 
 function BDCard({ entry, index }: { entry: BDSeriesEntry; index: number }) {
   const router = useRouter();
+  const toggleVolumeRead = useComicsStore(s => s.toggleVolumeRead);
   const total = entry.series.totalVolumes;
   const readCount = entry.readVolumes.length;
 
@@ -30,6 +31,13 @@ function BDCard({ entry, index }: { entry: BDSeriesEntry; index: number }) {
   const navigate = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push(`/comic/${entry.seriesId}` as never);
+  };
+
+  const handleQuickCheckIn = (e: { stopPropagation: () => void }) => {
+    e.stopPropagation();
+    if (nextVolume == null) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    toggleVolumeRead(entry.seriesId, nextVolume);
   };
 
   return (
@@ -76,6 +84,20 @@ function BDCard({ entry, index }: { entry: BDSeriesEntry; index: number }) {
             </Typography>
           </View>
         </View>
+
+        {nextVolume != null ? (
+          <Pressable
+            onPress={handleQuickCheckIn}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel={`Marquer le tome ${nextVolume} comme lu`}
+            style={({ pressed }) => [styles.quickCheckIn, pressed && { transform: [{ scale: 0.92 }] }]}
+          >
+            <Ionicons name="add-circle" size={30} color={COLORS.cyan} />
+          </Pressable>
+        ) : (
+          <Ionicons name="checkmark-circle" size={28} color={COLORS.statusCompleted} />
+        )}
       </Pressable>
     </MotiView>
   );
@@ -90,7 +112,7 @@ export default function BDTrackerScreen() {
 
   const entries = useComicsStore(s => s.entries);
 
-  // À VOIR: series the user is actively following (not completed, not dropped)
+  // À LIRE: series the user is actively following (not completed, not dropped)
   const activeEntries = useMemo(
     () => entries
       .filter(e => e.status !== 'COMPLETED' && e.status !== 'DROPPED')
@@ -135,7 +157,7 @@ export default function BDTrackerScreen() {
                 variant="subheading"
                 style={[styles.subTabLabel, activeTab === tab && styles.subTabLabelActive]}
               >
-                {tab === 'voir' ? 'À VOIR' : 'À VENIR'}
+                {tab === 'voir' ? 'À LIRE' : 'À VENIR'}
               </Typography>
               {activeTab === tab && <View style={styles.subTabLine} />}
             </Pressable>
@@ -178,7 +200,7 @@ export default function BDTrackerScreen() {
             <View style={styles.infoBar}>
               <Ionicons name="information-circle-outline" size={14} color={COLORS.textInkMuted} />
               <Typography variant="caption" color={COLORS.textInkMuted} style={styles.infoText}>
-                Vous avez tout lu — dates de parution non disponibles via Open Library
+                Vous êtes à jour sur ces séries. Les nouveaux tomes apparaîtront après actualisation de la série.
               </Typography>
             </View>
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.listContent, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom }]}>
@@ -250,8 +272,9 @@ const styles = StyleSheet.create({
   tvTitlePillText: { fontSize: 10, letterSpacing: 0.6, color: COLORS.textInk, fontFamily: FONTS.bodyBold, flexShrink: 1 },
   tvVolume: { fontFamily: FONTS.display, fontSize: 24, lineHeight: 28, color: COLORS.textInk, letterSpacing: 0.5 },
   tvMeta: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, flexWrap: 'wrap' },
-  tvBadge: { backgroundColor: COLORS.accentRed, borderRadius: RADIUS.full, paddingHorizontal: SPACING.sm, paddingVertical: 2 },
+  tvBadge: { backgroundColor: COLORS.cyan, borderRadius: RADIUS.full, paddingHorizontal: SPACING.sm, paddingVertical: 2 },
   tvBadgeText: { fontSize: 8, letterSpacing: 0.8, color: COLORS.onInk, fontFamily: FONTS.bodyBold },
+  quickCheckIn: { padding: SPACING.xs },
 
   emptyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: SPACING.md, padding: SPACING.xl, paddingTop: 80 },
   emptyTitle: { textAlign: 'center' },
