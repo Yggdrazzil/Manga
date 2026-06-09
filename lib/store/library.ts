@@ -20,6 +20,7 @@ interface LibraryState {
   entriesByStatus: (status: ReadingStatus) => LibraryEntry[];
   getStats: () => ReadingStats;
   toggleChapterRead: (mangaId: string, source: string, chapterId: string, chapterNum: number) => void;
+  markChapterRead: (mangaId: string, source: string, chapterId: string, chapterNumber?: number) => void;
   updateChapterNote: (mangaId: string, source: string, chapterId: string, note: Partial<ChapterNote>) => void;
   markVolumeRead: (mangaId: string, source: string, chapters: Array<{ id: string; num: number }>) => void;
   unmarkAllRead: (mangaId: string, source: string) => void;
@@ -145,6 +146,45 @@ export const useLibraryStore = create<LibraryState>()(
             }
 
             return { ...e, readChapterIds: newIds, progress, chapterData, updatedAt: now };
+          }),
+        }));
+      },
+
+      markChapterRead: (mangaId, source, chapterId, chapterNumber) => {
+        set(state => ({
+          entries: state.entries.map(e => {
+            if (e.mangaId !== mangaId || e.source !== source) return e;
+            const now = new Date().toISOString();
+            const ids = e.readChapterIds ?? [];
+            const readChapterIds = ids.includes(chapterId) ? ids : [...ids, chapterId];
+            const chapterData = {
+              ...(e.chapterData ?? {}),
+              [chapterId]: {
+                ...(e.chapterData?.[chapterId] ?? {}),
+                readAt: e.chapterData?.[chapterId]?.readAt ?? now,
+              },
+            };
+            const progress =
+              chapterNumber != null && Number.isFinite(chapterNumber)
+                ? Math.max(e.progress, Math.floor(chapterNumber))
+                : e.progress;
+
+            let status: ReadingStatus = e.status === 'PLAN_TO_READ' ? 'READING' : e.status;
+            const total = e.manga.chapters ?? 0;
+            if (status === 'READING' && total > 0 && progress >= total && e.manga.status === 'COMPLETED') {
+              status = 'COMPLETED';
+            }
+
+            return {
+              ...e,
+              readChapterIds,
+              chapterData,
+              progress,
+              status,
+              updatedAt: now,
+              ...(status === 'READING' && !e.startDate ? { startDate: now } : {}),
+              ...(status === 'COMPLETED' && e.status !== 'COMPLETED' ? { finishDate: now } : {}),
+            };
           }),
         }));
       },
