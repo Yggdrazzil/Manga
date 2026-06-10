@@ -7,6 +7,8 @@ import { MotiView } from 'moti';
 import React, { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { exportLibrary, importLibrary } from '@/lib/utils/backup';
+import { clearAllDownloads, formatBytes } from '@/lib/utils/downloads';
+import { useDownloadsStore } from '@/lib/store/downloads';
 import { checkNewChaptersAndNotify, requestNotificationPermissions } from '@/lib/utils/notifications';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -128,6 +130,30 @@ export default function SettingsScreen() {
   const [cacheCleared, setCacheCleared] = useState(false);
   const [exportState, setExportState] = useState<'idle' | 'loading' | 'done'>('idle');
   const [importState, setImportState] = useState<'idle' | 'loading'>('idle');
+
+  const downloads = useDownloadsStore(s => s.downloads);
+  const dlCount = Object.keys(downloads).length;
+  const dlSize = formatBytes(Object.values(downloads).reduce((sum, d) => sum + d.sizeBytes, 0));
+
+  const handleClearDownloads = () => {
+    if (dlCount === 0) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Alert.alert(
+      'Supprimer les téléchargements',
+      `Supprimer les ${dlCount} chapitre${dlCount > 1 ? 's' : ''} téléchargé${dlCount > 1 ? 's' : ''} (${dlSize}) ?`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Supprimer',
+          style: 'destructive',
+          onPress: () => {
+            clearAllDownloads();
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          },
+        },
+      ],
+    );
+  };
 
   const handleToggleNotifications = async (on: boolean) => {
     if (!on) {
@@ -381,6 +407,38 @@ export default function SettingsScreen() {
                   </Typography>
                 </View>
                 <Ionicons name="chevron-forward" size={16} color={COLORS.textInkFaint} />
+              </Pressable>
+
+              <View style={styles.divider} />
+
+              {/* Downloads */}
+              <Pressable
+                style={({ pressed }) => [styles.settingRow, pressed && dlCount > 0 && { opacity: 0.7 }]}
+                onPress={handleClearDownloads}
+                disabled={dlCount === 0}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  dlCount === 0
+                    ? 'Aucun chapitre téléchargé'
+                    : `Supprimer les ${dlCount} chapitres téléchargés`
+                }
+              >
+                <View style={styles.settingIconWrap}>
+                  <Ionicons name="cloud-offline-outline" size={18} color={COLORS.textInk} />
+                </View>
+                <View style={styles.settingTexts}>
+                  <Typography variant="subheading" color={COLORS.textInk}>
+                    Chapitres hors-ligne
+                  </Typography>
+                  <Typography variant="label" color={COLORS.textInkMuted}>
+                    {dlCount === 0
+                      ? 'Aucun chapitre téléchargé'
+                      : `${dlCount} chapitre${dlCount > 1 ? 's' : ''} · ${dlSize} — appuyer pour tout supprimer`}
+                  </Typography>
+                </View>
+                {dlCount > 0 && (
+                  <Ionicons name="trash-outline" size={16} color={COLORS.textInkFaint} />
+                )}
               </Pressable>
 
               <View style={styles.divider} />

@@ -20,6 +20,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getChapterPages as getMDChapterPages } from '@/lib/api/mangadex';
 import { getChapterPages as getCKChapterPages } from '@/lib/api/comick';
+import { useDownloadsStore } from '@/lib/store/downloads';
+import { getLocalPages } from '@/lib/utils/downloads';
 import { useLibraryStore } from '@/lib/store/library';
 import { useSettingsStore } from '@/lib/store/settings';
 import { chapterNumber, compareChapters } from '@/lib/utils/chapter';
@@ -81,6 +83,7 @@ function ReaderChrome({
   total,
   visible,
   indicatorVisible,
+  offline,
   onBack,
 }: {
   mangaTitle: string;
@@ -90,6 +93,7 @@ function ReaderChrome({
   total: number;
   visible: boolean;
   indicatorVisible: boolean;
+  offline?: boolean;
   onBack: () => void;
 }) {
   const insets = useSafeAreaInsets();
@@ -122,6 +126,7 @@ function ReaderChrome({
             <Typography variant="label" numberOfLines={1} color={COLORS.onInkMuted}>
               Ch.{chapter}
               {title ? ` · ${title}` : ''}
+              {offline ? ' · Hors-ligne' : ''}
             </Typography>
           </View>
         </LinearGradient>
@@ -310,14 +315,24 @@ export default function ReaderScreen() {
   const savePositionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const chapterIdRef = useRef(id);
   const markChapterRead = useLibraryStore(s => s.markChapterRead);
-  const saveReadingPosition = useLibraryStore(s => s.saveReadingPosition);
   const getReadingPosition = useLibraryStore(s => s.getReadingPosition);
   const clearReadingPosition = useLibraryStore(s => s.clearReadingPosition);
   const dataSaver = useSettingsStore(s => s.dataSaver);
 
+  // Downloaded chapters read from disk — works offline, immune to MangaDex
+  // URL expiry. Subscribing to the store entry refreshes if it gets deleted.
+  const downloadEntry = useDownloadsStore(s => s.downloads[id ?? '']);
+  const localPages = useMemo(
+    () => (id && downloadEntry ? getLocalPages(id) : null),
+    [id, downloadEntry],
+  );
+
   const { data: pages, isLoading, isError } = useQuery({
-    queryKey: ['chapter-pages', id, source, dataSaver],
-    queryFn: () => source === 'comick' ? getCKChapterPages(id!) : getMDChapterPages(id!, dataSaver),
+    queryKey: ['chapter-pages', id, source, dataSaver, localPages != null],
+    queryFn: () =>
+      localPages
+        ? Promise.resolve(localPages)
+        : source === 'comick' ? getCKChapterPages(id!) : getMDChapterPages(id!, dataSaver),
     enabled: !!id,
   });
 
@@ -436,6 +451,7 @@ export default function ReaderScreen() {
         total={total}
         visible={chromeVisible}
         indicatorVisible={!finished}
+        offline={localPages != null}
         onBack={handleBack}
       />
 

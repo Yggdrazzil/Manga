@@ -6,8 +6,10 @@ import { MotiView } from 'moti';
 import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import React, { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, View } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
+import { useDownloadsStore } from '@/lib/store/downloads';
+import { downloadChapter, deleteChapterDownload } from '@/lib/utils/downloads';
 import { useLibraryStore } from '@/lib/store/library';
 import { Panel } from '@/components/ui/Panel';
 import { Typography } from '@/components/ui/Typography';
@@ -71,6 +73,8 @@ export function ChapterList({ chapters, entryMangaId, source, manga, mode, activ
   const markVolumeRead = useLibraryStore(s => s.markVolumeRead);
   const unmarkAllRead = useLibraryStore(s => s.unmarkAllRead);
   const readingPositions = useLibraryStore(s => s.readingPositions);
+  const downloads = useDownloadsStore(s => s.downloads);
+  const downloadProgress = useDownloadsStore(s => s.progress);
 
   const mangaTitle = manga.title.english ?? manga.title.romaji ?? manga.title.userPreferred;
 
@@ -92,6 +96,34 @@ export function ChapterList({ chapters, entryMangaId, source, manga, mode, activ
   const toggleRead = (ch: MangaChapter) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     toggleChapterRead(entryMangaId, source, ch.id, parseFloat(ch.chapter));
+  };
+
+  const handleDownload = (ch: MangaChapter) => {
+    if (downloadProgress[ch.id] != null) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (downloads[ch.id]) {
+      Alert.alert(
+        'Supprimer le téléchargement',
+        `Retirer le chapitre ${ch.chapter} du stockage hors-ligne ?`,
+        [
+          { text: 'Annuler', style: 'cancel' },
+          { text: 'Supprimer', style: 'destructive', onPress: () => deleteChapterDownload(ch.id) },
+        ],
+      );
+      return;
+    }
+    downloadChapter({
+      chapterId: ch.id,
+      source: source === 'comick' ? 'comick' : 'mangadex',
+      mangaTitle,
+      chapter: ch.chapter,
+      title: ch.title,
+    }).then(() => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }).catch(() => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert('Téléchargement échoué', `Impossible de télécharger le chapitre ${ch.chapter}. Vérifiez votre connexion puis réessayez.`);
+    });
   };
 
   const sortedChapters = useMemo(
@@ -467,6 +499,34 @@ export function ChapterList({ chapters, entryMangaId, source, manga, mode, activ
                                 </Typography>
                               )}
                             </View>
+                            <Pressable
+                              style={({ pressed }) => [
+                                styles.dlBtn,
+                                downloads[ch.id] != null && styles.dlBtnDone,
+                                pressed && { opacity: 0.7 },
+                              ]}
+                              onPress={e => { e.stopPropagation(); handleDownload(ch); }}
+                              hitSlop={6}
+                              accessibilityRole="button"
+                              accessibilityLabel={
+                                downloadProgress[ch.id] != null
+                                  ? `Téléchargement du chapitre ${ch.chapter} en cours`
+                                  : downloads[ch.id]
+                                    ? `Chapitre ${ch.chapter} téléchargé — appuyer pour supprimer`
+                                    : `Télécharger le chapitre ${ch.chapter}`
+                              }
+                              accessibilityState={{ busy: downloadProgress[ch.id] != null }}
+                            >
+                              {downloadProgress[ch.id] != null ? (
+                                <ActivityIndicator size="small" color={COLORS.accentRed} />
+                              ) : (
+                                <Ionicons
+                                  name={downloads[ch.id] ? 'checkmark-done' : 'arrow-down'}
+                                  size={15}
+                                  color={downloads[ch.id] ? COLORS.statusCompleted : COLORS.textInkMuted}
+                                />
+                              )}
+                            </Pressable>
                             <View style={styles.readChip}>
                               <Ionicons name="book-outline" size={16} color={COLORS.accentRed} />
                             </View>
@@ -622,6 +682,20 @@ const styles = themedStyles(() => StyleSheet.create({
     backgroundColor: COLORS.accentSoft,
     borderWidth: BORDERS.hair,
     borderColor: `${COLORS.accentRed}44`,
+  },
+  dlBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: RADIUS.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.paperSunken,
+    borderWidth: BORDERS.hair,
+    borderColor: COLORS.line,
+  },
+  dlBtnDone: {
+    backgroundColor: `${COLORS.statusCompleted}22`,
+    borderColor: `${COLORS.statusCompleted}66`,
   },
   langToggle: {
     flexDirection: 'row',
