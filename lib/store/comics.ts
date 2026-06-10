@@ -36,6 +36,8 @@ interface ComicsState {
   // Manual status override (e.g. PAUSED, DROPPED).
   updateStatus: (seriesId: string, status: ReadingStatus) => void;
 
+  toggleFavorite: (seriesId: string) => void;
+
   // Enrich stored volumes with lazily-loaded subtitle/description/publisher.
   updateVolumeDetail: (
     seriesId: string,
@@ -115,6 +117,16 @@ export const useComicsStore = create<ComicsState>()(
           entries: state.entries.map(e =>
             e.seriesId === seriesId
               ? { ...e, status, updatedAt: new Date().toISOString() }
+              : e,
+          ),
+        }));
+      },
+
+      toggleFavorite: seriesId => {
+        set(state => ({
+          entries: state.entries.map(e =>
+            e.seriesId === seriesId
+              ? { ...e, favorite: !e.favorite, updatedAt: new Date().toISOString() }
               : e,
           ),
         }));

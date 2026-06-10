@@ -139,6 +139,7 @@ export default function SeriesDetailScreen() {
   const toggleVolumeRead = useComicsStore(s => s.toggleVolumeRead);
   const updateStatus = useComicsStore(s => s.updateStatus);
   const updateVolumeDetail = useComicsStore(s => s.updateVolumeDetail);
+  const toggleFavorite = useComicsStore(s => s.toggleFavorite);
 
   // If the series isn't in the store yet, run the full consolidation pipeline.
   // expo-router already decodes params — no manual decodeURIComponent (it
@@ -267,6 +268,27 @@ export default function SeriesDetailScreen() {
           <Ionicons name="chevron-down" size={22} color={COLORS.onInk} />
         </View>
       </Pressable>
+
+      {entry && (
+        <Pressable
+          style={[styles.favBtn, { top: insets.top + 8 }]}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            toggleFavorite(entry.seriesId);
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={entry.favorite ? 'Retirer des préférés' : 'Ajouter aux préférés'}
+          accessibilityState={{ selected: !!entry.favorite }}
+        >
+          <View style={styles.backBtnInner}>
+            <Ionicons
+              name={entry.favorite ? 'heart' : 'heart-outline'}
+              size={20}
+              color={entry.favorite ? COLORS.accentBright : COLORS.onInk}
+            />
+          </View>
+        </Pressable>
+      )}
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -455,6 +477,7 @@ export default function SeriesDetailScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.paper },
   backBtn: { position: 'absolute', left: SPACING.base, zIndex: 100 },
+  favBtn: { position: 'absolute', right: SPACING.base, zIndex: 100 },
   backBtnInner: {
     width: 44, height: 44,
     borderRadius: RADIUS.full,

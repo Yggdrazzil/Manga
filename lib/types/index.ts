@@ -31,6 +31,14 @@ export interface Manga {
   countryOfOrigin?: string;
   accentColor?: string;
   mangadexId?: string;
+  externalLinks?: Array<{ site: string; url: string }>; // official "where to read" links
+}
+
+export interface MangaCharacter {
+  id: number;
+  name: string;
+  image?: string;
+  role: 'MAIN' | 'SUPPORTING' | 'BACKGROUND';
 }
 
 export interface LibraryEntry {
@@ -47,6 +55,7 @@ export interface LibraryEntry {
   manga: Manga;
   readChapterIds?: string[];
   chapterData?: Record<string, ChapterNote>;
+  favorite?: boolean;
 }
 
 export interface MangaChapter {
@@ -115,6 +124,7 @@ export interface BDSeriesEntry {
   addedAt: string;
   updatedAt: string;
   series: BDSeries;
+  favorite?: boolean;
 }
 
 export interface ReadingStats {

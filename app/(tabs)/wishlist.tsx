@@ -6,10 +6,12 @@ import { MotiView } from 'moti';
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { format, parseISO } from 'date-fns';
+import { fr } from 'date-fns/locale';
 import { useComicsStore } from '@/lib/store/comics';
 import { Typography } from '@/components/ui/Typography';
 import { BORDERS, COLORS, FONTS, RADIUS, SPACING } from '@/constants/theme';
-import type { BDSeriesEntry } from '@/lib/types';
+import type { BDSeriesEntry, BDVolume } from '@/lib/types';
 
 const TAB_BAR_HEIGHT = 88;
 
@@ -103,6 +105,71 @@ function BDCard({ entry, index }: { entry: BDSeriesEntry; index: number }) {
   );
 }
 
+// ── Upcoming album card — TV Time "À VENIR" with a real release date ─────────
+
+function UpcomingAlbumCard({ entry, volume, index }: { entry: BDSeriesEntry; volume: BDVolume; index: number }) {
+  const router = useRouter();
+  const dateLabel = volume.publishedDate
+    ? format(parseISO(volume.publishedDate), 'd MMMM yyyy', { locale: fr })
+    : null;
+
+  return (
+    <MotiView
+      from={{ opacity: 0, translateX: -12 }}
+      animate={{ opacity: 1, translateX: 0 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 26, delay: Math.min(index * 45, 400) }}
+    >
+      <Pressable
+        style={styles.tvCard}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          router.push(`/comic/${entry.seriesId}` as never);
+        }}
+        accessibilityRole="button"
+        accessibilityLabel={`${entry.series.title}, tome ${volume.num}${dateLabel ? `, sortie le ${dateLabel}` : ''}`}
+      >
+        <View style={styles.tvCoverWrap}>
+          {(volume.coverImage ?? entry.series.coverImage) ? (
+            <Image
+              source={{ uri: volume.coverImage ?? entry.series.coverImage }}
+              style={styles.tvCover}
+              contentFit="cover"
+              cachePolicy="memory-disk"
+            />
+          ) : (
+            <View style={[styles.tvCover, styles.tvCoverEmpty]}>
+              <Ionicons name="book" size={22} color={COLORS.textInkMuted} />
+            </View>
+          )}
+        </View>
+
+        <View style={styles.tvBody}>
+          <View style={styles.tvTitlePill}>
+            <Typography variant="caption" style={styles.tvTitlePillText} numberOfLines={1}>
+              {entry.series.title.toUpperCase()}
+            </Typography>
+            <Ionicons name="chevron-forward" size={10} color={COLORS.textInk} />
+          </View>
+
+          <Typography style={styles.tvVolume}>
+            Tome {volume.num}{volume.subtitle ? ` — ${volume.subtitle}` : ''}
+          </Typography>
+
+          {dateLabel && (
+            <View style={styles.tvMeta}>
+              <View style={[styles.tvBadge, styles.tvBadgeUpcoming]}>
+                <Typography variant="caption" style={styles.tvBadgeText}>
+                  {dateLabel.toUpperCase()}
+                </Typography>
+              </View>
+            </View>
+          )}
+        </View>
+      </Pressable>
+    </MotiView>
+  );
+}
+
 // ── Screen ────────────────────────────────────────────────────────────────────
 
 export default function BDTrackerScreen() {
@@ -130,6 +197,23 @@ export default function BDTrackerScreen() {
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()),
     [entries],
   );
+
+  // Announced albums with a future publication date (Wikidata provides them)
+  const upcomingAlbums = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    const items: Array<{ entry: BDSeriesEntry; volume: BDVolume }> = [];
+    for (const e of entries) {
+      if (e.status === 'DROPPED') continue;
+      for (const v of e.series.volumes) {
+        if (v.publishedDate && v.publishedDate.slice(0, 10) > today) {
+          items.push({ entry: e, volume: v });
+        }
+      }
+    }
+    return items.sort((a, b) =>
+      (a.volume.publishedDate ?? '').localeCompare(b.volume.publishedDate ?? ''),
+    );
+  }, [entries]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -187,28 +271,37 @@ export default function BDTrackerScreen() {
       )}
 
       {activeTab === 'venir' && (
-        completedEntries.length === 0 ? (
+        upcomingAlbums.length === 0 && completedEntries.length === 0 ? (
           <ScrollView contentContainerStyle={[styles.emptyWrap, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom }]}>
             <Ionicons name="calendar-outline" size={56} color={COLORS.textInkMuted} />
-            <Typography variant="heading" color={COLORS.textInk} style={styles.emptyTitle}>Aucune série attendue</Typography>
+            <Typography variant="heading" color={COLORS.textInk} style={styles.emptyTitle}>Aucune sortie attendue</Typography>
             <Typography variant="body" color={COLORS.textInkMuted} style={styles.emptyText}>
-              Les séries où vous avez tout lu apparaîtront ici.
+              Les tomes annoncés et les séries où vous avez tout lu apparaîtront ici.
             </Typography>
           </ScrollView>
         ) : (
-          <>
-            <View style={styles.infoBar}>
-              <Ionicons name="information-circle-outline" size={14} color={COLORS.textInkMuted} />
-              <Typography variant="caption" color={COLORS.textInkMuted} style={styles.infoText}>
-                Vous êtes à jour sur ces séries. Les nouveaux tomes apparaîtront après actualisation de la série.
-              </Typography>
-            </View>
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.listContent, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom }]}>
-              {completedEntries.map((entry, i) => (
-                <BDCard key={entry.seriesId} entry={entry} index={i} />
-              ))}
-            </ScrollView>
-          </>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.listContent, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom }]}>
+            {upcomingAlbums.length > 0 && (
+              <>
+                <View style={styles.venirHeader}>
+                  <Typography variant="kicker" color={COLORS.cyan}>SORTIES ANNONCÉES</Typography>
+                </View>
+                {upcomingAlbums.map(({ entry, volume }, i) => (
+                  <UpcomingAlbumCard key={`${entry.seriesId}-${volume.num}`} entry={entry} volume={volume} index={i} />
+                ))}
+              </>
+            )}
+            {completedEntries.length > 0 && (
+              <>
+                <View style={styles.venirHeader}>
+                  <Typography variant="kicker" color={COLORS.textInkMuted}>À JOUR — EN ATTENTE DE SUITE</Typography>
+                </View>
+                {completedEntries.map((entry, i) => (
+                  <BDCard key={entry.seriesId} entry={entry} index={upcomingAlbums.length + i} />
+                ))}
+              </>
+            )}
+          </ScrollView>
         )
       )}
     </View>
@@ -244,13 +337,6 @@ const styles = StyleSheet.create({
   subTabLine: { position: 'absolute', bottom: -1, left: 0, right: 0, height: 2, backgroundColor: COLORS.accentRed, borderRadius: 1 },
 
   listContent: { paddingTop: SPACING.sm },
-  infoBar: {
-    flexDirection: 'row', alignItems: 'center', gap: SPACING.xs,
-    paddingHorizontal: SPACING.base, paddingVertical: SPACING.sm,
-    backgroundColor: COLORS.paperSunken,
-    borderBottomWidth: BORDERS.hair, borderBottomColor: COLORS.line,
-  },
-  infoText: { flex: 1 },
 
   tvCard: {
     flexDirection: 'row', alignItems: 'center',
@@ -273,6 +359,8 @@ const styles = StyleSheet.create({
   tvVolume: { fontFamily: FONTS.display, fontSize: 24, lineHeight: 28, color: COLORS.textInk, letterSpacing: 0.5 },
   tvMeta: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, flexWrap: 'wrap' },
   tvBadge: { backgroundColor: COLORS.cyan, borderRadius: RADIUS.full, paddingHorizontal: SPACING.sm, paddingVertical: 2 },
+  tvBadgeUpcoming: { backgroundColor: COLORS.warning },
+  venirHeader: { paddingHorizontal: SPACING.base, paddingTop: SPACING.md, paddingBottom: SPACING.xs },
   tvBadgeText: { fontSize: 8, letterSpacing: 0.8, color: COLORS.onInk, fontFamily: FONTS.bodyBold },
   quickCheckIn: { padding: SPACING.xs },
 

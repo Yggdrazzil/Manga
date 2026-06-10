@@ -244,6 +244,7 @@ function BDHistoryRow({ entry }: { entry: BDSeriesEntry }) {
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const entries = useLibraryStore(s => s.entries);
   const bdEntries = useComicsStore(s => s.entries);
   const avatar = useLibraryStore(s => s.avatar);
@@ -277,6 +278,43 @@ export default function ProfileScreen() {
     () => [...bdEntries].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()),
     [bdEntries],
   );
+
+  // TV Time-style time spent: ~4 min per manga chapter, ~30 min per BD album
+  const readingTime = useMemo(() => {
+    const chapterMinutes = entries.reduce((acc, e) => acc + Math.max(e.progress, e.readChapterIds?.length ?? 0), 0) * 4;
+    const volumeMinutes = bdEntries.reduce((acc, e) => acc + e.readVolumes.length, 0) * 30;
+    const totalMin = chapterMinutes + volumeMinutes;
+    return {
+      days: Math.floor(totalMin / 1440),
+      hours: Math.floor((totalMin % 1440) / 60),
+      minutes: totalMin % 60,
+    };
+  }, [entries, bdEntries]);
+
+  // Mixed manga + BD favorites, most recently touched first
+  const favorites = useMemo(() => {
+    const mangaFavs = entries
+      .filter(e => e.favorite)
+      .map(e => ({
+        key: `m-${e.mangaId}-${e.source}`,
+        title: e.manga.title.english ?? e.manga.title.userPreferred,
+        cover: e.manga.coverImage as string | undefined,
+        href: `/manga/${e.mangaId}?source=${e.source}`,
+        updatedAt: e.updatedAt,
+      }));
+    const bdFavs = bdEntries
+      .filter(e => e.favorite)
+      .map(e => ({
+        key: `bd-${e.seriesId}`,
+        title: e.series.title,
+        cover: e.series.coverImage,
+        href: `/comic/${e.seriesId}`,
+        updatedAt: e.updatedAt,
+      }));
+    return [...mangaFavs, ...bdFavs].sort(
+      (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+    );
+  }, [entries, bdEntries]);
 
   const statuses: ReadingStatus[] = ['READING', 'COMPLETED', 'PLAN_TO_READ', 'PAUSED', 'DROPPED'];
 
@@ -353,7 +391,71 @@ export default function ProfileScreen() {
           <StatPill value={stats.chaptersRead} label="CHAPITRES" />
         </View>
 
+        {/* TV Time-style reading time */}
+        {(readingTime.days > 0 || readingTime.hours > 0 || readingTime.minutes > 0) && (
+          <View style={styles.timeStrip}>
+            <Typography variant="kicker" color={COLORS.onInkMuted} style={styles.timeStripLabel}>
+              TEMPS PASSÉ À LIRE
+            </Typography>
+            <View style={styles.timeStripRow}>
+              {readingTime.days > 0 && (
+                <View style={styles.timeUnit}>
+                  <Typography variant="display" color={COLORS.onInk} style={styles.timeValue}>{readingTime.days}</Typography>
+                  <Typography variant="caption" color={COLORS.onInkMuted}>JOURS</Typography>
+                </View>
+              )}
+              <View style={styles.timeUnit}>
+                <Typography variant="display" color={COLORS.onInk} style={styles.timeValue}>{readingTime.hours}</Typography>
+                <Typography variant="caption" color={COLORS.onInkMuted}>HEURES</Typography>
+              </View>
+              <View style={styles.timeUnit}>
+                <Typography variant="display" color={COLORS.onInk} style={styles.timeValue}>{readingTime.minutes}</Typography>
+                <Typography variant="caption" color={COLORS.onInkMuted}>MINUTES</Typography>
+              </View>
+            </View>
+          </View>
+        )}
+
         <View style={styles.body}>
+          {favorites.length > 0 && (
+            <MotiView
+              from={{ opacity: 0, translateY: 16 }}
+              animate={{ opacity: 1, translateY: 0 }}
+              transition={{ type: 'spring', stiffness: 280, damping: 25, delay: 160 }}
+            >
+              <View style={styles.libraryHeaderRow}>
+                <Ionicons name="heart" size={16} color={COLORS.accentRed} />
+                <Typography variant="title" color={COLORS.textInk}>Préférés</Typography>
+              </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.favRail}>
+                {favorites.map(fav => (
+                  <Pressable
+                    key={fav.key}
+                    style={({ pressed }) => [styles.favCard, pressed && { opacity: 0.8 }]}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      router.push(fav.href as never);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={fav.title}
+                  >
+                    <View style={styles.favCoverFrame}>
+                      {fav.cover ? (
+                        <Image source={{ uri: fav.cover }} style={styles.favCover} contentFit="cover" cachePolicy="memory-disk" />
+                      ) : (
+                        <View style={[styles.favCover, styles.favCoverEmpty]}>
+                          <Ionicons name="book" size={20} color={COLORS.textInkMuted} />
+                        </View>
+                      )}
+                    </View>
+                    <Typography variant="caption" color={COLORS.textInk} numberOfLines={1} style={styles.favTitle}>
+                      {fav.title}
+                    </Typography>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </MotiView>
+          )}
           {stats.totalEntries > 0 && (
             <MotiView
               from={{ opacity: 0, translateY: 16 }}
@@ -571,6 +673,31 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 32, lineHeight: 34, letterSpacing: 1 },
   statLabel: { letterSpacing: 1, fontSize: 10 },
   statDivider: { width: BORDERS.hair, height: 32, backgroundColor: COLORS.lineOnInk },
+
+  timeStrip: {
+    backgroundColor: COLORS.ink,
+    borderTopWidth: BORDERS.hair,
+    borderTopColor: COLORS.lineOnInk,
+    paddingVertical: SPACING.base,
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  timeStripLabel: { letterSpacing: 2, fontSize: 10 },
+  timeStripRow: { flexDirection: 'row', gap: SPACING.xl },
+  timeUnit: { alignItems: 'center', gap: 2 },
+  timeValue: { fontSize: 28, lineHeight: 30, letterSpacing: 1 },
+
+  favRail: { gap: SPACING.md, paddingTop: SPACING.sm },
+  favCard: { width: 92, gap: SPACING.xs },
+  favCoverFrame: {
+    borderRadius: RADIUS.sm,
+    borderWidth: BORDERS.bold,
+    borderColor: COLORS.ink,
+    overflow: 'hidden',
+  },
+  favCover: { width: 88, height: 124 },
+  favCoverEmpty: { backgroundColor: COLORS.paperSunken, alignItems: 'center', justifyContent: 'center' },
+  favTitle: { textAlign: 'center' },
 
   body: { paddingHorizontal: SPACING.base, paddingTop: SPACING.lg, gap: SPACING.lg },
   section: { borderRadius: RADIUS.lg },

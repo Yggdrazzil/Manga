@@ -1,5 +1,5 @@
 import { GraphQLClient } from 'graphql-request';
-import type { Manga, PaginatedResult, MediaType, OngoingStatus } from '../types';
+import type { Manga, MangaCharacter, PaginatedResult, MediaType, OngoingStatus } from '../types';
 
 const client = new GraphQLClient('https://graphql.anilist.co');
 
@@ -82,6 +82,16 @@ function normalize(media: AniListMedia): Manga {
   );
   const mangadexId = mangadexLink?.url?.match(/mangadex\.org\/title\/([0-9a-f-]+)/)?.[1];
 
+  // Official reading platforms only — social/DB links would just be noise
+  const READING_SITES = new Set([
+    'Manga Plus', 'MANGA Plus', 'Crunchyroll', 'Crunchyroll Manga', 'Webtoons',
+    'Webtoon', 'Tapas', 'Tappytoon', 'Pocket Comics', 'Kodansha', 'K Manga',
+    'Viz', 'Azuki', 'Mangamo', 'Comikey', 'INKR', 'Lezhin', 'Piccoma',
+  ]);
+  const externalLinks = (media.externalLinks ?? [])
+    .filter(l => l.url && READING_SITES.has(l.site))
+    .map(l => ({ site: l.site, url: l.url }));
+
   return {
     id: String(media.id),
     source: 'anilist',
@@ -107,6 +117,7 @@ function normalize(media: AniListMedia): Manga {
     countryOfOrigin: media.countryOfOrigin ?? undefined,
     accentColor: media.coverImage.color ?? undefined,
     mangadexId,
+    externalLinks: externalLinks.length > 0 ? externalLinks : undefined,
   };
 }
 
@@ -300,4 +311,59 @@ export async function getMangaById(id: string): Promise<Manga> {
   `, { id: parseInt(id, 10) });
 
   return normalize(data.Media);
+}
+
+// ── Detail extras: characters + recommendations (TV Time-style rails) ─────────
+
+export interface MangaExtras {
+  characters: MangaCharacter[];
+  recommendations: Manga[];
+}
+
+interface ExtrasResponse {
+  Media: {
+    characters: {
+      edges: Array<{
+        role: 'MAIN' | 'SUPPORTING' | 'BACKGROUND';
+        node: { id: number; name: { full: string }; image?: { large?: string | null } | null };
+      }>;
+    };
+    recommendations: {
+      nodes: Array<{ rating: number; mediaRecommendation: AniListMedia | null }>;
+    };
+  };
+}
+
+export async function getMangaExtras(id: string): Promise<MangaExtras> {
+  const data = await request<ExtrasResponse>(`
+    query ($id: Int) {
+      Media(id: $id, type: MANGA) {
+        characters(sort: [ROLE, FAVOURITES_DESC], page: 1, perPage: 12) {
+          edges {
+            role
+            node { id name { full } image { large } }
+          }
+        }
+        recommendations(sort: RATING_DESC, page: 1, perPage: 10) {
+          nodes {
+            rating
+            mediaRecommendation { ${MEDIA_FIELDS} }
+          }
+        }
+      }
+    }
+  `, { id: parseInt(id, 10) });
+
+  const characters: MangaCharacter[] = data.Media.characters.edges.map(e => ({
+    id: e.node.id,
+    name: e.node.name.full,
+    image: e.node.image?.large ?? undefined,
+    role: e.role,
+  }));
+
+  const recommendations = data.Media.recommendations.nodes
+    .filter(n => n.rating >= 0 && n.mediaRecommendation != null)
+    .map(n => normalize(n.mediaRecommendation!));
+
+  return { characters, recommendations };
 }

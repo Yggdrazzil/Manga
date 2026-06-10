@@ -7,6 +7,7 @@ import { MotiView } from 'moti';
 import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -28,7 +29,7 @@ import { TypeBadge } from '@/components/ui/TypeBadge';
 import { Typography } from '@/components/ui/Typography';
 import { ChapterList } from '@/components/manga/ChapterList';
 import { BORDERS, COLORS, RADIUS, SPACING, STATUS_LABELS } from '@/constants/theme';
-import type { Manga, MangaChapter, ReadingStatus } from '@/lib/types';
+import type { Manga, MangaChapter, MangaCharacter, ReadingStatus } from '@/lib/types';
 
 const STATUSES: ReadingStatus[] = ['READING', 'PLAN_TO_READ', 'COMPLETED', 'PAUSED', 'DROPPED'];
 
@@ -211,6 +212,14 @@ export default function MangaDetailScreen() {
     staleTime: 1000 * 60 * 5,
   });
 
+  // Characters + recommendations rails (AniList catalogue only)
+  const { data: extras } = useQuery({
+    queryKey: ['manga-extras', id],
+    queryFn: () => anilist.getMangaExtras(id!),
+    enabled: !!id && source === 'anilist',
+    staleTime: 1000 * 60 * 30,
+  });
+
   // Build the chapter list: real readable chapters when available, otherwise
   // synthesize one card per chapter from the API's total count (TV-Time style).
   const displayChapters = useMemo<MangaChapter[]>(() => {
@@ -234,6 +243,7 @@ export default function MangaDetailScreen() {
   const entry = useLibraryStore(s =>
     manga ? s.entries.find(e => e.mangaId === manga.id && e.source === manga.source) : undefined,
   );
+  const toggleFavorite = useLibraryStore(s => s.toggleFavorite);
   const readCount = useMemo(() => {
     if (!entry) return 0;
     const ids = entry.readChapterIds ?? [];
@@ -281,6 +291,27 @@ export default function MangaDetailScreen() {
           <Ionicons name="chevron-down" size={22} color={COLORS.onInk} />
         </View>
       </Pressable>
+
+      {entry && (
+        <Pressable
+          style={[styles.favBtn, { top: insets.top + 8 }]}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            toggleFavorite(manga.id, manga.source);
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={entry.favorite ? 'Retirer des préférés' : 'Ajouter aux préférés'}
+          accessibilityState={{ selected: !!entry.favorite }}
+        >
+          <View style={styles.backBtnInner}>
+            <Ionicons
+              name={entry.favorite ? 'heart' : 'heart-outline'}
+              size={20}
+              color={entry.favorite ? COLORS.accentBright : COLORS.onInk}
+            />
+          </View>
+        </Pressable>
+      )}
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -415,6 +446,40 @@ export default function MangaDetailScreen() {
               />
             </MotiView>
 
+            {manga.externalLinks && manga.externalLinks.length > 0 && (
+              <View>
+                <View style={styles.sectionHeader}>
+                  <View style={styles.sectionMarker} />
+                  <Typography variant="title" color={COLORS.textInk}>Où lire</Typography>
+                </View>
+                <View style={styles.readLinksWrap}>
+                  {manga.externalLinks.map(link => (
+                    <Pressable
+                      key={link.url}
+                      style={({ pressed }) => [styles.readLinkChip, pressed && { opacity: 0.7 }]}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        Linking.openURL(link.url);
+                      }}
+                      accessibilityRole="link"
+                      accessibilityLabel={`Lire sur ${link.site}`}
+                    >
+                      <Ionicons name="open-outline" size={13} color={COLORS.onInk} />
+                      <Typography variant="label" color={COLORS.onInk}>{link.site}</Typography>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {extras && extras.characters.length > 0 && (
+              <CharacterRail characters={extras.characters} />
+            )}
+
+            {extras && extras.recommendations.length > 0 && (
+              <RecommendationRail recommendations={extras.recommendations} />
+            )}
+
             {entry && displayChapters.length > 0 && (
               <MotiView
                 from={{ opacity: 0, translateY: 12 }}
@@ -460,6 +525,78 @@ function TabUnderlineIndicator({ activeTab }: { activeTab: ActiveTab }) {
   return <Animated.View style={[styles.tabLineIndicator, style]} />;
 }
 
+// TV Time-style "Distribution" rail — main cast of the work
+function CharacterRail({ characters }: { characters: MangaCharacter[] }) {
+  return (
+    <View>
+      <View style={styles.sectionHeader}>
+        <View style={styles.sectionMarker} />
+        <Typography variant="title" color={COLORS.textInk}>Personnages</Typography>
+      </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.railContent}>
+        {characters.map(c => (
+          <View key={c.id} style={styles.characterCard}>
+            <View style={styles.characterImageFrame}>
+              {c.image ? (
+                <Image source={{ uri: c.image }} style={styles.characterImage} contentFit="cover" cachePolicy="memory-disk" />
+              ) : (
+                <View style={[styles.characterImage, styles.characterImageEmpty]}>
+                  <Ionicons name="person" size={22} color={COLORS.textInkMuted} />
+                </View>
+              )}
+            </View>
+            <Typography variant="caption" color={COLORS.textInk} numberOfLines={2} style={styles.characterName}>
+              {c.name}
+            </Typography>
+            {c.role === 'MAIN' && (
+              <Typography variant="caption" color={COLORS.accentRed} style={styles.characterRole}>
+                PRINCIPAL
+              </Typography>
+            )}
+          </View>
+        ))}
+      </ScrollView>
+    </View>
+  );
+}
+
+// TV Time-style "users also watched" — AniList community recommendations
+function RecommendationRail({ recommendations }: { recommendations: Manga[] }) {
+  const router = useRouter();
+  return (
+    <View>
+      <View style={styles.sectionHeader}>
+        <View style={styles.sectionMarker} />
+        <Typography variant="title" color={COLORS.textInk}>On a aussi lu</Typography>
+      </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.railContent}>
+        {recommendations.map(rec => (
+          <Pressable
+            key={rec.id}
+            style={({ pressed }) => [styles.recCard, pressed && { opacity: 0.8 }]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push(`/manga/${rec.id}?source=${rec.source}` as never);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={rec.title.userPreferred}
+          >
+            <View style={styles.recCoverFrame}>
+              <Image source={{ uri: rec.coverImage }} style={styles.recCover} contentFit="cover" cachePolicy="memory-disk" />
+            </View>
+            <Typography variant="caption" color={COLORS.textInk} numberOfLines={2} style={styles.recTitle}>
+              {rec.title.english ?? rec.title.userPreferred}
+            </Typography>
+            {rec.averageScore != null && (
+              <Typography variant="caption" color={COLORS.star}>★ {(rec.averageScore / 10).toFixed(1)}</Typography>
+            )}
+          </Pressable>
+        ))}
+      </ScrollView>
+    </View>
+  );
+}
+
 function InfoItem({ label, value, highlight = false }: { label: string; value: string; highlight?: boolean }) {
   return (
     <View style={styles.infoItem}>
@@ -483,6 +620,43 @@ const styles = StyleSheet.create({
     left: SPACING.base,
     zIndex: 100,
   },
+  favBtn: {
+    position: 'absolute',
+    right: SPACING.base,
+    zIndex: 100,
+  },
+  readLinksWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm },
+  readLinkChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    backgroundColor: COLORS.ink,
+    borderRadius: RADIUS.full,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    minHeight: 44,
+  },
+  railContent: { gap: SPACING.md, paddingRight: SPACING.base },
+  characterCard: { width: 84, alignItems: 'center', gap: SPACING.xs },
+  characterImageFrame: {
+    borderRadius: RADIUS.full,
+    borderWidth: BORDERS.bold,
+    borderColor: COLORS.ink,
+    overflow: 'hidden',
+  },
+  characterImage: { width: 72, height: 72 },
+  characterImageEmpty: { backgroundColor: COLORS.paperSunken, alignItems: 'center', justifyContent: 'center' },
+  characterName: { textAlign: 'center' },
+  characterRole: { fontSize: 8, letterSpacing: 1 },
+  recCard: { width: 110, gap: SPACING.xs },
+  recCoverFrame: {
+    borderRadius: RADIUS.sm,
+    borderWidth: BORDERS.bold,
+    borderColor: COLORS.ink,
+    overflow: 'hidden',
+  },
+  recCover: { width: 106, height: 150 },
+  recTitle: { lineHeight: 14 },
   backBtnInner: {
     width: 44,
     height: 44,
