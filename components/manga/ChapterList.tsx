@@ -24,6 +24,9 @@ interface ChapterListProps {
   source: string;
   manga: Manga;
   mode: ChapterListMode;
+  activeLang?: 'fr' | 'en';
+  availableLangs?: Array<'fr' | 'en'>;
+  onLangChange?: (lang: 'fr' | 'en') => void;
 }
 
 const PAGE_SIZE = 50;
@@ -55,7 +58,7 @@ function formatDate(iso: string): string {
   }
 }
 
-export function ChapterList({ chapters, entryMangaId, source, manga, mode }: ChapterListProps) {
+export function ChapterList({ chapters, entryMangaId, source, manga, mode, activeLang, availableLangs, onLangChange }: ChapterListProps) {
   const router = useRouter();
   const reduceMotion = useReducedMotion();
   const isTrack = mode === 'track';
@@ -242,7 +245,7 @@ export function ChapterList({ chapters, entryMangaId, source, manga, mode }: Cha
             </Typography>
           </View>
         </View>
-        {isTrack && (
+        {isTrack ? (
           <Pressable
             onPress={handleToggleAll}
             hitSlop={8}
@@ -255,7 +258,28 @@ export function ChapterList({ chapters, entryMangaId, source, manga, mode }: Cha
               color={allRead ? COLORS.statusCompleted : COLORS.accentRed}
             />
           </Pressable>
-        )}
+        ) : availableLangs && availableLangs.length > 1 && onLangChange ? (
+          <View style={styles.langToggle}>
+            {availableLangs.map(lang => (
+              <Pressable
+                key={lang}
+                style={[styles.langBtn, activeLang === lang && styles.langBtnActive]}
+                onPress={() => onLangChange(lang)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: activeLang === lang }}
+                accessibilityLabel={lang === 'fr' ? 'Français' : 'English'}
+                hitSlop={4}
+              >
+                <Typography
+                  variant="caption"
+                  style={[styles.langBtnLabel, activeLang === lang && styles.langBtnLabelActive]}
+                >
+                  {lang.toUpperCase()}
+                </Typography>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
       </View>
 
       {/* ── TRACK MODE: flat list ── */}
@@ -574,5 +598,31 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.accentSoft,
     borderWidth: BORDERS.hair,
     borderColor: `${COLORS.accentRed}44`,
+  },
+  langToggle: {
+    flexDirection: 'row',
+    borderRadius: RADIUS.full,
+    borderWidth: BORDERS.hair,
+    borderColor: COLORS.line,
+    overflow: 'hidden',
+    backgroundColor: COLORS.paperSunken,
+  },
+  langBtn: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
+    minWidth: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  langBtnActive: {
+    backgroundColor: COLORS.ink,
+  },
+  langBtnLabel: {
+    letterSpacing: 0.8,
+    fontSize: 10,
+    color: COLORS.textInkMuted,
+  },
+  langBtnLabelActive: {
+    color: COLORS.onInk,
   },
 });

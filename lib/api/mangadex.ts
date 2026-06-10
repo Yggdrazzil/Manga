@@ -128,6 +128,9 @@ function normalize(manga: MDManga): Manga {
   const altTitles = manga.attributes.altTitles.map(t => Object.values(t)[0]).filter(Boolean);
   const englishTitle = manga.attributes.title.en ?? altTitles.find(t => t);
 
+  const readingLangs = (manga.attributes.availableTranslatedLanguages ?? [])
+    .filter(l => l === 'fr' || l === 'en');
+
   return {
     id: manga.id,
     source: 'mangadex',
@@ -145,6 +148,7 @@ function normalize(manga: MDManga): Manga {
     year: manga.attributes.year ?? undefined,
     authors: [...new Set(authors)],
     countryOfOrigin: manga.attributes.originalLanguage,
+    availableReadingLanguages: readingLangs.length > 0 ? readingLangs : undefined,
   };
 }
 
@@ -489,8 +493,12 @@ async function getChapterFeedMeta(
 
     for (const ch of data.data) {
       const num = ch.attributes.chapter;
-      if (!num || byNum.has(num)) continue;
-      byNum.set(num, normalizeChapter(ch));
+      if (!num) continue;
+      const existing = byNum.get(num);
+      // Prefer FR over EN/other when both are returned in a single feed request
+      if (!existing || (existing.translatedLanguage !== 'fr' && ch.attributes.translatedLanguage === 'fr')) {
+        byNum.set(num, normalizeChapter(ch));
+      }
     }
 
     total = data.total;
@@ -509,7 +517,7 @@ export async function getTrackingChapters(
   mangaId: string,
   lang?: string[],
 ): Promise<MangaChapter[]> {
-  const languages = lang ?? ['en', 'fr'];
+  const languages = lang ?? ['fr', 'en'];
 
   const [aggResult, metaResult] = await Promise.allSettled([
     // Full list across ALL languages = the real chapter count.

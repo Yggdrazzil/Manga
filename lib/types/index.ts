@@ -32,6 +32,7 @@ export interface Manga {
   accentColor?: string;
   mangadexId?: string;
   externalLinks?: Array<{ site: string; url: string }>; // official "where to read" links
+  availableReadingLanguages?: string[]; // subset of ['fr','en'] — populated from MangaDex
 }
 
 export interface MangaCharacter {

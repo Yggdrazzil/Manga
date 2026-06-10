@@ -180,6 +180,7 @@ export default function MangaDetailScreen() {
   const insets = useSafeAreaInsets();
   const { id, source } = useLocalSearchParams<{ id: string; source: string }>();
   const [activeTab, setActiveTab] = useState<ActiveTab>('about');
+  const [readLang, setReadLang] = useState<'fr' | 'en'>('fr');
 
   const { data: manga, isLoading, isError } = useQuery({
     queryKey: ['manga-detail', id, source],
@@ -205,9 +206,22 @@ export default function MangaDetailScreen() {
   });
   const effectiveMdId = directMdId ?? resolvedMdId ?? null;
 
+  // Available reading languages: from MangaDex metadata when known, else detected from chapters
+  const mangaReadLangs = useMemo<Array<'fr' | 'en'>>(() => {
+    const fromManga = (manga?.availableReadingLanguages ?? []) as Array<'fr' | 'en'>;
+    return fromManga.filter(l => l === 'fr' || l === 'en');
+  }, [manga?.availableReadingLanguages]);
+
+  // When user explicitly picked a language, fetch only that lang so readable flags reflect choice.
+  // Default ('fr'): fetch both with FR-preferred dedup so EN chapters fill any FR gaps.
+  const langParam = useMemo<string[] | undefined>(() => {
+    if (mangaReadLangs.length <= 1) return undefined; // no choice → use default behaviour
+    return readLang === 'fr' ? ['fr', 'en'] : ['en'];
+  }, [readLang, mangaReadLangs]);
+
   const { data: chapters } = useQuery({
-    queryKey: ['tracking-chapters', effectiveMdId],
-    queryFn: () => getTrackingChapters(effectiveMdId!),
+    queryKey: ['tracking-chapters', effectiveMdId, readLang, mangaReadLangs.length],
+    queryFn: () => getTrackingChapters(effectiveMdId!, langParam),
     enabled: !!effectiveMdId,
     staleTime: 1000 * 60 * 5,
   });
@@ -255,7 +269,21 @@ export default function MangaDetailScreen() {
     return entry.progress;
   }, [entry, displayChapters]);
 
-  const showChaptersTab = displayChapters.length > 0;
+  // Detect available reading languages from loaded chapters as fallback (covers AniList/Jikan sources)
+  const detectedReadLangs = useMemo<Array<'fr' | 'en'>>(() => {
+    if (mangaReadLangs.length > 0) return mangaReadLangs;
+    if (!chapters) return [];
+    const langs = new Set(
+      chapters.filter(c => c.isReadable).map(c => c.translatedLanguage)
+    );
+    return (['fr', 'en'] as const).filter(l => langs.has(l));
+  }, [mangaReadLangs, chapters]);
+
+  // Hide Chapters tab entirely when a manga is only available in non-FR/EN languages
+  const hasReadableInSupportedLang = effectiveMdId == null
+    || detectedReadLangs.length > 0
+    || (chapters == null); // still loading — optimistically show tab
+  const showChaptersTab = displayChapters.length > 0 && hasReadableInSupportedLang;
   const totalChapters = displayChapters.length || manga?.chapters || 0;
 
   if (isLoading) return <LoadingScreen />;
@@ -507,6 +535,9 @@ export default function MangaDetailScreen() {
               source={manga.source}
               manga={manga}
               mode="read"
+              activeLang={readLang}
+              availableLangs={detectedReadLangs.length > 1 ? detectedReadLangs : undefined}
+              onLangChange={setReadLang}
             />
           </View>
         )}
