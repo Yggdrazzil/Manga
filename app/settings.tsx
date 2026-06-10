@@ -5,7 +5,8 @@ import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import { MotiView } from 'moti';
 import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { exportLibrary, importLibrary } from '@/lib/utils/backup';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   BORDERS,
@@ -122,6 +123,8 @@ export default function SettingsScreen() {
   const setHaptics = useSettingsStore(s => s.setHaptics);
 
   const [cacheCleared, setCacheCleared] = useState(false);
+  const [exportState, setExportState] = useState<'idle' | 'loading' | 'done'>('idle');
+  const [importState, setImportState] = useState<'idle' | 'loading'>('idle');
 
   const handleSelectTheme = (id: ThemeId) => {
     if (id === theme) return;
@@ -137,7 +140,44 @@ export default function SettingsScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setTimeout(() => setCacheCleared(false), 2500);
     } catch {
-      // best effort — cache clearing can fail silently on some platforms
+      // best effort
+    }
+  };
+
+  const handleExport = async () => {
+    if (exportState === 'loading') return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setExportState('loading');
+    try {
+      await exportLibrary();
+      setExportState('done');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setTimeout(() => setExportState('idle'), 3000);
+    } catch (e) {
+      setExportState('idle');
+      const msg = e instanceof Error ? e.message : 'Erreur inconnue';
+      Alert.alert('Export échoué', msg);
+    }
+  };
+
+  const handleImport = async () => {
+    if (importState === 'loading') return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setImportState('loading');
+    try {
+      const result = await importLibrary();
+      setImportState('idle');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert(
+        'Import réussi',
+        `${result.mangaAdded} manga${result.mangaAdded !== 1 ? 's' : ''} et ${result.bdAdded} BD ajouté${result.bdAdded !== 1 ? 's' : ''}` +
+          (result.skipped > 0 ? ` (${result.skipped} déjà présent${result.skipped !== 1 ? 's' : ''})` : '') + '.',
+      );
+    } catch (e) {
+      setImportState('idle');
+      if (e instanceof Error && e.message === 'CANCELLED') return;
+      const msg = e instanceof Error ? e.message : 'Erreur inconnue';
+      Alert.alert('Import échoué', msg);
     }
   };
 
@@ -258,6 +298,63 @@ export default function SettingsScreen() {
           <SectionHeader icon="server" title="Données" />
           <Panel variant="paper" bordered style={styles.card}>
             <View style={styles.cardInner}>
+              {/* Export */}
+              <Pressable
+                style={({ pressed }) => [styles.settingRow, pressed && { opacity: 0.7 }]}
+                onPress={handleExport}
+                disabled={exportState === 'loading'}
+                accessibilityRole="button"
+                accessibilityLabel="Exporter la bibliothèque"
+              >
+                <View style={styles.settingIconWrap}>
+                  <Ionicons
+                    name={exportState === 'done' ? 'checkmark-circle' : 'share-outline'}
+                    size={18}
+                    color={exportState === 'done' ? COLORS.statusCompleted : COLORS.textInk}
+                  />
+                </View>
+                <View style={styles.settingTexts}>
+                  <Typography variant="subheading" color={COLORS.textInk}>
+                    {exportState === 'done' ? 'Exporté ✓' : exportState === 'loading' ? 'Export…' : 'Exporter la bibliothèque'}
+                  </Typography>
+                  <Typography variant="label" color={COLORS.textInkMuted}>
+                    Sauvegarde JSON de tous vos mangas et BD
+                  </Typography>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={COLORS.textInkFaint} />
+              </Pressable>
+
+              <View style={styles.divider} />
+
+              {/* Import */}
+              <Pressable
+                style={({ pressed }) => [styles.settingRow, pressed && { opacity: 0.7 }]}
+                onPress={handleImport}
+                disabled={importState === 'loading'}
+                accessibilityRole="button"
+                accessibilityLabel="Importer une sauvegarde"
+              >
+                <View style={styles.settingIconWrap}>
+                  <Ionicons
+                    name="download-outline"
+                    size={18}
+                    color={COLORS.textInk}
+                  />
+                </View>
+                <View style={styles.settingTexts}>
+                  <Typography variant="subheading" color={COLORS.textInk}>
+                    {importState === 'loading' ? 'Import…' : 'Importer une sauvegarde'}
+                  </Typography>
+                  <Typography variant="label" color={COLORS.textInkMuted}>
+                    Restaurer depuis un fichier .json
+                  </Typography>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={COLORS.textInkFaint} />
+              </Pressable>
+
+              <View style={styles.divider} />
+
+              {/* Clear cache */}
               <Pressable
                 style={({ pressed }) => [styles.settingRow, pressed && { opacity: 0.7 }]}
                 onPress={handleClearCache}

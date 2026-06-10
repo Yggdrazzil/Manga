@@ -70,6 +70,7 @@ export function ChapterList({ chapters, entryMangaId, source, manga, mode, activ
   const toggleChapterRead = useLibraryStore(s => s.toggleChapterRead);
   const markVolumeRead = useLibraryStore(s => s.markVolumeRead);
   const unmarkAllRead = useLibraryStore(s => s.unmarkAllRead);
+  const readingPositions = useLibraryStore(s => s.readingPositions);
 
   const mangaTitle = manga.title.english ?? manga.title.romaji ?? manga.title.userPreferred;
 
@@ -341,11 +342,21 @@ export function ChapterList({ chapters, entryMangaId, source, manga, mode, activ
                         {ch.title}
                       </Typography>
                     ) : null}
-                    {(dateStr || ch.pages > 0) && (
-                      <Typography variant="caption" color={COLORS.textInkFaint} style={styles.chapterDate}>
-                        {dateStr}{dateStr && ch.pages > 0 ? ' · ' : ''}{ch.pages > 0 ? `${ch.pages}p` : ''}
-                      </Typography>
-                    )}
+                    <View style={styles.chapterMeta}>
+                      {(dateStr || ch.pages > 0) && (
+                        <Typography variant="caption" color={COLORS.textInkFaint} style={styles.chapterDate}>
+                          {dateStr}{dateStr && ch.pages > 0 ? ' · ' : ''}{ch.pages > 0 ? `${ch.pages}p` : ''}
+                        </Typography>
+                      )}
+                      {readingPositions[ch.id] != null && !read && (
+                        <View style={styles.resumeBadge}>
+                          <Ionicons name="bookmark" size={8} color={COLORS.accentRed} />
+                          <Typography variant="caption" color={COLORS.accentRed} style={styles.resumeBadgeText}>
+                            p.{readingPositions[ch.id]}
+                          </Typography>
+                        </View>
+                      )}
+                    </View>
                   </View>
                   <View style={styles.checkCircle}>
                     <Ionicons
@@ -587,7 +598,20 @@ const styles = themedStyles(() => StyleSheet.create({
   chapterInfo: { flex: 1, gap: 2 },
   chapterNum: { fontSize: 18, lineHeight: 20, letterSpacing: 0.5 },
   chapterTitle: { fontSize: 12, lineHeight: 16 },
-  chapterDate: { marginTop: 2, textTransform: 'none', letterSpacing: 0, fontSize: 10 },
+  chapterMeta: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginTop: 2 },
+  chapterDate: { textTransform: 'none', letterSpacing: 0, fontSize: 10 },
+  resumeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    paddingHorizontal: SPACING.xs + 1,
+    paddingVertical: 1,
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.accentSoft,
+    borderWidth: BORDERS.hair,
+    borderColor: `${COLORS.accentRed}44`,
+  },
+  resumeBadgeText: { fontSize: 9, letterSpacing: 0.3, textTransform: 'none', lineHeight: 12 },
   checkCircle: { width: 36, alignItems: 'center', justifyContent: 'center' },
   readChip: {
     width: 36,

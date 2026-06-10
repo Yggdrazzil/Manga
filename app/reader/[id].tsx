@@ -204,6 +204,51 @@ function ChapterEndBanner({
   );
 }
 
+function ResumeBanner({
+  page,
+  visible,
+  onResume,
+  onDismiss,
+}: {
+  page: number;
+  visible: boolean;
+  onResume: () => void;
+  onDismiss: () => void;
+}) {
+  const insets = useSafeAreaInsets();
+  const reduceMotion = useReducedMotion();
+
+  return (
+    <MotiView
+      pointerEvents={visible ? 'box-none' : 'none'}
+      animate={{ opacity: visible ? 1 : 0, translateY: visible ? 0 : 20 }}
+      transition={{ type: 'timing', duration: reduceMotion ? 0 : 220 }}
+      style={[styles.resumeWrap, { top: insets.top + 70 }]}
+    >
+      <View style={styles.resumeBanner}>
+        <Ionicons name="bookmark" size={16} color={COLORS.accentBright} />
+        <Typography variant="label" color={COLORS.onInk} style={styles.resumeText}>
+          Reprendre à la page {page}
+        </Typography>
+        <Pressable
+          style={styles.resumeBtn}
+          onPress={onResume}
+          accessibilityRole="button"
+          accessibilityLabel={`Reprendre à la page ${page}`}
+          hitSlop={6}
+        >
+          <Typography variant="caption" color={COLORS.onInk} style={styles.resumeBtnLabel}>
+            REPRENDRE
+          </Typography>
+        </Pressable>
+        <Pressable onPress={onDismiss} hitSlop={8} accessibilityLabel="Ignorer">
+          <Ionicons name="close" size={16} color={COLORS.onInkMuted} />
+        </Pressable>
+      </View>
+    </MotiView>
+  );
+}
+
 function ReaderMessage({ loading, onBack }: { loading: boolean; onBack: () => void }) {
   const insets = useSafeAreaInsets();
   return (
@@ -259,7 +304,15 @@ export default function ReaderScreen() {
   const toggleChrome = useCallback(() => setChromeVisible(v => !v), []);
   const [currentPage, setCurrentPage] = useState(1);
   const [finished, setFinished] = useState(false);
+  const [resumeVisible, setResumeVisible] = useState(false);
+  const [resumePage, setResumePage] = useState(0);
+  const flatListRef = useRef<FlatList<string>>(null);
+  const savePositionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const chapterIdRef = useRef(id);
   const markChapterRead = useLibraryStore(s => s.markChapterRead);
+  const saveReadingPosition = useLibraryStore(s => s.saveReadingPosition);
+  const getReadingPosition = useLibraryStore(s => s.getReadingPosition);
+  const clearReadingPosition = useLibraryStore(s => s.clearReadingPosition);
   const dataSaver = useSettingsStore(s => s.dataSaver);
 
   const { data: pages, isLoading, isError } = useQuery({
@@ -283,27 +336,61 @@ export default function ReaderScreen() {
   }, [queryClient, id]);
 
   useEffect(() => {
+    chapterIdRef.current = id;
     setFinished(false);
     setCurrentPage(1);
+    setResumeVisible(false);
+    if (savePositionTimer.current) clearTimeout(savePositionTimer.current);
   }, [id]);
+
+  // Show resume banner once pages are loaded
+  useEffect(() => {
+    if (!id || !pages || pages.length === 0) return;
+    const saved = getReadingPosition(id);
+    if (saved && saved > 1 && saved <= pages.length) {
+      setResumePage(saved);
+      setResumeVisible(true);
+      const t = setTimeout(() => setResumeVisible(false), 5000);
+      return () => clearTimeout(t);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, pages?.length]);
 
   useEffect(() => {
     if (finished || total === 0 || currentPage < total) return;
     setFinished(true);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (id) clearReadingPosition(id);
     if (id && entryMangaId && source) {
       markChapterRead(entryMangaId, source, id, chapterNumber(chapter));
     }
-  }, [currentPage, total, finished, id, chapter, entryMangaId, source, markChapterRead]);
+  }, [currentPage, total, finished, id, chapter, entryMangaId, source, markChapterRead, clearReadingPosition]);
 
   const onViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
       const first = viewableItems.find(v => v.isViewable && v.index != null);
-      if (first?.index != null) setCurrentPage(first.index + 1);
+      if (first?.index == null) return;
+      const page = first.index + 1;
+      setCurrentPage(page);
+      // Debounce-save position (1.5s), skip page 1
+      if (savePositionTimer.current) clearTimeout(savePositionTimer.current);
+      if (page > 1) {
+        savePositionTimer.current = setTimeout(() => {
+          const cid = chapterIdRef.current;
+          if (cid) useLibraryStore.getState().saveReadingPosition(cid, page);
+        }, 1500);
+      }
     },
   ).current;
 
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 50 }).current;
+
+  const handleResume = useCallback(() => {
+    setResumeVisible(false);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    flatListRef.current?.scrollToIndex({ index: resumePage - 1, animated: false });
+    setCurrentPage(resumePage);
+  }, [resumePage]);
 
   const handleBack = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -327,6 +414,7 @@ export default function ReaderScreen() {
     <View style={styles.container}>
       <StatusBar style="light" hidden />
       <FlatList
+        ref={flatListRef}
         data={pages}
         keyExtractor={(uri, index) => `${index}-${uri}`}
         renderItem={({ item }) => <ReaderPage uri={item} width={width} onTap={toggleChrome} />}
@@ -356,6 +444,13 @@ export default function ReaderScreen() {
         nextChapter={nextChapter}
         onNext={handleNext}
         onBack={handleBack}
+      />
+
+      <ResumeBanner
+        page={resumePage}
+        visible={resumeVisible && !finished}
+        onResume={handleResume}
+        onDismiss={() => setResumeVisible(false)}
       />
     </View>
   );
@@ -477,4 +572,31 @@ const styles = themedStyles(() => StyleSheet.create({
     opacity: 0.85,
     transform: [{ scale: 0.97 }],
   },
+  resumeWrap: {
+    position: 'absolute',
+    left: SPACING.base,
+    right: SPACING.base,
+    alignItems: 'center',
+    zIndex: 20,
+  },
+  resumeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    backgroundColor: COLORS.ink,
+    borderWidth: BORDERS.bold,
+    borderColor: COLORS.lineOnInk,
+    borderRadius: RADIUS.full,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    maxWidth: 380,
+  },
+  resumeText: { flex: 1 },
+  resumeBtn: {
+    backgroundColor: COLORS.accentRed,
+    borderRadius: RADIUS.full,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs + 1,
+  },
+  resumeBtnLabel: { letterSpacing: 0.8, lineHeight: 14 },
 }));
