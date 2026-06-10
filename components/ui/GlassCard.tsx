@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import { BORDERS, COLORS, RADIUS } from '@/constants/theme';
+import { BORDERS, COLORS, RADIUS, themedStyles } from '@/constants/theme';
 
 interface GlassCardProps {
   intensity?: number;
@@ -13,11 +13,11 @@ export function GlassCard({ style, children, borderRadius = RADIUS.lg }: GlassCa
   return <View style={[styles.card, { borderRadius }, style]}>{children}</View>;
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   card: {
     backgroundColor: COLORS.paperRaised,
     borderWidth: BORDERS.bold,
     borderColor: COLORS.ink,
     overflow: 'hidden',
   },
-});
+}));

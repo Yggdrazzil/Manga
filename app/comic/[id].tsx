@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/utils/haptics';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -20,7 +20,7 @@ import { useComicsStore } from '@/lib/store/comics';
 import { confirmAction } from '@/lib/utils/confirm';
 import { Panel } from '@/components/ui/Panel';
 import { Typography } from '@/components/ui/Typography';
-import { BORDERS, COLORS, FONTS, RADIUS, SPACING, STATUS_LABELS } from '@/constants/theme';
+import { BORDERS, COLORS, FONTS, RADIUS, SPACING, STATUS_LABELS, inkScrim, themedStyles } from '@/constants/theme';
 import type { BDSeries, BDVolume, ReadingStatus } from '@/lib/types';
 
 const STATUSES: ReadingStatus[] = ['READING', 'PLAN_TO_READ', 'COMPLETED', 'PAUSED', 'DROPPED'];
@@ -305,7 +305,7 @@ export default function SeriesDetailScreen() {
             />
           ) : null}
           <LinearGradient
-            colors={['rgba(22,19,14,0.15)', 'rgba(22,19,14,0.7)', COLORS.ink]}
+            colors={[inkScrim(0.15), inkScrim(0.7), COLORS.ink]}
             locations={[0.2, 0.6, 1]}
             style={StyleSheet.absoluteFillObject}
           />
@@ -474,7 +474,7 @@ export default function SeriesDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.paper },
   backBtn: { position: 'absolute', left: SPACING.base, zIndex: 100 },
   favBtn: { position: 'absolute', right: SPACING.base, zIndex: 100 },
@@ -567,4 +567,4 @@ const styles = StyleSheet.create({
   volumeDesc: { lineHeight: 22, fontSize: 13 },
   synopsisCard: { borderRadius: RADIUS.lg, padding: SPACING.base },
   synopsisText: { lineHeight: 24, fontSize: 14 },
-});
+}));

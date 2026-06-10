@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/utils/haptics';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { MotiView } from 'moti';
@@ -10,7 +10,7 @@ import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useComicsStore } from '@/lib/store/comics';
 import { Typography } from '@/components/ui/Typography';
-import { BORDERS, COLORS, FONTS, RADIUS, SPACING } from '@/constants/theme';
+import { BORDERS, COLORS, FONTS, RADIUS, SPACING, themedStyles } from '@/constants/theme';
 import type { BDSeriesEntry, BDVolume } from '@/lib/types';
 
 const TAB_BAR_HEIGHT = 88;
@@ -308,7 +308,7 @@ export default function BDTrackerScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.paper },
 
   header: {
@@ -371,4 +371,4 @@ const styles = StyleSheet.create({
     marginTop: SPACING.sm, paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md,
     borderRadius: RADIUS.md, backgroundColor: COLORS.accentRed,
   },
-});
+}));

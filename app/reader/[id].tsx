@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/utils/haptics';
 import { Image, type ImageLoadEventData } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -21,9 +21,10 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getChapterPages as getMDChapterPages } from '@/lib/api/mangadex';
 import { getChapterPages as getCKChapterPages } from '@/lib/api/comick';
 import { useLibraryStore } from '@/lib/store/library';
+import { useSettingsStore } from '@/lib/store/settings';
 import { chapterNumber, compareChapters } from '@/lib/utils/chapter';
 import { Typography } from '@/components/ui/Typography';
-import { BORDERS, COLORS, FONTS, RADIUS, SPACING } from '@/constants/theme';
+import { BORDERS, COLORS, FONTS, RADIUS, SPACING, themedStyles } from '@/constants/theme';
 import type { MangaChapter } from '@/lib/types';
 
 function ReaderPageBase({ uri, width, onTap }: { uri: string; width: number; onTap: () => void }) {
@@ -259,10 +260,11 @@ export default function ReaderScreen() {
   const [currentPage, setCurrentPage] = useState(1);
   const [finished, setFinished] = useState(false);
   const markChapterRead = useLibraryStore(s => s.markChapterRead);
+  const dataSaver = useSettingsStore(s => s.dataSaver);
 
   const { data: pages, isLoading, isError } = useQuery({
-    queryKey: ['chapter-pages', id, source],
-    queryFn: () => source === 'comick' ? getCKChapterPages(id!) : getMDChapterPages(id!),
+    queryKey: ['chapter-pages', id, source, dataSaver],
+    queryFn: () => source === 'comick' ? getCKChapterPages(id!) : getMDChapterPages(id!, dataSaver),
     enabled: !!id,
   });
 
@@ -359,7 +361,7 @@ export default function ReaderScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
   pageError: {
     flex: 1,
@@ -475,4 +477,4 @@ const styles = StyleSheet.create({
     opacity: 0.85,
     transform: [{ scale: 0.97 }],
   },
-});
+}));

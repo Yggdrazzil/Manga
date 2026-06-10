@@ -1,7 +1,7 @@
 import { MotiView } from 'moti';
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { BORDERS, COLORS, RADIUS, SPACING } from '@/constants/theme';
+import { BORDERS, COLORS, RADIUS, SPACING, themedStyles } from '@/constants/theme';
 import { Halftone } from './Halftone';
 import { Typography } from './Typography';
 
@@ -37,7 +37,7 @@ export function EmptyState({ icon, title, subtitle, action }: EmptyStateProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     alignItems: 'center',
@@ -61,4 +61,4 @@ const styles = StyleSheet.create({
   title: { textAlign: 'center' },
   subtitle: { textAlign: 'center', maxWidth: 280 },
   action: { marginTop: SPACING.md },
-});
+}));

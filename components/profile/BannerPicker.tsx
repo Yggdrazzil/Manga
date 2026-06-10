@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/utils/haptics';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MotiView } from 'moti';
@@ -17,7 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { getPopularBanners } from '@/lib/api/anilist';
 import { Typography } from '@/components/ui/Typography';
-import { BORDERS, COLORS, RADIUS, SPACING } from '@/constants/theme';
+import { BORDERS, COLORS, RADIUS, SCRIMS, SPACING, inkScrim, themedStyles } from '@/constants/theme';
 import type { LibraryEntry } from '@/lib/types';
 
 interface BannerPickerProps {
@@ -72,7 +72,7 @@ function BannerCard({
           cachePolicy="memory-disk"
         />
         <LinearGradient
-          colors={['transparent', 'rgba(22,19,14,0.72)']}
+          colors={['transparent', inkScrim(0.72)]}
           style={styles.cardGradient}
         />
         <View style={styles.cardFooter}>
@@ -210,10 +210,10 @@ export function BannerPicker({ visible, current, entries, onSelect, onClose }: B
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(22,19,14,0.92)',
+    backgroundColor: SCRIMS.full,
   },
   sheet: {
     position: 'absolute',
@@ -323,4 +323,4 @@ const styles = StyleSheet.create({
     borderColor: COLORS.accentDeep,
   },
   retryText: { letterSpacing: 1.5 },
-});
+}));

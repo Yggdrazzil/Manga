@@ -8,102 +8,75 @@
  *
  * Legacy keys (bg, surface, text, accent, …) are kept and remapped to the new
  * palette so existing screens keep compiling; new semantic tokens are added below.
+ *
+ * Palettes live in constants/themes.ts; this module owns the live token
+ * objects (COLORS / SCRIMS / HARD_SHADOW) and the theming machinery.
  */
 
-const PAPER = {
-  base: '#F4EFE3', // manga page cream
-  raised: '#FCFAF4', // white-ish card
-  sunken: '#EAE3D3', // inset / track
-  dim: '#E1D9C6',
-};
+import {
+  DEFAULT_THEME,
+  THEMES,
+  type ThemeColors,
+  type ThemeId,
+  type ThemeScrims,
+} from './themes';
 
-const INK = {
-  base: '#16130E', // warm near-black (panels, reader)
-  raised: '#211C15',
-  soft: '#2C261D',
-};
+export { THEMES, THEME_ORDER, DEFAULT_THEME } from './themes';
+export type { AppTheme, ThemeColors, ThemeId, ThemeScrims } from './themes';
 
-const TEXT = {
-  ink: '#1A1611', // primary on paper
-  inkSoft: '#403A30',
-  inkMuted: '#6E6656', // secondary
-  inkFaint: '#7A7163', // captions — ≥3:1 on paper (WCAG AA large text)
-  onInk: '#F4EFE3', // primary on ink panels
-  onInkMuted: '#B7AD99',
-};
+/**
+ * COLORS is a MUTABLE token object: applyTheme() overwrites every value in
+ * place so the hundreds of existing `COLORS.x` reads stay valid. Style sheets
+ * pick up the change through themedStyles() + the full remount in _layout.
+ */
+export const COLORS: ThemeColors = { ...THEMES[DEFAULT_THEME].colors };
 
-const ACCENT = {
-  red: '#E11D17', // manga vermillion (Shonen-Jump energy)
-  redDeep: '#B3140F', // pressed / shadow
-  redBright: '#F23B30', // highlight
-  redSoft: 'rgba(225, 29, 23, 0.12)', // tint fill on paper
-  redSoftInk: 'rgba(242, 59, 48, 0.18)', // tint fill on ink
-};
+/** Ink scrims for overlays on images / modals — themed alongside COLORS. */
+export const SCRIMS: ThemeScrims = { ...THEMES[DEFAULT_THEME].scrims };
 
-export const COLORS = {
-  // ---- Legacy keys (remapped to Ink Manga) ----
-  bg: PAPER.base,
-  surface: PAPER.raised,
-  accent: ACCENT.red,
-  cyan: '#1F6F8B', // secondary ink-teal accent (BD identity)
-  cyanMuted: 'rgba(31, 111, 139, 0.14)',
-  text: TEXT.ink,
-  textSecondary: TEXT.inkMuted,
-  textMuted: TEXT.inkFaint,
-  border: 'rgba(26, 22, 17, 0.14)',
-  success: '#1B7A45',
-  warning: '#B9710C',
-  error: '#B3140F',
-  star: '#E8A50C', // rating stars — readable on paper and ink
+let themeVersion = 0;
+let currentThemeId: ThemeId = DEFAULT_THEME;
+let currentInkRGB = THEMES[DEFAULT_THEME].inkRGB;
 
-  statusReading: ACCENT.red,
-  statusCompleted: '#1B7A45',
-  statusPlan: '#1F6F8B',
-  statusDropped: '#8A8276',
-  statusPaused: '#B9710C',
+export function getCurrentTheme(): ThemeId {
+  return currentThemeId;
+}
 
-  typeMANGA: '#C2306B',
-  typeMANHWA: '#245FA6',
-  typeMANHUA: '#C2410C',
-  typeWEBTOON: '#15803D',
-  typeBD: '#9A6212',
+/** Arbitrary-alpha overlay based on the active theme's ink. */
+export function inkScrim(alpha: number): string {
+  return `rgba(${currentInkRGB}, ${alpha})`;
+}
 
-  // ---- New semantic tokens ----
-  paper: PAPER.base,
-  paperRaised: PAPER.raised,
-  paperSunken: PAPER.sunken,
+/** Swap every color token in place, then invalidate themedStyles caches. */
+export function applyTheme(id: ThemeId): void {
+  const theme = THEMES[id] ?? THEMES[DEFAULT_THEME];
+  currentThemeId = theme.id;
+  currentInkRGB = theme.inkRGB;
+  Object.assign(COLORS, theme.colors);
+  Object.assign(SCRIMS, theme.scrims);
+  HARD_SHADOW.shadowColor = theme.colors.ink;
+  themeVersion += 1;
+}
 
-  ink: INK.base,
-  inkSoft: INK.soft,
-
-  textInk: TEXT.ink,
-  textInkSoft: TEXT.inkSoft,
-  textInkMuted: TEXT.inkMuted,
-  textInkFaint: TEXT.inkFaint,
-  onInk: TEXT.onInk,
-  onInkMuted: TEXT.onInkMuted,
-
-  accentRed: ACCENT.red,
-  accentDeep: ACCENT.redDeep,
-  accentBright: ACCENT.redBright,
-  accentSoft: ACCENT.redSoft,
-  accentSoftInk: ACCENT.redSoftInk,
-
-  line: 'rgba(26, 22, 17, 0.12)', // hairline on paper
-  lineStrong: 'rgba(26, 22, 17, 0.22)',
-  lineOnInk: 'rgba(244, 239, 227, 0.16)',
-
-  halftone: 'rgba(26, 22, 17, 0.9)', // dot ink for screentone
-} as const;
-
-/** Ink scrims for overlays on images / modals — single source instead of 8 hand-written rgba. */
-export const SCRIMS = {
-  subtle: 'rgba(22, 19, 14, 0.4)',
-  medium: 'rgba(22, 19, 14, 0.6)',
-  heavy: 'rgba(22, 19, 14, 0.85)',
-  full: 'rgba(22, 19, 14, 0.92)',
-  paper: 'rgba(244, 239, 227, 0.85)',
-} as const;
+/**
+ * Lazily (re)builds a StyleSheet whenever the theme changes.
+ * Usage: `const styles = themedStyles(() => StyleSheet.create({ … }))`.
+ * The factory re-runs on first property access after applyTheme(), so the
+ * module-level `styles` constant stays theme-correct without React context.
+ */
+export function themedStyles<T extends object>(factory: () => T): T {
+  let cache: T | undefined;
+  let cachedVersion = -1;
+  return new Proxy({} as T, {
+    get(_, prop) {
+      if (cachedVersion !== themeVersion || cache === undefined) {
+        cache = factory();
+        cachedVersion = themeVersion;
+      }
+      return cache[prop as keyof T];
+    },
+  });
+}
 
 export const SPACING = {
   xs: 4,
@@ -133,14 +106,21 @@ export const BORDERS = {
   heavy: 3,
 } as const;
 
-/** Hard offset ink shadow (no blur) — the signature manga-panel drop. */
-export const HARD_SHADOW = {
+/** Hard offset ink shadow (no blur) — the signature manga-panel drop.
+ *  Mutable: applyTheme() retargets shadowColor to the theme's ink. */
+export const HARD_SHADOW: {
+  shadowColor: string;
+  shadowOffset: { width: number; height: number };
+  shadowOpacity: number;
+  shadowRadius: number;
+  elevation: number;
+} = {
   shadowColor: '#16130E',
   shadowOffset: { width: 3, height: 3 },
   shadowOpacity: 1,
   shadowRadius: 0,
   elevation: 4,
-} as const;
+};
 
 export const FONTS = {
   display: 'BebasNeue_400Regular', // condensed impact caps (numbers, SFX, kickers)

@@ -1,7 +1,7 @@
 import { Link, Stack } from 'expo-router';
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { COLORS } from '@/constants/theme';
+import { COLORS, themedStyles } from '@/constants/theme';
 import { GlassButton } from '@/components/ui/GlassButton';
 import { Typography } from '@/components/ui/Typography';
 
@@ -23,7 +23,7 @@ export default function NotFoundScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.bg,
@@ -36,4 +36,4 @@ const styles = StyleSheet.create({
   title: { textAlign: 'center' },
   sub: { textAlign: 'center', marginBottom: 16 },
   btn: { marginTop: 8 },
-});
+}));

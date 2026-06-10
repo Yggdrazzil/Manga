@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/utils/haptics';
 import { useRouter } from 'expo-router';
 import { MotiView } from 'moti';
 import { formatDistanceToNow } from 'date-fns';
@@ -8,7 +8,7 @@ import { fr } from 'date-fns/locale';
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BORDERS, COLORS, FONTS, RADIUS, SPACING, STATUS_LABELS } from '@/constants/theme';
+import { BORDERS, COLORS, FONTS, RADIUS, SCRIMS, SPACING, STATUS_LABELS, inkScrim, themedStyles } from '@/constants/theme';
 import { useLibraryStore } from '@/lib/store/library';
 import { useComicsStore } from '@/lib/store/comics';
 import { confirmAction } from '@/lib/utils/confirm';
@@ -22,13 +22,16 @@ import { Ionicons } from '@expo/vector-icons';
 
 const TAB_BAR_HEIGHT = 88;
 
-const STATUS_COLORS: Record<ReadingStatus, string> = {
-  READING: COLORS.statusReading,
-  COMPLETED: COLORS.statusCompleted,
-  PLAN_TO_READ: COLORS.statusPlan,
-  DROPPED: COLORS.statusDropped,
-  PAUSED: COLORS.statusPaused,
-};
+// Functions, not module consts: COLORS values change with the active theme,
+// so capturing them at import time would freeze the default palette.
+const statusColor = (s: ReadingStatus): string =>
+  ({
+    READING: COLORS.statusReading,
+    COMPLETED: COLORS.statusCompleted,
+    PLAN_TO_READ: COLORS.statusPlan,
+    DROPPED: COLORS.statusDropped,
+    PAUSED: COLORS.statusPaused,
+  })[s];
 
 type Filter = 'ALL' | ReadingStatus;
 
@@ -52,7 +55,7 @@ function StatPill({ value, label }: { value: string | number; label: string }) {
 
 function StatusBar({ status, count, total }: { status: ReadingStatus; count: number; total: number }) {
   const percent = total > 0 ? count / total : 0;
-  const color = STATUS_COLORS[status];
+  const color = statusColor(status);
   return (
     <View style={styles.statusBarRow}>
       <View style={styles.statusBarLabel}>
@@ -157,15 +160,14 @@ function HistoryRow({ entry }: { entry: LibraryEntry }) {
   );
 }
 
-const BD_COLOR = COLORS.cyan;
-
-const BD_STATUS_COLORS: Record<ReadingStatus, string> = {
-  READING: BD_COLOR,
-  COMPLETED: COLORS.statusCompleted,
-  PLAN_TO_READ: COLORS.textInkMuted,
-  PAUSED: COLORS.statusPaused,
-  DROPPED: COLORS.statusDropped,
-};
+const bdStatusColor = (s: ReadingStatus): string =>
+  ({
+    READING: COLORS.cyan,
+    COMPLETED: COLORS.statusCompleted,
+    PLAN_TO_READ: COLORS.textInkMuted,
+    PAUSED: COLORS.statusPaused,
+    DROPPED: COLORS.statusDropped,
+  })[s];
 
 function BDHistoryRow({ entry }: { entry: BDSeriesEntry }) {
   const router = useRouter();
@@ -187,7 +189,7 @@ function BDHistoryRow({ entry }: { entry: BDSeriesEntry }) {
   };
   const percent = total > 0 ? Math.min(readCount / total, 1) : 0;
   const relative = formatDistanceToNow(new Date(entry.updatedAt), { addSuffix: true, locale: fr });
-  const statusColor = BD_STATUS_COLORS[entry.status];
+  const entryColor = bdStatusColor(entry.status);
 
   return (
     <Pressable onPress={() => router.push(`/comic/${entry.seriesId}` as never)}>
@@ -205,9 +207,9 @@ function BDHistoryRow({ entry }: { entry: BDSeriesEntry }) {
           <View style={styles.rowInfo}>
             <Typography variant="subheading" numberOfLines={2} color={COLORS.textInk} style={styles.rowTitle}>{entry.series.title}</Typography>
             <View style={styles.rowMeta}>
-              <View style={[styles.bdStatusPill, { backgroundColor: `${statusColor}22`, borderColor: `${statusColor}44` }]}>
-                <View style={[styles.bdStatusDot, { backgroundColor: statusColor }]} />
-                <Typography variant="label" style={[styles.bdStatusLabel, { color: statusColor }]}>
+              <View style={[styles.bdStatusPill, { backgroundColor: `${entryColor}22`, borderColor: `${entryColor}44` }]}>
+                <View style={[styles.bdStatusDot, { backgroundColor: entryColor }]} />
+                <Typography variant="label" style={[styles.bdStatusLabel, { color: entryColor }]}>
                   {STATUS_LABELS[entry.status]}
                 </Typography>
               </View>
@@ -215,7 +217,7 @@ function BDHistoryRow({ entry }: { entry: BDSeriesEntry }) {
             </View>
             <View style={styles.progressRow}>
               <View style={styles.progressTrack}>
-                <View style={[styles.progressFill, { width: `${percent * 100}%` as `${number}%`, backgroundColor: statusColor }]} />
+                <View style={[styles.progressFill, { width: `${percent * 100}%` as `${number}%`, backgroundColor: entryColor }]} />
               </View>
               <Typography variant="label" color={COLORS.textInkMuted} style={styles.progressText}>
                 {readCount}{total > 0 ? `/${total}` : ''} t.
@@ -224,7 +226,7 @@ function BDHistoryRow({ entry }: { entry: BDSeriesEntry }) {
           </View>
           {nextVolume != null ? (
             <TouchableOpacity
-              style={[styles.plusBtn, { backgroundColor: BD_COLOR }]}
+              style={[styles.plusBtn, { backgroundColor: COLORS.cyan }]}
               onPress={handlePlusOne}
               accessibilityRole="button"
               accessibilityLabel={`Marquer le tome ${nextVolume} comme lu`}
@@ -330,10 +332,22 @@ export default function ProfileScreen() {
             <Image source={{ uri: backdrop }} style={StyleSheet.absoluteFillObject} contentFit="cover" cachePolicy="memory-disk" />
           ) : null}
           <LinearGradient
-            colors={['rgba(22,19,14,0.3)', 'rgba(22,19,14,0.8)', COLORS.ink]}
+            colors={[inkScrim(0.3), inkScrim(0.8), COLORS.ink]}
             locations={[0, 0.55, 1]}
             style={StyleSheet.absoluteFillObject}
           />
+          <Pressable
+            style={[styles.settingsBtn, { top: insets.top + SPACING.sm }]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push('/settings' as never);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Ouvrir les paramètres"
+            hitSlop={8}
+          >
+            <Ionicons name="settings-outline" size={16} color={COLORS.onInk} />
+          </Pressable>
           <Pressable
             style={[styles.bannerEditBtn, { top: insets.top + SPACING.sm }]}
             onPress={() => {
@@ -556,7 +570,7 @@ export default function ProfileScreen() {
               animate={{ opacity: 1, translateY: 0 }}
               transition={{ type: 'spring', stiffness: 280, damping: 25, delay: 100 }}
             >
-              <View style={styles.libraryHeaderRow}>
+              <View style={[styles.libraryHeaderRow, styles.bdHeaderRow]}>
                 <View style={[styles.sectionMarker, { backgroundColor: COLORS.cyan }]} />
                 <Typography variant="title" color={COLORS.textInk}>BD & Comics</Typography>
                 <View style={styles.bdCountBadge}>
@@ -600,7 +614,7 @@ export default function ProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.paper },
   hero: {
     height: 280,
@@ -653,7 +667,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.xs,
-    backgroundColor: 'rgba(22,19,14,0.55)',
+    backgroundColor: SCRIMS.medium,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.xs + 2,
     borderRadius: RADIUS.full,
@@ -661,6 +675,18 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.18)',
   },
   bannerEditLabel: { letterSpacing: 1.2, fontSize: 9 },
+  settingsBtn: {
+    position: 'absolute',
+    left: SPACING.base,
+    width: 34,
+    height: 34,
+    borderRadius: RADIUS.full,
+    backgroundColor: SCRIMS.medium,
+    borderWidth: BORDERS.hair,
+    borderColor: COLORS.lineOnInk,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 
   statStrip: {
     flexDirection: 'row',
@@ -687,7 +713,7 @@ const styles = StyleSheet.create({
   timeUnit: { alignItems: 'center', gap: 2 },
   timeValue: { fontSize: 28, lineHeight: 30, letterSpacing: 1 },
 
-  favRail: { gap: SPACING.md, paddingTop: SPACING.sm },
+  favRail: { gap: SPACING.md, paddingTop: SPACING.base },
   favCard: { width: 92, gap: SPACING.xs },
   favCoverFrame: {
     borderRadius: RADIUS.sm,
@@ -739,6 +765,9 @@ const styles = StyleSheet.create({
     marginBottom: -SPACING.sm,
     flexWrap: 'wrap',
   },
+  // Inside the BD MotiView there is no parent gap to absorb the negative
+  // margin above — without this override the first card overlaps the title.
+  bdHeaderRow: { marginBottom: SPACING.md },
   bdCountBadge: {
     backgroundColor: COLORS.cyan,
     borderRadius: RADIUS.full,
@@ -815,4 +844,4 @@ const styles = StyleSheet.create({
   emptyEmoji: { fontSize: 48, lineHeight: 56 },
   emptyTitle: { textAlign: 'center' },
   emptyText: { textAlign: 'center' },
-});
+}));

@@ -1,7 +1,7 @@
 import { MotiView } from 'moti';
 import React from 'react';
 import { StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
-import { COLORS, RADIUS } from '@/constants/theme';
+import { COLORS, RADIUS, themedStyles } from '@/constants/theme';
 
 interface SkeletonProps {
   width?: number | string;
@@ -36,8 +36,8 @@ export function MangaCardSkeleton() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   card: { width: 120, marginRight: 12 },
   mt8: { marginTop: 8 },
   mt4: { marginTop: 4 },
-});
+}));

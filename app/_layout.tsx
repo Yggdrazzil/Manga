@@ -7,11 +7,12 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { COLORS } from '@/constants/theme';
+import { applyTheme, COLORS, THEMES, themedStyles } from '@/constants/theme';
+import { useSettingsStore } from '@/lib/store/settings';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -37,21 +38,38 @@ export default function RootLayout() {
     Nunito_700Bold,
   });
 
+  const theme = useSettingsStore(s => s.theme);
+  const [settingsHydrated, setSettingsHydrated] = useState(
+    useSettingsStore.persist.hasHydrated(),
+  );
+
   useEffect(() => {
-    if (fontsLoaded || fontError) {
+    const unsub = useSettingsStore.persist.onFinishHydration(() => setSettingsHydrated(true));
+    return unsub;
+  }, []);
+
+  // Apply during render, before children mount, so every themedStyles factory
+  // and inline COLORS read below already sees the right palette. The key on
+  // GestureHandlerRootView remounts the whole tree on theme change.
+  useMemo(() => applyTheme(theme), [theme]);
+
+  const ready = (fontsLoaded || !!fontError) && settingsHydrated;
+
+  useEffect(() => {
+    if (ready) {
       SplashScreen.hideAsync().catch(() => {});
     }
-  }, [fontsLoaded, fontError]);
+  }, [ready]);
 
-  if (!fontsLoaded && !fontError) {
+  if (!ready) {
     return null;
   }
 
   return (
-    <GestureHandlerRootView style={styles.root}>
+    <GestureHandlerRootView key={theme} style={styles.root}>
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
-          <StatusBar style="dark" />
+          <StatusBar style={THEMES[theme].mode === 'dark' ? 'light' : 'dark'} />
           <Stack
             screenOptions={{
               headerShown: false,
@@ -81,6 +99,13 @@ export default function RootLayout() {
                 animation: 'slide_from_bottom',
               }}
             />
+            <Stack.Screen
+              name="settings"
+              options={{
+                presentation: 'modal',
+                animation: 'slide_from_bottom',
+              }}
+            />
             <Stack.Screen name="+not-found" />
           </Stack>
         </QueryClientProvider>
@@ -89,6 +114,6 @@ export default function RootLayout() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.paper },
-});
+}));

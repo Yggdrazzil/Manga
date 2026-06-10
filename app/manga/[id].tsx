@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/utils/haptics';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -23,13 +23,14 @@ import { findMangadexId } from '@/lib/api/mangadex';
 import * as comick from '@/lib/api/comick';
 import * as jikan from '@/lib/api/jikan';
 import { useLibraryStore } from '@/lib/store/library';
+import { useSettingsStore } from '@/lib/store/settings';
 import { confirmAction } from '@/lib/utils/confirm';
 import { Panel } from '@/components/ui/Panel';
 import { Halftone } from '@/components/ui/Halftone';
 import { TypeBadge } from '@/components/ui/TypeBadge';
 import { Typography } from '@/components/ui/Typography';
 import { ChapterList } from '@/components/manga/ChapterList';
-import { BORDERS, COLORS, RADIUS, SPACING, STATUS_LABELS } from '@/constants/theme';
+import { BORDERS, COLORS, RADIUS, SPACING, STATUS_LABELS, inkScrim, themedStyles } from '@/constants/theme';
 import type { Manga, MangaChapter, MangaCharacter, ReadingStatus } from '@/lib/types';
 
 const STATUSES: ReadingStatus[] = ['READING', 'PLAN_TO_READ', 'COMPLETED', 'PAUSED', 'DROPPED'];
@@ -181,7 +182,9 @@ export default function MangaDetailScreen() {
   const insets = useSafeAreaInsets();
   const { id, source } = useLocalSearchParams<{ id: string; source: string }>();
   const [activeTab, setActiveTab] = useState<ActiveTab>('about');
-  const [readLang, setReadLang] = useState<'fr' | 'en'>('fr');
+  // Seeded from the user's preferred scan language (Paramètres > Lecture)
+  const preferredLang = useSettingsStore(s => s.scanLang);
+  const [readLang, setReadLang] = useState<'fr' | 'en'>(preferredLang);
 
   const { data: manga, isLoading, isError } = useQuery({
     queryKey: ['manga-detail', id, source],
@@ -220,11 +223,13 @@ export default function MangaDetailScreen() {
   }, [manga?.availableReadingLanguages]);
 
   // When user explicitly picked a language, fetch only that lang so readable flags reflect choice.
-  // Default ('fr'): fetch both with FR-preferred dedup so EN chapters fill any FR gaps.
+  // Otherwise: preferred language first, the other as fallback for missing chapters.
   const langParam = useMemo<string[] | undefined>(() => {
-    if (mangaReadLangs.length <= 1) return undefined;
-    return readLang === 'fr' ? ['fr', 'en'] : ['en'];
-  }, [readLang, mangaReadLangs]);
+    if (mangaReadLangs.length <= 1) {
+      return preferredLang === 'en' ? ['en', 'fr'] : undefined;
+    }
+    return readLang === 'fr' ? ['fr', 'en'] : ['en', 'fr'];
+  }, [readLang, mangaReadLangs, preferredLang]);
 
   // Comick has its own chapter feed; non-Comick sources use MangaDex
   const chaptersEnabled = isComick ? !!manga : !!effectiveMdId;
@@ -366,7 +371,7 @@ export default function MangaDetailScreen() {
             cachePolicy="memory-disk"
           />
           <LinearGradient
-            colors={['rgba(22,19,14,0.15)', 'rgba(22,19,14,0.7)', COLORS.ink]}
+            colors={[inkScrim(0.15), inkScrim(0.7), COLORS.ink]}
             locations={[0.2, 0.6, 1]}
             style={StyleSheet.absoluteFillObject}
           />
@@ -655,7 +660,7 @@ function InfoItem({ label, value, highlight = false }: { label: string; value: s
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.paper },
   scroll: {},
   backBtn: {
@@ -852,5 +857,5 @@ const styles = StyleSheet.create({
     gap: SPACING.md,
     padding: SPACING.xl,
   },
-});
+}));
 

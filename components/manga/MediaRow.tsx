@@ -1,7 +1,7 @@
 import { MotiView } from 'moti';
 import React from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import { COLORS, SPACING } from '@/constants/theme';
+import { COLORS, SPACING, themedStyles } from '@/constants/theme';
 import type { Manga } from '@/lib/types';
 import { MangaCardSkeleton } from '../ui/Skeleton';
 import { Typography } from '../ui/Typography';
@@ -45,7 +45,7 @@ export function MediaRow({ title, mangas, isLoading, cardWidth = 120 }: MediaRow
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   section: { marginBottom: SPACING.xl },
   header: {
     flexDirection: 'row',
@@ -67,4 +67,4 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.base,
     gap: SPACING.md,
   },
-});
+}));

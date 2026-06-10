@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/utils/haptics';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { MotiView } from 'moti';
@@ -13,7 +13,7 @@ import { Panel } from '@/components/ui/Panel';
 import { Typography } from '@/components/ui/Typography';
 import { ChapterDetailSheet } from './ChapterDetailSheet';
 import { compareChapters } from '@/lib/utils/chapter';
-import { BORDERS, COLORS, RADIUS, SPACING } from '@/constants/theme';
+import { BORDERS, COLORS, RADIUS, SPACING, themedStyles } from '@/constants/theme';
 import type { Manga, MangaChapter } from '@/lib/types';
 
 type ChapterListMode = 'track' | 'read';
@@ -482,7 +482,7 @@ export function ChapterList({ chapters, entryMangaId, source, manga, mode, activ
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   container: { gap: SPACING.md },
   continueCard: { borderRadius: RADIUS.xl, overflow: 'visible' },
   continueInner: {
@@ -625,4 +625,4 @@ const styles = StyleSheet.create({
   langBtnLabelActive: {
     color: COLORS.onInk,
   },
-});
+}));

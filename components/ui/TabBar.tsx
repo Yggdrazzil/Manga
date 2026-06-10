@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/utils/haptics';
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 import Animated, {
@@ -10,7 +10,7 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, HARD_SHADOW, RADIUS, SPACING } from '@/constants/theme';
+import { COLORS, HARD_SHADOW, RADIUS, SPACING, themedStyles } from '@/constants/theme';
 import { Typography } from './Typography';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -124,7 +124,7 @@ export function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   wrapper: {
     position: 'absolute',
     left: SPACING.base,
@@ -161,4 +161,4 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
     textAlign: 'center',
   },
-});
+}));

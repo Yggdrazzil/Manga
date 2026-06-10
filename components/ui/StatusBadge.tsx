@@ -1,17 +1,19 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { COLORS, RADIUS, SPACING } from '@/constants/theme';
+import { COLORS, RADIUS, SPACING, themedStyles } from '@/constants/theme';
 import { STATUS_LABELS } from '@/constants/theme';
 import type { ReadingStatus } from '@/lib/types';
 import { Typography } from './Typography';
 
-const STATUS_COLORS: Record<ReadingStatus, string> = {
-  READING: COLORS.statusReading,
-  COMPLETED: COLORS.statusCompleted,
-  PLAN_TO_READ: COLORS.statusPlan,
-  DROPPED: COLORS.statusDropped,
-  PAUSED: COLORS.statusPaused,
-};
+// Function, not module const: COLORS values change with the active theme.
+const statusColor = (s: ReadingStatus): string =>
+  ({
+    READING: COLORS.statusReading,
+    COMPLETED: COLORS.statusCompleted,
+    PLAN_TO_READ: COLORS.statusPlan,
+    DROPPED: COLORS.statusDropped,
+    PAUSED: COLORS.statusPaused,
+  })[s];
 
 interface StatusBadgeProps {
   status: ReadingStatus;
@@ -19,7 +21,7 @@ interface StatusBadgeProps {
 }
 
 export function StatusBadge({ status, compact = false }: StatusBadgeProps) {
-  const color = STATUS_COLORS[status];
+  const color = statusColor(status);
   return (
     <View style={[styles.badge, { backgroundColor: `${color}22`, borderColor: `${color}44` }]}>
       <View style={[styles.dot, { backgroundColor: color }]} />
@@ -32,7 +34,7 @@ export function StatusBadge({ status, compact = false }: StatusBadgeProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -48,4 +50,4 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   text: { fontWeight: '600' },
-});
+}));

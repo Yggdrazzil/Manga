@@ -1,10 +1,10 @@
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/utils/haptics';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
-import { BORDERS, COLORS, FONTS, RADIUS, SPACING } from '@/constants/theme';
+import { BORDERS, COLORS, FONTS, RADIUS, SPACING, inkScrim, themedStyles } from '@/constants/theme';
 import type { Manga } from '@/lib/types';
 import { TypeBadge } from '../ui/TypeBadge';
 import { Typography } from '../ui/Typography';
@@ -80,7 +80,7 @@ export function MangaCard({ manga, width = 120 }: MangaCardProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   imageFrame: {
     overflow: 'hidden',
     backgroundColor: COLORS.paperSunken,
@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
     right: SPACING.xs,
   },
   scoreBadge: {
-    backgroundColor: 'rgba(22,19,14,0.82)',
+    backgroundColor: inkScrim(0.82),
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: RADIUS.sm,
@@ -121,4 +121,4 @@ const styles = StyleSheet.create({
     letterSpacing: 0,
     textTransform: 'none',
   },
-});
+}));

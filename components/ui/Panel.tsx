@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import { BORDERS, COLORS, HARD_SHADOW, RADIUS } from '@/constants/theme';
+import { BORDERS, COLORS, HARD_SHADOW, RADIUS, themedStyles } from '@/constants/theme';
 
 interface PanelProps {
   variant?: 'paper' | 'ink' | 'outline';
@@ -48,6 +48,6 @@ export function Panel({
   return <View style={[panelStyle, styles.clip, style]}>{children}</View>;
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   clip: { overflow: 'hidden' },
-});
+}));

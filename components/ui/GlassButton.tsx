@@ -1,8 +1,8 @@
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/utils/haptics';
 import React from 'react';
 import { Pressable, StyleSheet, type PressableProps, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
-import { BORDERS, COLORS, FONTS, RADIUS, SPACING } from '@/constants/theme';
+import { BORDERS, COLORS, FONTS, RADIUS, SPACING, themedStyles } from '@/constants/theme';
 import { Typography } from './Typography';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -66,7 +66,7 @@ export function GlassButton({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   base: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -97,4 +97,4 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     textTransform: 'uppercase',
   },
-});
+}));

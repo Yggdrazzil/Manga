@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/utils/haptics';
 import { Image } from 'expo-image';
 import { MotiView } from 'moti';
 import React from 'react';
@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { getPopularCharacters, type CharacterAvatar } from '@/lib/api/anilist';
 import { Typography } from '@/components/ui/Typography';
-import { BORDERS, COLORS, RADIUS, SPACING } from '@/constants/theme';
+import { BORDERS, COLORS, RADIUS, SCRIMS, SPACING, themedStyles } from '@/constants/theme';
 
 interface AvatarPickerProps {
   visible: boolean;
@@ -141,10 +141,10 @@ export function AvatarPicker({ visible, current, onSelect, onClose }: AvatarPick
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(22,19,14,0.92)',
+    backgroundColor: SCRIMS.full,
   },
   sheet: {
     position: 'absolute',
@@ -218,4 +218,4 @@ const styles = StyleSheet.create({
     borderColor: COLORS.paper,
   },
   avatarName: { fontSize: 10, textAlign: 'center', maxWidth: '100%' },
-});
+}));

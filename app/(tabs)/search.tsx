@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/utils/haptics';
 import { Image } from 'expo-image';
 import { MotiView } from 'moti';
 import { useRouter } from 'expo-router';
@@ -31,7 +31,7 @@ import { consolidateBDSeries } from '@/lib/api/bdconsolidate';
 import { useComicsStore } from '@/lib/store/comics';
 import { Typography } from '@/components/ui/Typography';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { BORDERS, COLORS, FONTS, RADIUS, SPACING, TYPE_LABELS } from '@/constants/theme';
+import { BORDERS, COLORS, FONTS, RADIUS, SPACING, TYPE_LABELS, themedStyles } from '@/constants/theme';
 import type { Manga, MediaType } from '@/lib/types';
 
 const TAB_BAR_HEIGHT = 88;
@@ -490,7 +490,7 @@ export default function SearchScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.paper },
 
   header: {
@@ -580,4 +580,4 @@ const styles = StyleSheet.create({
   addBtnTracked: { backgroundColor: COLORS.ink, borderColor: COLORS.lineOnInk },
 
   loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: SPACING.md },
-});
+}));

@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/utils/haptics';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { format, parseISO } from 'date-fns';
@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { useLibraryStore } from '@/lib/store/library';
 import { Typography } from '@/components/ui/Typography';
-import { BORDERS, COLORS, FONTS, RADIUS, SPACING } from '@/constants/theme';
+import { BORDERS, COLORS, FONTS, RADIUS, SPACING, inkScrim, themedStyles } from '@/constants/theme';
 import type { Manga, MangaChapter } from '@/lib/types';
 
 interface ChapterDetailSheetProps {
@@ -331,10 +331,10 @@ export function ChapterDetailSheet({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(22,19,14,0.72)',
+    backgroundColor: inkScrim(0.72),
   },
   sheet: {
     position: 'absolute',
@@ -518,4 +518,4 @@ const styles = StyleSheet.create({
   closeBtnText: {
     letterSpacing: 1.5,
   },
-});
+}));

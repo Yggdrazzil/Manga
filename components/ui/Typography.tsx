@@ -20,7 +20,8 @@ interface TypographyProps extends TextProps {
   style?: StyleProp<TextStyle>;
 }
 
-const variantStyles: Record<TypographyVariant, TextStyle> = {
+// Function, not module const: COLORS values change with the active theme.
+const getVariantStyles = (): Record<TypographyVariant, TextStyle> => ({
   hero: {
     fontFamily: FONTS.serifBlack,
     fontSize: 36,
@@ -88,11 +89,11 @@ const variantStyles: Record<TypographyVariant, TextStyle> = {
     textTransform: 'uppercase',
     color: COLORS.textInkFaint,
   },
-};
+});
 
 export function Typography({ variant = 'body', color, style, children, ...rest }: TypographyProps) {
   return (
-    <Text style={[variantStyles[variant], color ? { color } : undefined, style]} {...rest}>
+    <Text style={[getVariantStyles()[variant], color ? { color } : undefined, style]} {...rest}>
       {children}
     </Text>
   );

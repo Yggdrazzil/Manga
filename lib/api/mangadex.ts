@@ -491,12 +491,13 @@ async function getChapterFeedMeta(
       contentRating: CONTENT_RATINGS,
     });
 
+    const preferred = lang[0];
     for (const ch of data.data) {
       const num = ch.attributes.chapter;
       if (!num) continue;
       const existing = byNum.get(num);
-      // Prefer FR over EN/other when both are returned in a single feed request
-      if (!existing || (existing.translatedLanguage !== 'fr' && ch.attributes.translatedLanguage === 'fr')) {
+      // Prefer the user's first language when both are returned in one feed
+      if (!existing || (existing.translatedLanguage !== preferred && ch.attributes.translatedLanguage === preferred)) {
         byNum.set(num, normalizeChapter(ch));
       }
     }
