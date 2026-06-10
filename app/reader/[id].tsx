@@ -18,7 +18,8 @@ import {
 import { useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getChapterPages } from '@/lib/api/mangadex';
+import { getChapterPages as getMDChapterPages } from '@/lib/api/mangadex';
+import { getChapterPages as getCKChapterPages } from '@/lib/api/comick';
 import { useLibraryStore } from '@/lib/store/library';
 import { chapterNumber, compareChapters } from '@/lib/utils/chapter';
 import { Typography } from '@/components/ui/Typography';
@@ -260,8 +261,8 @@ export default function ReaderScreen() {
   const markChapterRead = useLibraryStore(s => s.markChapterRead);
 
   const { data: pages, isLoading, isError } = useQuery({
-    queryKey: ['chapter-pages', id],
-    queryFn: () => getChapterPages(id),
+    queryKey: ['chapter-pages', id, source],
+    queryFn: () => source === 'comick' ? getCKChapterPages(id!) : getMDChapterPages(id!),
     enabled: !!id,
   });
 

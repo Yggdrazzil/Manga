@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import * as anilist from '@/lib/api/anilist';
 import * as mangadex from '@/lib/api/mangadex';
+import * as comick from '@/lib/api/comick';
 import * as jikan from '@/lib/api/jikan';
 import {
   searchComics,
@@ -61,17 +62,26 @@ async function searchManga(query: string, filter: FilterType): Promise<Manga[]> 
   if (filter === 'BD') return [];
 
   if (filter === 'WEBTOON') {
-    const r = await mangadex.searchManga(query, 1, 20, 'ko');
-    return r.items.filter(m => m.type === 'WEBTOON');
+    // Comick has better webtoon coverage (Korean/Chinese web comics)
+    const [md, ck] = await Promise.allSettled([
+      mangadex.searchManga(query, 1, 15, 'ko'),
+      comick.searchManga(query, 1, 15),
+    ]);
+    return [
+      ...(md.status === 'fulfilled' ? md.value.items.filter(m => m.type === 'WEBTOON') : []),
+      ...(ck.status === 'fulfilled' ? ck.value.items.filter(m => m.type === 'WEBTOON') : []),
+    ];
   }
   if (filter === 'MANHWA') {
-    const [al, md] = await Promise.allSettled([
-      anilist.searchManga(query, 1, 10, 'KR'),
-      mangadex.searchManga(query, 1, 10, 'ko'),
+    const [al, md, ck] = await Promise.allSettled([
+      anilist.searchManga(query, 1, 8, 'KR'),
+      mangadex.searchManga(query, 1, 8, 'ko'),
+      comick.searchManga(query, 1, 8),
     ]);
     return [
       ...(al.status === 'fulfilled' ? al.value.items : []),
       ...(md.status === 'fulfilled' ? md.value.items.filter(m => m.type === 'MANHWA') : []),
+      ...(ck.status === 'fulfilled' ? ck.value.items.filter(m => m.type === 'MANHWA') : []),
     ];
   }
   if (filter === 'MANHUA') {
@@ -83,15 +93,18 @@ async function searchManga(query: string, filter: FilterType): Promise<Manga[]> 
     return r.items;
   }
 
-  const [al, md, jk] = await Promise.allSettled([
-    anilist.searchManga(query, 1, 12),
-    mangadex.searchManga(query, 1, 8),
+  // ALL: AniList + MangaDex + Jikan + Comick (de-duped by title)
+  const [al, md, jk, ck] = await Promise.allSettled([
+    anilist.searchManga(query, 1, 10),
+    mangadex.searchManga(query, 1, 6),
     jikan.searchManga(query, 1),
+    comick.searchManga(query, 1, 6),
   ]);
   const all = [
     ...(al.status === 'fulfilled' ? al.value.items : []),
     ...(md.status === 'fulfilled' ? md.value.items : []),
     ...(jk.status === 'fulfilled' ? jk.value.items : []),
+    ...(ck.status === 'fulfilled' ? ck.value.items : []),
   ];
   const seen = new Set<string>();
   return all.filter(item => {

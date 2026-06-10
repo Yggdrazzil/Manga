@@ -19,7 +19,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import * as anilist from '@/lib/api/anilist';
 import * as mangadex from '@/lib/api/mangadex';
-import { findMangadexId, getTrackingChapters } from '@/lib/api/mangadex';
+import { findMangadexId } from '@/lib/api/mangadex';
+import * as comick from '@/lib/api/comick';
 import * as jikan from '@/lib/api/jikan';
 import { useLibraryStore } from '@/lib/store/library';
 import { confirmAction } from '@/lib/utils/confirm';
@@ -187,6 +188,7 @@ export default function MangaDetailScreen() {
     queryFn: async () => {
       if (!id) throw new Error('No ID');
       if (source === 'mangadex') return mangadex.getMangaById(id);
+      if (source === 'comick') return comick.getMangaById(id);
       if (source === 'jikan') return jikan.getMangaById(id);
       return anilist.getMangaById(id);
     },
@@ -196,17 +198,22 @@ export default function MangaDetailScreen() {
   const searchTitle = manga
     ? (manga.title.english ?? manga.title.romaji ?? manga.title.userPreferred)
     : '';
-  const directMdId = manga ? (manga.source === 'mangadex' ? manga.id : manga.mangadexId) : null;
+
+  // For non-MangaDex/Comick sources, try to resolve a MangaDex ID for chapter data
+  const directMdId = manga
+    ? (manga.source === 'mangadex' ? manga.id : manga.mangadexId ?? null)
+    : null;
+  const isComick = manga?.source === 'comick';
 
   const { data: resolvedMdId } = useQuery({
     queryKey: ['resolve-mdid', manga?.source, manga?.id, manga?.year],
     queryFn: () => findMangadexId(searchTitle, manga?.year ? { year: manga.year } : undefined),
-    enabled: !!manga && !directMdId && !!searchTitle,
+    enabled: !!manga && !directMdId && !isComick && !!searchTitle,
     staleTime: 1000 * 60 * 60,
   });
   const effectiveMdId = directMdId ?? resolvedMdId ?? null;
 
-  // Available reading languages: from MangaDex metadata when known, else detected from chapters
+  // Available reading languages: from MangaDex/Comick metadata when known
   const mangaReadLangs = useMemo<Array<'fr' | 'en'>>(() => {
     const fromManga = (manga?.availableReadingLanguages ?? []) as Array<'fr' | 'en'>;
     return fromManga.filter(l => l === 'fr' || l === 'en');
@@ -215,14 +222,19 @@ export default function MangaDetailScreen() {
   // When user explicitly picked a language, fetch only that lang so readable flags reflect choice.
   // Default ('fr'): fetch both with FR-preferred dedup so EN chapters fill any FR gaps.
   const langParam = useMemo<string[] | undefined>(() => {
-    if (mangaReadLangs.length <= 1) return undefined; // no choice → use default behaviour
+    if (mangaReadLangs.length <= 1) return undefined;
     return readLang === 'fr' ? ['fr', 'en'] : ['en'];
   }, [readLang, mangaReadLangs]);
 
+  // Comick has its own chapter feed; non-Comick sources use MangaDex
+  const chaptersEnabled = isComick ? !!manga : !!effectiveMdId;
   const { data: chapters } = useQuery({
-    queryKey: ['tracking-chapters', effectiveMdId, readLang, mangaReadLangs.length],
-    queryFn: () => getTrackingChapters(effectiveMdId!, langParam),
-    enabled: !!effectiveMdId,
+    queryKey: ['tracking-chapters', isComick ? `ck-${id}` : effectiveMdId, readLang, mangaReadLangs.length],
+    queryFn: () =>
+      isComick
+        ? comick.getTrackingChapters(id!, langParam)
+        : mangadex.getTrackingChapters(effectiveMdId!, langParam),
+    enabled: chaptersEnabled,
     staleTime: 1000 * 60 * 5,
   });
 
