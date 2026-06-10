@@ -29,6 +29,7 @@ import {
 } from '@/lib/api/openlib';
 import { consolidateBDSeries } from '@/lib/api/bdconsolidate';
 import { useComicsStore } from '@/lib/store/comics';
+import { useSearchStore } from '@/lib/store/search';
 import { Typography } from '@/components/ui/Typography';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { BORDERS, COLORS, FONTS, RADIUS, SPACING, TYPE_LABELS, themedStyles } from '@/constants/theme';
@@ -318,6 +319,140 @@ function ResultCard({
   );
 }
 
+// ── Discovery (empty state): recent searches + trending ──────────────────────
+
+function SearchDiscovery({ onPickQuery }: { onPickQuery: (q: string) => void }) {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const recentSearches = useSearchStore(s => s.recentSearches);
+  const removeRecentSearch = useSearchStore(s => s.removeRecentSearch);
+  const clearRecentSearches = useSearchStore(s => s.clearRecentSearches);
+
+  const { data: trending, isLoading: trendingLoading } = useQuery({
+    queryKey: ['search-trending'],
+    queryFn: () => anilist.getTrending(1, 12),
+    staleTime: 1000 * 60 * 30,
+  });
+
+  return (
+    <ScrollView
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={[styles.discovery, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom }]}
+      keyboardShouldPersistTaps="handled"
+    >
+      {recentSearches.length > 0 && (
+        <View style={styles.discoverySection}>
+          <View style={styles.discoveryHeader}>
+            <View style={styles.discoveryHeaderLeft}>
+              <Ionicons name="time-outline" size={15} color={COLORS.accentRed} />
+              <Typography variant="kicker" color={COLORS.textInk} style={styles.discoveryTitle}>
+                RECHERCHES RÉCENTES
+              </Typography>
+            </View>
+            <Pressable
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                clearRecentSearches();
+              }}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Effacer l'historique de recherche"
+            >
+              <Typography variant="caption" color={COLORS.textInkMuted}>EFFACER</Typography>
+            </Pressable>
+          </View>
+          <View style={styles.recentWrap}>
+            {recentSearches.map(q => (
+              <Pressable
+                key={q}
+                style={({ pressed }) => [styles.recentChip, pressed && { opacity: 0.7 }]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  onPickQuery(q);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={`Rechercher ${q}`}
+              >
+                <Typography variant="label" color={COLORS.textInk} numberOfLines={1} style={styles.recentChipText}>
+                  {q}
+                </Typography>
+                <Pressable
+                  onPress={e => {
+                    e.stopPropagation();
+                    removeRecentSearch(q);
+                  }}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Retirer ${q} de l'historique`}
+                >
+                  <Ionicons name="close" size={13} color={COLORS.textInkFaint} />
+                </Pressable>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+      )}
+
+      <View style={styles.discoverySection}>
+        <View style={styles.discoveryHeader}>
+          <View style={styles.discoveryHeaderLeft}>
+            <Ionicons name="flame" size={15} color={COLORS.accentRed} />
+            <Typography variant="kicker" color={COLORS.textInk} style={styles.discoveryTitle}>
+              TENDANCES DU MOMENT
+            </Typography>
+          </View>
+        </View>
+
+        {trendingLoading ? (
+          <View style={styles.trendingLoading}>
+            <ActivityIndicator color={COLORS.accentRed} />
+          </View>
+        ) : trending && trending.items.length > 0 ? (
+          <View style={styles.trendingGrid}>
+            {trending.items.map((m, i) => (
+              <MotiView
+                key={`${m.source}-${m.id}`}
+                from={{ opacity: 0, translateY: 8 }}
+                animate={{ opacity: 1, translateY: 0 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 26, delay: Math.min(i * 40, 400) }}
+                style={styles.trendingItem}
+              >
+                <Pressable
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    router.push(`/manga/${m.id}?source=${m.source}` as never);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={m.title.userPreferred}
+                >
+                  <View style={styles.trendingCoverFrame}>
+                    <Image
+                      source={{ uri: m.coverImage }}
+                      style={styles.trendingCover}
+                      contentFit="cover"
+                      cachePolicy="memory-disk"
+                    />
+                    <View style={styles.trendingRank}>
+                      <Typography variant="display" style={styles.trendingRankText}>{i + 1}</Typography>
+                    </View>
+                  </View>
+                  <Typography variant="label" color={COLORS.textInk} numberOfLines={2} style={styles.trendingTitle}>
+                    {m.title.userPreferred}
+                  </Typography>
+                </Pressable>
+              </MotiView>
+            ))}
+          </View>
+        ) : (
+          <Typography variant="label" color={COLORS.textInkMuted}>
+            Tendances indisponibles pour le moment.
+          </Typography>
+        )}
+      </View>
+    </ScrollView>
+  );
+}
+
 // ── Screen ────────────────────────────────────────────────────────────────────
 
 export default function SearchScreen() {
@@ -344,6 +479,19 @@ export default function SearchScreen() {
     enabled: debouncedQuery.length >= 2,
     staleTime: 1000 * 60 * 2,
   });
+
+  // Record searches that actually returned something
+  const addRecentSearch = useSearchStore(s => s.addRecentSearch);
+  useEffect(() => {
+    if (results && results.length > 0 && debouncedQuery.length >= 2) {
+      addRecentSearch(debouncedQuery);
+    }
+  }, [results, debouncedQuery, addRecentSearch]);
+
+  const handlePickQuery = useCallback((q: string) => {
+    setQuery(q);
+    setDebouncedQuery(q);
+  }, []);
 
   const handleAddBD = useCallback(async (book: OLBook) => {
     // Specific tome in the result → mark it read; series-level result → just track
@@ -442,13 +590,7 @@ export default function SearchScreen() {
         </ScrollView>
       </View>
 
-      {debouncedQuery.length < 2 && (
-        <EmptyState
-          icon="🔍"
-          title="Cherchez votre prochaine lecture"
-          subtitle="Manga, manhwa, webtoon, BD, comics… tout en une seule recherche, trié par ordre de parution."
-        />
-      )}
+      {debouncedQuery.length < 2 && <SearchDiscovery onPickQuery={handlePickQuery} />}
 
       {showNetworkError && (
         <EmptyState
@@ -580,4 +722,61 @@ const styles = themedStyles(() => StyleSheet.create({
   addBtnTracked: { backgroundColor: COLORS.ink, borderColor: COLORS.lineOnInk },
 
   loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: SPACING.md },
+
+  // ── Discovery (empty state) ──
+  discovery: {
+    paddingHorizontal: SPACING.base,
+    paddingTop: SPACING.lg,
+    gap: SPACING.xl,
+  },
+  discoverySection: { gap: SPACING.md },
+  discoveryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  discoveryHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+  discoveryTitle: { fontSize: 13, letterSpacing: 1.5 },
+
+  recentWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm },
+  recentChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    paddingLeft: SPACING.md,
+    paddingRight: SPACING.sm,
+    paddingVertical: SPACING.xs + 2,
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.paperRaised,
+    borderWidth: BORDERS.hair,
+    borderColor: COLORS.line,
+    maxWidth: '100%',
+  },
+  recentChipText: { maxWidth: 200 },
+
+  trendingLoading: { paddingVertical: SPACING.xl, alignItems: 'center' },
+  trendingGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.md,
+  },
+  trendingItem: { width: '30.5%' },
+  trendingCoverFrame: {
+    borderRadius: RADIUS.md,
+    borderWidth: BORDERS.bold,
+    borderColor: COLORS.ink,
+    overflow: 'hidden',
+  },
+  trendingCover: { width: '100%', aspectRatio: 0.7, backgroundColor: COLORS.paperSunken },
+  trendingRank: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    backgroundColor: COLORS.accentRed,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 2,
+    borderBottomRightRadius: RADIUS.md,
+  },
+  trendingRankText: { fontSize: 14, lineHeight: 18, color: COLORS.onInk },
+  trendingTitle: { marginTop: SPACING.xs, fontSize: 11, lineHeight: 14 },
 }));

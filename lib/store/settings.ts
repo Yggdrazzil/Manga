@@ -10,11 +10,13 @@ interface SettingsState {
   scanLang: ScanLang;       // preferred language for readable scans
   dataSaver: boolean;       // lower-quality reader images (MangaDex data-saver)
   haptics: boolean;         // haptic feedback on interactions
+  notifications: boolean;   // new-chapter local notifications (permission-gated)
 
   setTheme: (theme: ThemeId) => void;
   setScanLang: (lang: ScanLang) => void;
   setDataSaver: (on: boolean) => void;
   setHaptics: (on: boolean) => void;
+  setNotifications: (on: boolean) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -24,6 +26,7 @@ export const useSettingsStore = create<SettingsState>()(
       scanLang: 'fr',
       dataSaver: false,
       haptics: true,
+      notifications: false,
 
       setTheme: theme => {
         applyTheme(theme);
@@ -32,6 +35,7 @@ export const useSettingsStore = create<SettingsState>()(
       setScanLang: scanLang => set({ scanLang }),
       setDataSaver: dataSaver => set({ dataSaver }),
       setHaptics: haptics => set({ haptics }),
+      setNotifications: notifications => set({ notifications }),
     }),
     {
       name: 'app-settings',

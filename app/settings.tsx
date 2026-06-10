@@ -7,6 +7,7 @@ import { MotiView } from 'moti';
 import React, { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { exportLibrary, importLibrary } from '@/lib/utils/backup';
+import { checkNewChaptersAndNotify, requestNotificationPermissions } from '@/lib/utils/notifications';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   BORDERS,
@@ -117,14 +118,34 @@ export default function SettingsScreen() {
   const scanLang = useSettingsStore(s => s.scanLang);
   const dataSaver = useSettingsStore(s => s.dataSaver);
   const haptics = useSettingsStore(s => s.haptics);
+  const notifications = useSettingsStore(s => s.notifications);
   const setTheme = useSettingsStore(s => s.setTheme);
   const setScanLang = useSettingsStore(s => s.setScanLang);
   const setDataSaver = useSettingsStore(s => s.setDataSaver);
   const setHaptics = useSettingsStore(s => s.setHaptics);
+  const setNotifications = useSettingsStore(s => s.setNotifications);
 
   const [cacheCleared, setCacheCleared] = useState(false);
   const [exportState, setExportState] = useState<'idle' | 'loading' | 'done'>('idle');
   const [importState, setImportState] = useState<'idle' | 'loading'>('idle');
+
+  const handleToggleNotifications = async (on: boolean) => {
+    if (!on) {
+      setNotifications(false);
+      return;
+    }
+    const granted = await requestNotificationPermissions();
+    if (!granted) {
+      Alert.alert(
+        'Notifications refusées',
+        'Autorisez les notifications pour cette app dans les réglages de votre appareil, puis réessayez.',
+      );
+      return;
+    }
+    setNotifications(true);
+    // Seed the seen-set right away so only chapters published after activation notify
+    void checkNewChaptersAndNotify({ force: true });
+  };
 
   const handleSelectTheme = (id: ThemeId) => {
     if (id === theme) return;
@@ -284,6 +305,16 @@ export default function SettingsScreen() {
                 sublabel="Vibrations sur les interactions"
                 value={haptics}
                 onChange={setHaptics}
+              />
+
+              <View style={styles.divider} />
+
+              <ToggleRow
+                icon="notifications"
+                label="Notifications"
+                sublabel="Alertes quand un chapitre de vos séries sort"
+                value={notifications}
+                onChange={v => { void handleToggleNotifications(v); }}
               />
             </View>
           </Panel>

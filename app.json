@@ -23,7 +23,9 @@
         "backgroundColor": "#16130E"
       },
       "package": "com.mangatrack.app",
-      "permissions": ["INTERNET"]
+      "permissions": [
+        "INTERNET"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -36,7 +38,8 @@
         {
           "fonts": []
         }
-      ]
+      ],
+      "expo-background-task"
     ],
     "experiments": {
       "typedRoutes": true

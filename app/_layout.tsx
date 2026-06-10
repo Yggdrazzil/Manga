@@ -4,15 +4,21 @@ import { Nunito_400Regular, Nunito_600SemiBold, Nunito_700Bold } from '@expo-goo
 import { SpaceGrotesk_500Medium, SpaceGrotesk_700Bold } from '@expo-google-fonts/space-grotesk';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
+import * as Notifications from 'expo-notifications';
+import { router, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useMemo, useState } from 'react';
-import { StyleSheet } from 'react-native';
+import { AppState, Platform, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { applyTheme, COLORS, THEMES, themedStyles } from '@/constants/theme';
 import { useSettingsStore } from '@/lib/store/settings';
+import {
+  checkNewChaptersAndNotify,
+  registerBackgroundCheck,
+  unregisterBackgroundCheck,
+} from '@/lib/utils/notifications';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -60,6 +66,42 @@ export default function RootLayout() {
       SplashScreen.hideAsync().catch(() => {});
     }
   }, [ready]);
+
+  // New-chapter notifications: check at launch and on each return to
+  // foreground (throttled internally), keep the background task in sync with
+  // the setting, and deep-link to the manga page when a notification is tapped.
+  const notificationsEnabled = useSettingsStore(s => s.notifications);
+
+  useEffect(() => {
+    if (!ready || Platform.OS === 'web') return;
+
+    if (notificationsEnabled) {
+      void registerBackgroundCheck();
+      void checkNewChaptersAndNotify();
+    } else {
+      void unregisterBackgroundCheck();
+    }
+
+    const appStateSub = AppState.addEventListener('change', state => {
+      if (state === 'active' && useSettingsStore.getState().notifications) {
+        void checkNewChaptersAndNotify();
+      }
+    });
+
+    const responseSub = Notifications.addNotificationResponseReceivedListener(response => {
+      const data = response.notification.request.content.data as
+        | { mangaId?: string; source?: string }
+        | undefined;
+      if (data?.mangaId && data?.source) {
+        router.push(`/manga/${data.mangaId}?source=${data.source}` as never);
+      }
+    });
+
+    return () => {
+      appStateSub.remove();
+      responseSub.remove();
+    };
+  }, [ready, notificationsEnabled]);
 
   if (!ready) {
     return null;
