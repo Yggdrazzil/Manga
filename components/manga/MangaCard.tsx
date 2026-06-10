@@ -102,7 +102,7 @@ const styles = StyleSheet.create({
   score: {
     fontFamily: FONTS.bodyBold,
     fontSize: 11,
-    color: '#FCD34D',
+    color: COLORS.star,
     lineHeight: 16,
   },
   typeBadgeWrap: {

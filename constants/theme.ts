@@ -54,6 +54,7 @@ export const COLORS = {
   success: '#1B7A45',
   warning: '#B9710C',
   error: '#B3140F',
+  star: '#E8A50C', // rating stars — readable on paper and ink
 
   statusReading: ACCENT.red,
   statusCompleted: '#1B7A45',

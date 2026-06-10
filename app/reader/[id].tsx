@@ -178,7 +178,7 @@ function ChapterEndBanner({
             style={({ pressed }) => [styles.endBannerCta, pressed && styles.endBannerCtaPressed]}
             onPress={onNext}
             accessibilityRole="button"
-            accessibilityLabel={`Lire le chapitre suivant, chapitre ${nextChapter.chapter}`}
+            accessibilityLabel={`Lire le chapitre suivant${nextChapter.chapter ? `, chapitre ${nextChapter.chapter}` : ''}`}
           >
             <Typography variant="bodyBold" color={COLORS.onInk}>
               Chapitre suivant
@@ -311,7 +311,7 @@ export default function ReaderScreen() {
     if (!nextChapter) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     router.replace(
-      `/reader/${nextChapter.id}?chapter=${encodeURIComponent(nextChapter.chapter)}&title=${encodeURIComponent(nextChapter.title ?? '')}&entryMangaId=${encodeURIComponent(entryMangaId ?? '')}&source=${encodeURIComponent(source ?? '')}&mangaTitle=${encodeURIComponent(mangaTitle ?? '')}` as never,
+      `/reader/${nextChapter.id}?chapter=${encodeURIComponent(nextChapter.chapter ?? '')}&title=${encodeURIComponent(nextChapter.title ?? '')}&entryMangaId=${encodeURIComponent(entryMangaId ?? '')}&source=${encodeURIComponent(source ?? '')}&mangaTitle=${encodeURIComponent(mangaTitle ?? '')}` as never,
     );
   }, [nextChapter, router, entryMangaId, source, mangaTitle]);
 

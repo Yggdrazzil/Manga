@@ -100,18 +100,19 @@ export async function consolidateBDSeries(
   }
 
   // Layer 2 — Wikidata (authoritative album structure: ordinals, FR titles, dates)
-  for (const wd of wdAlbums) {
-    const existing = map.get(wd.num);
-    map.set(wd.num, {
-      num: wd.num,
+  for (const wdAlbum of wdAlbums) {
+    const existing = map.get(wdAlbum.num);
+    map.set(wdAlbum.num, {
+      num: wdAlbum.num,
       workId: existing?.workId,
-      title: existing?.title ?? `${seriesTitle} tome ${wd.num}`,
-      subtitle: wd.title || existing?.subtitle,
+      title: existing?.title ?? `${seriesTitle} tome ${wdAlbum.num}`,
+      subtitle: wdAlbum.title || existing?.subtitle,
       coverImage: existing?.coverImage,
       description: existing?.description,
       publisher: existing?.publisher,
-      publishedDate: wd.date || existing?.publishedDate,
+      publishedDate: wdAlbum.date || existing?.publishedDate,
       authors: existing?.authors ?? [],
+      frwikiTitle: wdAlbum.frwikiTitle,
     });
   }
 
@@ -128,6 +129,7 @@ export async function consolidateBDSeries(
       publisher: bnf.publisher || existing?.publisher,
       publishedDate: existing?.publishedDate || bnf.publishedDate,
       authors: bnf.authors.length > 0 ? bnf.authors : (existing?.authors ?? []),
+      frwikiTitle: existing?.frwikiTitle,
     });
   }
 

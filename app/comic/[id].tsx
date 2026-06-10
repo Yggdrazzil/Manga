@@ -4,7 +4,7 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { MotiView } from 'moti';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -15,6 +15,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { consolidateBDSeries } from '@/lib/api/bdconsolidate';
+import { getWikipediaSummaryByTitle } from '@/lib/api/wikipedia';
 import { useComicsStore } from '@/lib/store/comics';
 import { confirmAction } from '@/lib/utils/confirm';
 import { Panel } from '@/components/ui/Panel';
@@ -24,19 +25,39 @@ import type { BDSeries, BDVolume, ReadingStatus } from '@/lib/types';
 
 const STATUSES: ReadingStatus[] = ['READING', 'PLAN_TO_READ', 'COMPLETED', 'PAUSED', 'DROPPED'];
 
-// ── Volume row — purely presentational, all data pre-loaded at add-time ───────
+// ── Volume row — data pre-loaded at add-time, synopsis lazy via Wikipedia FR ──
 
 function VolumeRow({
   volume,
   isRead,
   onToggle,
+  onEnrich,
 }: {
   volume: BDVolume;
   isRead: boolean;
   onToggle: () => void;
+  onEnrich?: (description: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const { subtitle, description, publisher } = volume;
+  const [fetchingDesc, setFetchingDesc] = useState(false);
+  const [localDesc, setLocalDesc] = useState<string | undefined>();
+  const { subtitle, publisher } = volume;
+  const description = volume.description ?? localDesc;
+
+  // Lazy per-volume synopsis: Wikidata gave us the exact FR article title,
+  // fetch its intro the first time the row is expanded
+  useEffect(() => {
+    if (!expanded || description || fetchingDesc || !volume.frwikiTitle) return;
+    setFetchingDesc(true);
+    getWikipediaSummaryByTitle(volume.frwikiTitle)
+      .then(extract => {
+        if (!extract) return;
+        setLocalDesc(extract);
+        onEnrich?.(extract);
+      })
+      .finally(() => setFetchingDesc(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expanded]);
 
   return (
     <View style={[styles.volumeRow, isRead && styles.volumeRowRead]}>
@@ -92,6 +113,8 @@ function VolumeRow({
             <Typography variant="body" color={COLORS.textInkMuted} style={styles.volumeDesc}>
               {description}
             </Typography>
+          ) : fetchingDesc ? (
+            <ActivityIndicator size="small" color={COLORS.cyan} />
           ) : (
             <Typography variant="caption" color={COLORS.textInkFaint} style={styles.volumeDesc}>
               Résumé non disponible pour ce tome.
@@ -115,6 +138,7 @@ export default function SeriesDetailScreen() {
   const removeEntry = useComicsStore(s => s.removeEntry);
   const toggleVolumeRead = useComicsStore(s => s.toggleVolumeRead);
   const updateStatus = useComicsStore(s => s.updateStatus);
+  const updateVolumeDetail = useComicsStore(s => s.updateVolumeDetail);
 
   // If the series isn't in the store yet, run the full consolidation pipeline.
   // expo-router already decodes params — no manual decodeURIComponent (it
@@ -414,6 +438,7 @@ export default function SeriesDetailScreen() {
                         volume={vol}
                         isRead={isRead}
                         onToggle={() => handleToggle(vol.num)}
+                        onEnrich={desc => updateVolumeDetail(series.id, vol.num, { description: desc })}
                       />
                     </React.Fragment>
                   );

@@ -30,13 +30,14 @@ async function main() {
       const withSubtitle = s.volumes.filter(v => v.subtitle).length;
       const withCover = s.volumes.filter(v => v.coverImage).length;
       const withDesc = s.volumes.filter(v => v.description).length;
+      const withFrwiki = s.volumes.filter(v => v.frwikiTitle).length;
       const nums = s.volumes.map(v => v.num);
       const gaps: number[] = [];
       for (let i = 1; i <= (s.totalVolumes || 0); i++) if (!nums.includes(i)) gaps.push(i);
 
       console.log(`\n━━━ ${title} — ${ms}ms`);
       console.log(`  tomes: ${n} (totalVolumes=${s.totalVolumes})  gaps: ${gaps.length ? gaps.join(',') : 'none'}`);
-      console.log(`  titres FR: ${pct(withSubtitle, n)}  covers: ${pct(withCover, n)}  synopsis/tome: ${pct(withDesc, n)}`);
+      console.log(`  titres FR: ${pct(withSubtitle, n)}  covers: ${pct(withCover, n)}  synopsis/tome: ${pct(withDesc, n)}  frwiki (lazy): ${pct(withFrwiki, n)}`);
       console.log(`  synopsis série (wiki): ${s.description ? `${s.description.slice(0, 80)}…` : 'ABSENT'}`);
       console.log(`  auteurs: ${s.authors.join(', ') || 'ABSENT'}`);
       for (const v of s.volumes.slice(0, 6)) {

@@ -6,7 +6,6 @@ import { MotiView } from 'moti';
 import React from 'react';
 import {
   ActivityIndicator,
-  FlatList,
   Modal,
   Pressable,
   ScrollView,

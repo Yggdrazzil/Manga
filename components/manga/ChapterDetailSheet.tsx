@@ -245,7 +245,7 @@ export function ChapterDetailSheet({
                     <Ionicons
                       name={isActive ? 'star' : 'star-outline'}
                       size={24}
-                      color={isActive ? '#F59E0B' : COLORS.textInkMuted}
+                      color={isActive ? COLORS.star : COLORS.textInkMuted}
                     />
                     <Typography
                       variant="caption"

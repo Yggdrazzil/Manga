@@ -90,10 +90,11 @@ export interface BDVolume {
   title: string;          // full title with tome suffix
   subtitle?: string;      // episode name in French from BnF, e.g. "L'Ivoire du Magohamoth"
   coverImage?: string;
-  description?: string;   // per-tome synopsis from Google Books FR
+  description?: string;   // per-tome synopsis from Google Books FR or Wikipedia FR
   publisher?: string;
   publishedDate?: string;
   authors: string[];
+  frwikiTitle?: string;   // Wikipedia FR article for this album (from Wikidata), for lazy synopsis
 }
 
 export interface BDSeries {

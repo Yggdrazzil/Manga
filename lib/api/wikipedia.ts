@@ -1,11 +1,32 @@
 /**
- * Wikipédia FR — series-level synopsis.
- * Per-volume articles rarely exist for French BDs; use for the series header only.
+ * Wikipédia FR — series-level synopsis, plus per-album intros when Wikidata
+ * provides the exact article title (frwikiTitle on classic series is common:
+ * every Astérix/Thorgal/Lanfeust album has its own FR article).
  */
 
 const WP_SEARCH = 'https://fr.wikipedia.org/w/api.php';
 const WP_SUMMARY = 'https://fr.wikipedia.org/api/rest_v1/page/summary';
 const UA = 'MangaTrackerApp/1.0 (contact: app@example.com)';
+
+/** Intro extract for an exact FR article title (no search step). */
+export async function getWikipediaSummaryByTitle(articleTitle: string): Promise<string | undefined> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8_000);
+  try {
+    const res = await fetch(`${WP_SUMMARY}/${encodeURIComponent(articleTitle)}`, {
+      headers: { 'User-Agent': UA },
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    if (!res.ok) return undefined;
+    const summary = await res.json() as { extract?: string; type?: string };
+    if (summary.type === 'disambiguation') return undefined;
+    return summary.extract || undefined;
+  } catch {
+    clearTimeout(timer);
+    return undefined;
+  }
+}
 
 export async function getWikipediaSeriesSummary(frenchTitle: string): Promise<string | undefined> {
   try {

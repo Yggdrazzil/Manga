@@ -255,8 +255,10 @@ export default function ProfileScreen() {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [bannerPickerOpen, setBannerPickerOpen] = useState(false);
 
-  // Memoized: getStats builds genre histograms — too heavy for every keystroke
-  const stats = useMemo(() => getStats(), [entries]);
+  // Memoized: getStats builds genre histograms — too heavy for every keystroke.
+  // entries is the getter's hidden input, so it must stay in the deps.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const stats = useMemo(() => getStats(), [entries, getStats]);
 
   const featured = entries.find(e => e.manga.bannerImage) ?? entries[0];
   const autoBanner = featured?.manga.bannerImage ?? featured?.manga.coverImage;
