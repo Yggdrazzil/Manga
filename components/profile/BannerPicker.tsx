@@ -13,6 +13,7 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
+import { useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { getPopularBanners } from '@/lib/api/anilist';
@@ -93,6 +94,7 @@ function BannerCard({
 export function BannerPicker({ visible, current, entries, onSelect, onClose }: BannerPickerProps) {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const reduceMotion = useReducedMotion();
   const cardWidth = width - H_PAD * 2;
 
   const { data: popularBanners, isLoading, isError, refetch } = useQuery({
@@ -117,10 +119,22 @@ export function BannerPicker({ visible, current, entries, onSelect, onClose }: B
   };
 
   return (
-    <Modal transparent animationType="slide" visible={visible} onRequestClose={onClose}>
+    <Modal
+      transparent
+      animationType="fade"
+      statusBarTranslucent
+      navigationBarTranslucent
+      visible={visible}
+      onRequestClose={onClose}
+    >
       <Pressable style={styles.backdrop} onPress={onClose} />
 
-      <View style={[styles.sheet, { maxHeight: height * 0.88 }]}>
+      <MotiView
+        from={reduceMotion ? { translateY: 0, opacity: 1 } : { translateY: 80, opacity: 0 }}
+        animate={{ translateY: 0, opacity: 1 }}
+        transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+        style={[styles.sheet, { maxHeight: height * 0.88 }]}
+      >
         <View style={styles.dragIndicator} />
 
         <View style={styles.header}>
@@ -205,7 +219,7 @@ export function BannerPicker({ visible, current, entries, onSelect, onClose }: B
             )}
           </View>
         </ScrollView>
-      </View>
+      </MotiView>
     </Modal>
   );
 }

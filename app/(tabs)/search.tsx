@@ -264,7 +264,10 @@ function ResultCard({
       animate={{ opacity: 1, translateY: 0 }}
       transition={{ type: 'spring', stiffness: 300, damping: 26, delay: Math.min(index * 30, 360) }}
     >
-      <Pressable style={styles.card} onPress={handleCardPress}>
+      <Pressable
+        style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+        onPress={handleCardPress}
+      >
         <View style={styles.coverFrame}>
           {coverUri ? (
             <Image source={{ uri: coverUri }} style={styles.cover} contentFit="cover" cachePolicy="memory-disk" />
@@ -438,6 +441,7 @@ function SearchDiscovery({ onPickQuery }: { onPickQuery: (q: string) => void }) 
                 style={styles.trendingItem}
               >
                 <Pressable
+                  style={({ pressed }) => pressed && { opacity: 0.8, transform: [{ scale: 0.97 }] }}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     router.push(`/manga/${m.id}?source=${m.source}` as never);
@@ -596,8 +600,15 @@ export default function SearchScreen() {
           {FILTERS.map(f => (
             <Pressable
               key={f.key}
-              style={[styles.filterChip, filter === f.key && styles.filterChipActive]}
-              onPress={() => setFilter(f.key)}
+              style={({ pressed }) => [
+                styles.filterChip,
+                filter === f.key && styles.filterChipActive,
+                pressed && { opacity: 0.7 },
+              ]}
+              onPress={() => {
+                Haptics.selectionAsync();
+                setFilter(f.key);
+              }}
             >
               <Typography
                 variant="label"
@@ -712,6 +723,7 @@ const styles = themedStyles(() => StyleSheet.create({
     borderColor: COLORS.ink,
     padding: SPACING.md,
   },
+  cardPressed: { opacity: 0.85, transform: [{ scale: 0.98 }] },
   coverFrame: {
     borderRadius: RADIUS.sm,
     borderWidth: BORDERS.bold,

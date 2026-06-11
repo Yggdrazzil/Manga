@@ -12,6 +12,7 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
+import { useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { getPopularCharacters, type CharacterAvatar } from '@/lib/api/anilist';
@@ -31,6 +32,7 @@ const H_PADDING = SPACING.base;
 export function AvatarPicker({ visible, current, onSelect, onClose }: AvatarPickerProps) {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const reduceMotion = useReducedMotion();
 
   const { data: characters, isLoading, isError, refetch } = useQuery({
     queryKey: ['popular-characters'],
@@ -89,10 +91,22 @@ export function AvatarPicker({ visible, current, onSelect, onClose }: AvatarPick
   };
 
   return (
-    <Modal transparent animationType="slide" visible={visible} onRequestClose={onClose}>
+    <Modal
+      transparent
+      animationType="fade"
+      statusBarTranslucent
+      navigationBarTranslucent
+      visible={visible}
+      onRequestClose={onClose}
+    >
       <Pressable style={styles.backdrop} onPress={onClose} />
 
-      <View style={[styles.sheet, { maxHeight: height * 0.82 }]}>
+      <MotiView
+        from={reduceMotion ? { translateY: 0, opacity: 1 } : { translateY: 80, opacity: 0 }}
+        animate={{ translateY: 0, opacity: 1 }}
+        transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+        style={[styles.sheet, { maxHeight: height * 0.82 }]}
+      >
         <View style={styles.dragIndicator} />
 
         <View style={styles.header}>
@@ -136,7 +150,7 @@ export function AvatarPicker({ visible, current, onSelect, onClose }: AvatarPick
             showsVerticalScrollIndicator={false}
           />
         )}
-      </View>
+      </MotiView>
     </Modal>
   );
 }

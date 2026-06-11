@@ -4,6 +4,7 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { MotiView } from 'moti';
 import React from 'react';
 import {
   Modal,
@@ -13,6 +14,8 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
+import { useReducedMotion } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLibraryStore } from '@/lib/store/library';
 import { Typography } from '@/components/ui/Typography';
 import { BORDERS, COLORS, FONTS, RADIUS, SPACING, inkScrim, themedStyles } from '@/constants/theme';
@@ -56,6 +59,8 @@ export function ChapterDetailSheet({
   onClose,
 }: ChapterDetailSheetProps) {
   const { height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const reduceMotion = useReducedMotion();
   const router = useRouter();
 
   const entry = useLibraryStore(s => s.entries.find(e => e.mangaId === entryMangaId && e.source === source));
@@ -98,18 +103,26 @@ export function ChapterDetailSheet({
   return (
     <Modal
       transparent
-      animationType="slide"
+      animationType="fade"
+      statusBarTranslucent
+      navigationBarTranslucent
       visible={!!chapter}
       onRequestClose={onClose}
     >
       <Pressable style={styles.backdrop} onPress={onClose} />
 
-      <View style={[styles.sheet, { maxHeight: height * 0.88 }]}>
+      {/* Backdrop fades via the Modal; the sheet itself springs up from below */}
+      <MotiView
+        from={reduceMotion ? { translateY: 0, opacity: 1 } : { translateY: 80, opacity: 0 }}
+        animate={{ translateY: 0, opacity: 1 }}
+        transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+        style={[styles.sheet, { maxHeight: height * 0.88 }]}
+      >
         <View style={styles.dragIndicator} />
 
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + SPACING.xl }]}
           keyboardShouldPersistTaps="handled"
         >
           {/* Header */}
@@ -329,7 +342,7 @@ export function ChapterDetailSheet({
             </Typography>
           </Pressable>
         </ScrollView>
-      </View>
+      </MotiView>
     </Modal>
   );
 }

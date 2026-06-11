@@ -13,6 +13,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
+import { useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { getChaptersForLibrary } from '@/lib/api/mangadex';
@@ -71,7 +72,7 @@ function TrackerCard({ entry, index }: { entry: LibraryEntry; index: number }) {
       transition={{ type: 'spring', stiffness: 300, damping: 26, delay: Math.min(index * 45, 400) }}
     >
       <Pressable
-        style={styles.tvCard}
+        style={({ pressed }) => [styles.tvCard, pressed && styles.tvCardPressed]}
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           router.push(`/manga/${entry.mangaId}?source=${entry.source}` as never);
@@ -161,7 +162,7 @@ function ChapterCard({
       transition={{ type: 'spring', stiffness: 300, damping: 26, delay: Math.min(index * 40, 400) }}
     >
       <Pressable
-        style={styles.tvCard}
+        style={({ pressed }) => [styles.tvCard, pressed && styles.tvCardPressed]}
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           router.push(`/manga/${entry.mangaId}?source=${entry.source}` as never);
@@ -234,8 +235,15 @@ function SectionHeader({ title }: { title: string }) {
 export default function MangaTrackerScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const reduceMotion = useReducedMotion();
   const [activeTab, setActiveTab] = useState<'voir' | 'venir'>('voir');
   const [refreshing, setRefreshing] = useState(false);
+
+  // Tab content slides in from the side of the tab being entered
+  const tabEnter = (tab: 'voir' | 'venir') =>
+    reduceMotion
+      ? { opacity: 1, translateX: 0 }
+      : { opacity: 0, translateX: tab === 'voir' ? -16 : 16 };
 
   const entries = useLibraryStore(s => s.entries);
   const readingEntries = useMemo(
@@ -335,7 +343,14 @@ export default function MangaTrackerScreen() {
 
       {/* À LIRE */}
       {activeTab === 'voir' && (
-        isEmpty ? (
+        <MotiView
+          key="voir"
+          from={tabEnter('voir')}
+          animate={{ opacity: 1, translateX: 0 }}
+          transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+          style={styles.tabPane}
+        >
+        {isEmpty ? (
           <ScrollView
             contentContainerStyle={[styles.emptyWrap, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom }]}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accentRed} colors={[COLORS.accentRed]} />}
@@ -359,12 +374,20 @@ export default function MangaTrackerScreen() {
               <TrackerCard key={`${entry.mangaId}-${entry.source}`} entry={entry} index={i} />
             ))}
           </ScrollView>
-        )
+        )}
+        </MotiView>
       )}
 
       {/* À VENIR */}
       {activeTab === 'venir' && (
-        chaptersLoading ? (
+        <MotiView
+          key="venir"
+          from={tabEnter('venir')}
+          animate={{ opacity: 1, translateX: 0 }}
+          transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+          style={styles.tabPane}
+        >
+        {chaptersLoading ? (
           <View style={styles.loadingWrap}>
             <ActivityIndicator color={COLORS.accentRed} size="large" />
             <Typography variant="body" color={COLORS.textInkMuted}>Chargement du fil de chapitres…</Typography>
@@ -398,7 +421,8 @@ export default function MangaTrackerScreen() {
             contentContainerStyle={[styles.listContent, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom }]}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accentRed} colors={[COLORS.accentRed]} />}
           />
-        )
+        )}
+        </MotiView>
       )}
     </View>
   );
@@ -446,6 +470,7 @@ const styles = themedStyles(() => StyleSheet.create({
   },
 
   listContent: { paddingTop: SPACING.sm },
+  tabPane: { flex: 1 },
 
   // TV Time card
   tvCard: {
@@ -458,6 +483,7 @@ const styles = themedStyles(() => StyleSheet.create({
     borderBottomColor: COLORS.line,
     backgroundColor: COLORS.paper,
   },
+  tvCardPressed: { backgroundColor: COLORS.paperSunken },
   tvCoverWrap: {
     borderRadius: RADIUS.sm,
     borderWidth: BORDERS.bold,

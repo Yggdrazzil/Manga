@@ -48,7 +48,12 @@ function BDCard({ entry, index }: { entry: BDSeriesEntry; index: number }) {
       animate={{ opacity: 1, translateX: 0 }}
       transition={{ type: 'spring', stiffness: 300, damping: 26, delay: Math.min(index * 45, 400) }}
     >
-      <Pressable style={styles.tvCard} onPress={navigate} accessibilityRole="button" accessibilityLabel={entry.series.title}>
+      <Pressable
+        style={({ pressed }) => [styles.tvCard, pressed && styles.tvCardPressed]}
+        onPress={navigate}
+        accessibilityRole="button"
+        accessibilityLabel={entry.series.title}
+      >
         <View style={styles.tvCoverWrap}>
           {entry.series.coverImage ? (
             <Image source={{ uri: entry.series.coverImage }} style={styles.tvCover} contentFit="cover" cachePolicy="memory-disk" />
@@ -120,7 +125,7 @@ function UpcomingAlbumCard({ entry, volume, index }: { entry: BDSeriesEntry; vol
       transition={{ type: 'spring', stiffness: 300, damping: 26, delay: Math.min(index * 45, 400) }}
     >
       <Pressable
-        style={styles.tvCard}
+        style={({ pressed }) => [styles.tvCard, pressed && styles.tvCardPressed]}
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           router.push(`/comic/${entry.seriesId}` as never);
@@ -345,6 +350,7 @@ const styles = themedStyles(() => StyleSheet.create({
     borderBottomWidth: BORDERS.hair, borderBottomColor: COLORS.line,
     backgroundColor: COLORS.paper,
   },
+  tvCardPressed: { backgroundColor: COLORS.paperSunken },
   tvCoverWrap: { borderRadius: RADIUS.sm, borderWidth: BORDERS.bold, borderColor: COLORS.ink, overflow: 'hidden', flexShrink: 0 },
   tvCover: { width: 68, height: 96 },
   tvCoverEmpty: { backgroundColor: COLORS.paperSunken, alignItems: 'center', justifyContent: 'center' },

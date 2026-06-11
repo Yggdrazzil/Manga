@@ -15,7 +15,7 @@ import {
   View,
 } from 'react-native';
 
-import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import * as anilist from '@/lib/api/anilist';
@@ -221,6 +221,7 @@ function LoadingScreen() {
 export default function MangaDetailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const reduceMotion = useReducedMotion();
   const { id, source } = useLocalSearchParams<{ id: string; source: string }>();
   const [activeTab, setActiveTab] = useState<ActiveTab>('about');
   // Seeded from the user's preferred scan language (Paramètres > Lecture)
@@ -510,7 +511,13 @@ export default function MangaDetailScreen() {
 
         {/* À PROPOS */}
         {currentTab === 'about' && (
-          <View style={styles.content}>
+          <MotiView
+            key="tab-about"
+            from={reduceMotion ? { opacity: 1, translateX: 0 } : { opacity: 0, translateX: -16 }}
+            animate={{ opacity: 1, translateX: 0 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+            style={styles.content}
+          >
             <MotiView
               from={{ opacity: 0, translateY: 16 }}
               animate={{ opacity: 1, translateY: 0 }}
@@ -622,12 +629,18 @@ export default function MangaDetailScreen() {
                 />
               </MotiView>
             )}
-          </View>
+          </MotiView>
         )}
 
         {/* CHAPITRES */}
         {currentTab === 'chapters' && (
-          <View style={[styles.chaptersContent, { paddingBottom: insets.bottom + 88 }]}>
+          <MotiView
+            key="tab-chapters"
+            from={reduceMotion ? { opacity: 1, translateX: 0 } : { opacity: 0, translateX: 16 }}
+            animate={{ opacity: 1, translateX: 0 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+            style={[styles.chaptersContent, { paddingBottom: insets.bottom + 88 }]}
+          >
             <ChapterList
               chapters={displayChapters}
               entryMangaId={manga.id}
@@ -639,7 +652,7 @@ export default function MangaDetailScreen() {
               availableLangs={detectedReadLangs.length > 1 ? detectedReadLangs : undefined}
               onLangChange={setReadLang}
             />
-          </View>
+          </MotiView>
         )}
       </ScrollView>
     </View>

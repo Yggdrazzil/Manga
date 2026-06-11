@@ -1,7 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from '@/lib/utils/haptics';
+import { MotiView } from 'moti';
 import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import { useReducedMotion } from 'react-native-reanimated';
 import { COLORS, SPACING } from '@/constants/theme';
 import { Typography } from './Typography';
 
@@ -23,6 +25,7 @@ export function StarRating({
   readonly = false,
   showLabel = true,
 }: StarRatingProps) {
+  const reduceMotion = useReducedMotion();
   const filled = score ? Math.round(score / 20) : 0;
 
   const handlePress = (star: number) => {
@@ -35,23 +38,39 @@ export function StarRating({
   return (
     <View style={styles.row}>
       <View style={styles.stars}>
-        {STARS.map(star => (
-          <Pressable
-            key={star}
-            onPress={() => handlePress(star)}
-            hitSlop={6}
-            accessibilityRole={readonly ? 'image' : 'button'}
-            accessibilityLabel={`${star} étoile${star > 1 ? 's' : ''} sur 5`}
-            accessibilityState={readonly ? undefined : { selected: star === filled }}
-            disabled={readonly}
-          >
-            <Ionicons
-              name={star <= filled ? 'star' : 'star-outline'}
-              size={size}
-              color={star <= filled ? COLORS.star : COLORS.textInkMuted}
-            />
-          </Pressable>
-        ))}
+        {STARS.map(star => {
+          const isFilled = star <= filled;
+          return (
+            <Pressable
+              key={star}
+              onPress={() => handlePress(star)}
+              hitSlop={6}
+              accessibilityRole={readonly ? 'image' : 'button'}
+              accessibilityLabel={`${star} étoile${star > 1 ? 's' : ''} sur 5`}
+              accessibilityState={readonly ? undefined : { selected: star === filled }}
+              disabled={readonly}
+            >
+              {/* Remounts when the star flips filled/empty → cascading pop */}
+              <MotiView
+                key={`${star}-${isFilled}`}
+                from={reduceMotion || !isFilled ? { scale: 1 } : { scale: 0.3 }}
+                animate={{ scale: 1 }}
+                transition={{
+                  type: 'spring',
+                  stiffness: 520,
+                  damping: 16,
+                  delay: reduceMotion ? 0 : (star - 1) * 40,
+                }}
+              >
+                <Ionicons
+                  name={isFilled ? 'star' : 'star-outline'}
+                  size={size}
+                  color={isFilled ? COLORS.star : COLORS.textInkMuted}
+                />
+              </MotiView>
+            </Pressable>
+          );
+        })}
       </View>
       {showLabel && filled > 0 && (
         <Typography variant="label" color={COLORS.star} style={styles.label}>
