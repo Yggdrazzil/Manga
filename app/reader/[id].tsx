@@ -297,14 +297,19 @@ function ReaderMessage({ loading, onBack }: { loading: boolean; onBack: () => vo
 export default function ReaderScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { id, chapter, title, mangaTitle, entryMangaId, source } = useLocalSearchParams<{
+  const { id, chapter, title, mangaTitle, entryMangaId, source, pagesSource } = useLocalSearchParams<{
     id: string;
     chapter: string;
     title?: string;
     mangaTitle?: string;
     entryMangaId?: string;
     source?: string;
+    pagesSource?: string;
   }>();
+  // `source` is the library-entry identity (read tracking); `pagesSource` is the
+  // adapter the pages come from — they differ when a fallback feed (MangaPlus /
+  // Comick / Webtoon) backs an AniList catalogue entry.
+  const feedSource = pagesSource || source;
 
   const { width } = useWindowDimensions();
   const [chromeVisible, setChromeVisible] = useState(true);
@@ -330,12 +335,12 @@ export default function ReaderScreen() {
   );
 
   const { data: pages, isLoading, isError } = useQuery({
-    queryKey: ['chapter-pages', id, source, dataSaver, localPages != null],
+    queryKey: ['chapter-pages', id, feedSource, dataSaver, localPages != null],
     queryFn: () => {
       if (localPages) return Promise.resolve(localPages);
-      if (source === 'comick') return getCKChapterPages(id!);
-      if (source === 'mangaplus') return getMPChapterPages(id!);
-      if (source === 'webtoon') return getWTChapterPages(id!);
+      if (feedSource === 'comick') return getCKChapterPages(id!);
+      if (feedSource === 'mangaplus') return getMPChapterPages(id!);
+      if (feedSource === 'webtoon') return getWTChapterPages(id!);
       return getMDChapterPages(id!, dataSaver);
     },
     enabled: !!id,
@@ -345,8 +350,15 @@ export default function ReaderScreen() {
 
   const nextChapter = useMemo<MangaChapter | null>(() => {
     if (!id) return null;
-    const cached = queryClient.getQueriesData<MangaChapter[]>({ queryKey: ['tracking-chapters'] });
-    for (const [, chapters] of cached) {
+    const tracked = queryClient.getQueriesData<MangaChapter[]>({ queryKey: ['tracking-chapters'] });
+    const fallbacks = queryClient.getQueriesData<{ chapters: MangaChapter[] } | null>({
+      queryKey: ['reading-fallback'],
+    });
+    const lists = [
+      ...tracked.map(([, chapters]) => chapters),
+      ...fallbacks.map(([, feed]) => feed?.chapters),
+    ];
+    for (const chapters of lists) {
       if (!chapters) continue;
       const readable = chapters.filter(ch => ch.isReadable !== false).sort(compareChapters);
       const index = readable.findIndex(ch => ch.id === id);
@@ -421,9 +433,9 @@ export default function ReaderScreen() {
     if (!nextChapter) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     router.replace(
-      `/reader/${nextChapter.id}?chapter=${encodeURIComponent(nextChapter.chapter ?? '')}&title=${encodeURIComponent(nextChapter.title ?? '')}&entryMangaId=${encodeURIComponent(entryMangaId ?? '')}&source=${encodeURIComponent(source ?? '')}&mangaTitle=${encodeURIComponent(mangaTitle ?? '')}` as never,
+      `/reader/${nextChapter.id}?chapter=${encodeURIComponent(nextChapter.chapter ?? '')}&title=${encodeURIComponent(nextChapter.title ?? '')}&entryMangaId=${encodeURIComponent(entryMangaId ?? '')}&source=${encodeURIComponent(source ?? '')}&pagesSource=${encodeURIComponent(feedSource ?? '')}&mangaTitle=${encodeURIComponent(mangaTitle ?? '')}` as never,
     );
-  }, [nextChapter, router, entryMangaId, source, mangaTitle]);
+  }, [nextChapter, router, entryMangaId, source, feedSource, mangaTitle]);
 
   if (isLoading) return <ReaderMessage loading onBack={handleBack} />;
   if (isError || !pages || pages.length === 0) {

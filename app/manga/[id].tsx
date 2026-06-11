@@ -25,6 +25,7 @@ import * as comick from '@/lib/api/comick';
 import * as mangaplus from '@/lib/api/mangaplus';
 import * as webtoon from '@/lib/api/webtoon';
 import * as jikan from '@/lib/api/jikan';
+import { resolveFallbackFeed } from '@/lib/api/readingFallback';
 import { useLibraryStore } from '@/lib/store/library';
 import { useSettingsStore } from '@/lib/store/settings';
 import { confirmAction } from '@/lib/utils/confirm';
@@ -254,13 +255,16 @@ export default function MangaDetailScreen() {
   // Sources that ship their own chapter feed don't need a MangaDex fallback.
   const isSelfSourced = isComick || isMangaPlus || isWebtoon;
 
-  const { data: resolvedMdId } = useQuery({
+  const mdResolveQuery = useQuery({
     queryKey: ['resolve-mdid', manga?.source, manga?.id, manga?.year],
     queryFn: () => findMangadexId(searchTitle, manga?.year ? { year: manga.year } : undefined),
     enabled: !!manga && !directMdId && !isSelfSourced && !!searchTitle,
     staleTime: 1000 * 60 * 60,
   });
+  const resolvedMdId = mdResolveQuery.data;
   const effectiveMdId = directMdId ?? resolvedMdId ?? null;
+  const mdResolveDone =
+    !!directMdId || isSelfSourced || mdResolveQuery.isSuccess || mdResolveQuery.isError;
 
   // Available reading languages: from MangaDex/Comick metadata when known
   const mangaReadLangs = useMemo<Array<'fr' | 'en'>>(() => {
@@ -292,6 +296,24 @@ export default function MangaDetailScreen() {
     staleTime: 1000 * 60 * 5,
   });
 
+  // MangaDex came back with nothing readable (or no MangaDex entry exists at
+  // all — One Piece, Solo Leveling, …): look the work up on MangaPlus /
+  // Comick / Webtoon and read from there instead.
+  const primaryHasReadable = (chapters ?? []).some(c => c.isReadable);
+  const needFallback =
+    !!manga &&
+    !isSelfSourced &&
+    mdResolveDone &&
+    (effectiveMdId ? chapters != null && !primaryHasReadable : true);
+  const { data: fallbackFeed } = useQuery({
+    queryKey: ['reading-fallback', manga?.source, manga?.id, readLang],
+    queryFn: () => resolveFallbackFeed(manga!, langParam),
+    enabled: needFallback,
+    staleTime: 1000 * 60 * 30,
+  });
+  const fallbackInUse = needFallback && !!fallbackFeed;
+  const fallbackPending = needFallback && fallbackFeed === undefined;
+
   // Characters + recommendations rails (AniList catalogue only)
   const { data: extras } = useQuery({
     queryKey: ['manga-extras', id],
@@ -303,6 +325,8 @@ export default function MangaDetailScreen() {
   // Build the chapter list: real readable chapters when available, otherwise
   // synthesize one card per chapter from the API's total count (TV-Time style).
   const displayChapters = useMemo<MangaChapter[]>(() => {
+    if (chapters?.some(c => c.isReadable)) return chapters;
+    if (fallbackInUse && fallbackFeed.chapters.length > 0) return fallbackFeed.chapters;
     if (chapters && chapters.length > 0) return chapters;
     const count = manga?.chapters ?? 0;
     if (!manga || count <= 0) return [];
@@ -318,7 +342,11 @@ export default function MangaDetailScreen() {
         isReadable: false,
       } satisfies MangaChapter;
     });
-  }, [chapters, manga]);
+  }, [chapters, fallbackInUse, fallbackFeed, manga]);
+
+  // Which adapter the reader fetches pages from. Undefined = entry source
+  // (self-sourced feeds) or the MangaDex default.
+  const pagesSource = fallbackInUse ? fallbackFeed.source : undefined;
 
   const entry = useLibraryStore(s =>
     manga ? s.entries.find(e => e.mangaId === manga.id && e.source === manga.source) : undefined,
@@ -338,18 +366,22 @@ export default function MangaDetailScreen() {
   // Detect available reading languages from loaded chapters as fallback (covers AniList/Jikan sources)
   const detectedReadLangs = useMemo<Array<'fr' | 'en'>>(() => {
     if (mangaReadLangs.length > 0) return mangaReadLangs;
-    if (!chapters) return [];
+    const loaded = fallbackInUse ? fallbackFeed.chapters : chapters;
+    if (!loaded) return [];
     const langs = new Set(
-      chapters.filter(c => c.isReadable).map(c => c.translatedLanguage)
+      loaded.filter(c => c.isReadable).map(c => c.translatedLanguage)
     );
     return (['fr', 'en'] as const).filter(l => langs.has(l));
-  }, [mangaReadLangs, chapters]);
+  }, [mangaReadLangs, chapters, fallbackInUse, fallbackFeed]);
 
   // The read tab only shows chapters that open in the reader (fr/en uploads).
   // Hide it when nothing is readable — synthetic/aggregate-only cards stay
   // checkable from the À propos tab but must never reach the reader.
+  // Keep it visible while the primary feed or the fallback lookup is running,
+  // so it doesn't flash in and out before settling.
   const showChaptersTab = displayChapters.some(ch => ch.isReadable)
-    || (chaptersEnabled && chapters == null); // still loading — optimistically show tab
+    || (chaptersEnabled && chapters == null)
+    || fallbackPending;
   const totalChapters = displayChapters.length || manga?.chapters || 0;
 
   if (isLoading) return <LoadingScreen />;
@@ -584,6 +616,7 @@ export default function MangaDetailScreen() {
                   chapters={displayChapters}
                   entryMangaId={manga.id}
                   source={manga.source}
+                  pagesSource={pagesSource}
                   manga={manga}
                   mode="track"
                 />
@@ -599,6 +632,7 @@ export default function MangaDetailScreen() {
               chapters={displayChapters}
               entryMangaId={manga.id}
               source={manga.source}
+              pagesSource={pagesSource}
               manga={manga}
               mode="read"
               activeLang={readLang}

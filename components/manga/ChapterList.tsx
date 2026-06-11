@@ -24,6 +24,9 @@ interface ChapterListProps {
   chapters: MangaChapter[];
   entryMangaId: string;
   source: string;
+  /** Adapter the reader fetches pages from when it differs from the entry
+   *  source — e.g. MangaPlus chapters shown under an AniList entry. */
+  pagesSource?: string;
   manga: Manga;
   mode: ChapterListMode;
   activeLang?: 'fr' | 'en';
@@ -60,7 +63,7 @@ function formatDate(iso: string): string {
   }
 }
 
-export function ChapterList({ chapters, entryMangaId, source, manga, mode, activeLang, availableLangs, onLangChange }: ChapterListProps) {
+export function ChapterList({ chapters, entryMangaId, source, pagesSource, manga, mode, activeLang, availableLangs, onLangChange }: ChapterListProps) {
   const router = useRouter();
   const reduceMotion = useReducedMotion();
   const isTrack = mode === 'track';
@@ -77,9 +80,10 @@ export function ChapterList({ chapters, entryMangaId, source, manga, mode, activ
   const downloadProgress = useDownloadsStore(s => s.progress);
 
   const mangaTitle = manga.title.english ?? manga.title.romaji ?? manga.title.userPreferred;
+  const feedSource = pagesSource ?? source;
   // MangaPlus/Webtoon pages are fetched+cached locally at read time; the generic
   // remote-URL download path doesn't apply, so the offline button is hidden.
-  const canDownload = source !== 'mangaplus' && source !== 'webtoon';
+  const canDownload = feedSource !== 'mangaplus' && feedSource !== 'webtoon';
 
   const isChapterRead = (ch: MangaChapter): boolean => {
     const num = parseFloat(ch.chapter);
@@ -94,7 +98,7 @@ export function ChapterList({ chapters, entryMangaId, source, manga, mode, activ
     if (!ch.isReadable) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     router.push(
-      `/reader/${ch.id}?chapter=${encodeURIComponent(ch.chapter)}&title=${encodeURIComponent(ch.title ?? '')}&entryMangaId=${encodeURIComponent(entryMangaId)}&source=${encodeURIComponent(source)}&mangaTitle=${encodeURIComponent(mangaTitle)}` as never,
+      `/reader/${ch.id}?chapter=${encodeURIComponent(ch.chapter)}&title=${encodeURIComponent(ch.title ?? '')}&entryMangaId=${encodeURIComponent(entryMangaId)}&source=${encodeURIComponent(source)}&pagesSource=${encodeURIComponent(feedSource)}&mangaTitle=${encodeURIComponent(mangaTitle)}` as never,
     );
   };
 
@@ -119,7 +123,7 @@ export function ChapterList({ chapters, entryMangaId, source, manga, mode, activ
     }
     downloadChapter({
       chapterId: ch.id,
-      source: source === 'comick' ? 'comick' : 'mangadex',
+      source: feedSource === 'comick' ? 'comick' : 'mangadex',
       mangaTitle,
       chapter: ch.chapter,
       title: ch.title,
@@ -351,14 +355,12 @@ export function ChapterList({ chapters, entryMangaId, source, manga, mode, activ
                     read && styles.chapterCardRead,
                     pressed && styles.chapterCardPressed,
                   ]}
-                  onPress={() => toggleRead(ch)}
-                  onLongPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     setSelectedChapter(ch);
                   }}
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked: read }}
-                  accessibilityLabel={`${read ? 'Lu — ' : ''}Chapitre ${ch.chapter}${ch.title ? ` : ${ch.title}` : ''}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Chapitre ${ch.chapter}${ch.title ? ` : ${ch.title}` : ''} — afficher les détails`}
                 >
                   <View style={styles.chapterCoverFrame}>
                     <Image
@@ -402,13 +404,20 @@ export function ChapterList({ chapters, entryMangaId, source, manga, mode, activ
                       )}
                     </View>
                   </View>
-                  <View style={styles.checkCircle}>
+                  <Pressable
+                    style={({ pressed }) => [styles.checkCircle, pressed && { opacity: 0.6 }]}
+                    onPress={e => { e.stopPropagation(); toggleRead(ch); }}
+                    hitSlop={8}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: read }}
+                    accessibilityLabel={`Chapitre ${ch.chapter} — ${read ? 'lu' : 'non lu'}`}
+                  >
                     <Ionicons
                       name={read ? 'checkmark-circle' : 'ellipse-outline'}
                       size={30}
                       color={read ? COLORS.statusCompleted : COLORS.textInkMuted}
                     />
-                  </View>
+                  </Pressable>
                 </Pressable>
               </MotiView>
             );
@@ -561,6 +570,7 @@ export function ChapterList({ chapters, entryMangaId, source, manga, mode, activ
         manga={manga}
         entryMangaId={entryMangaId}
         source={source}
+        pagesSource={feedSource}
         onClose={() => setSelectedChapter(null)}
       />
     </View>

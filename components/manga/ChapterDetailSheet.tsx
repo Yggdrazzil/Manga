@@ -23,6 +23,8 @@ interface ChapterDetailSheetProps {
   manga: Manga;
   entryMangaId: string;
   source: string;
+  /** Adapter the reader fetches pages from when it differs from the entry source. */
+  pagesSource?: string;
   onClose: () => void;
 }
 
@@ -50,6 +52,7 @@ export function ChapterDetailSheet({
   manga,
   entryMangaId,
   source,
+  pagesSource,
   onClose,
 }: ChapterDetailSheetProps) {
   const { height } = useWindowDimensions();
@@ -181,7 +184,7 @@ export function ChapterDetailSheet({
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                 onClose();
                 router.push(
-                  `/reader/${chapter.id}?chapter=${encodeURIComponent(chapter.chapter)}&title=${encodeURIComponent(chapter.title ?? '')}&entryMangaId=${encodeURIComponent(entryMangaId)}&source=${encodeURIComponent(source)}&mangaTitle=${encodeURIComponent(displayTitle)}` as never,
+                  `/reader/${chapter.id}?chapter=${encodeURIComponent(chapter.chapter)}&title=${encodeURIComponent(chapter.title ?? '')}&entryMangaId=${encodeURIComponent(entryMangaId)}&source=${encodeURIComponent(source)}&pagesSource=${encodeURIComponent(pagesSource ?? source)}&mangaTitle=${encodeURIComponent(displayTitle)}` as never,
                 );
               }}
               accessibilityRole="button"
