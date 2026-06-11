@@ -1,5 +1,5 @@
 export type MediaType = 'MANGA' | 'MANHWA' | 'MANHUA' | 'WEBTOON' | 'BD';
-export type MediaSource = 'anilist' | 'mangadex' | 'jikan' | 'comick' | 'mangaplus';
+export type MediaSource = 'anilist' | 'mangadex' | 'jikan' | 'comick' | 'mangaplus' | 'webtoon';
 export type ReadingStatus = 'READING' | 'COMPLETED' | 'PLAN_TO_READ' | 'DROPPED' | 'PAUSED';
 export type OngoingStatus = 'ONGOING' | 'COMPLETED' | 'HIATUS' | 'CANCELLED' | 'NOT_YET_RELEASED';
 export type SortOrder = 'TRENDING_DESC' | 'POPULARITY_DESC' | 'SCORE_DESC' | 'UPDATED_AT_DESC';

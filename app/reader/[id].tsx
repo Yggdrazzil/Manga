@@ -21,6 +21,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getChapterPages as getMDChapterPages } from '@/lib/api/mangadex';
 import { getChapterPages as getCKChapterPages } from '@/lib/api/comick';
 import { getChapterPages as getMPChapterPages } from '@/lib/api/mangaplus';
+import { getChapterPages as getWTChapterPages } from '@/lib/api/webtoon';
 import { useDownloadsStore } from '@/lib/store/downloads';
 import { getLocalPages } from '@/lib/utils/downloads';
 import { useLibraryStore } from '@/lib/store/library';
@@ -334,6 +335,7 @@ export default function ReaderScreen() {
       if (localPages) return Promise.resolve(localPages);
       if (source === 'comick') return getCKChapterPages(id!);
       if (source === 'mangaplus') return getMPChapterPages(id!);
+      if (source === 'webtoon') return getWTChapterPages(id!);
       return getMDChapterPages(id!, dataSaver);
     },
     enabled: !!id,

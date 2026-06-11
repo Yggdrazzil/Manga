@@ -77,9 +77,9 @@ export function ChapterList({ chapters, entryMangaId, source, manga, mode, activ
   const downloadProgress = useDownloadsStore(s => s.progress);
 
   const mangaTitle = manga.title.english ?? manga.title.romaji ?? manga.title.userPreferred;
-  // MangaPlus pages are XOR-decrypted into a local cache on read; the generic
+  // MangaPlus/Webtoon pages are fetched+cached locally at read time; the generic
   // remote-URL download path doesn't apply, so the offline button is hidden.
-  const canDownload = source !== 'mangaplus';
+  const canDownload = source !== 'mangaplus' && source !== 'webtoon';
 
   const isChapterRead = (ch: MangaChapter): boolean => {
     const num = parseFloat(ch.chapter);

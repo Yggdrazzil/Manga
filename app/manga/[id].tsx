@@ -23,6 +23,7 @@ import * as mangadex from '@/lib/api/mangadex';
 import { findMangadexId } from '@/lib/api/mangadex';
 import * as comick from '@/lib/api/comick';
 import * as mangaplus from '@/lib/api/mangaplus';
+import * as webtoon from '@/lib/api/webtoon';
 import * as jikan from '@/lib/api/jikan';
 import { useLibraryStore } from '@/lib/store/library';
 import { useSettingsStore } from '@/lib/store/settings';
@@ -232,6 +233,7 @@ export default function MangaDetailScreen() {
       if (source === 'mangadex') return mangadex.getMangaById(id);
       if (source === 'comick') return comick.getMangaById(id);
       if (source === 'mangaplus') return mangaplus.getMangaById(id);
+      if (source === 'webtoon') return webtoon.getMangaById(id);
       if (source === 'jikan') return jikan.getMangaById(id);
       return anilist.getMangaById(id);
     },
@@ -248,8 +250,9 @@ export default function MangaDetailScreen() {
     : null;
   const isComick = manga?.source === 'comick';
   const isMangaPlus = manga?.source === 'mangaplus';
+  const isWebtoon = manga?.source === 'webtoon';
   // Sources that ship their own chapter feed don't need a MangaDex fallback.
-  const isSelfSourced = isComick || isMangaPlus;
+  const isSelfSourced = isComick || isMangaPlus || isWebtoon;
 
   const { data: resolvedMdId } = useQuery({
     queryKey: ['resolve-mdid', manga?.source, manga?.id, manga?.year],
@@ -274,14 +277,15 @@ export default function MangaDetailScreen() {
     return readLang === 'fr' ? ['fr', 'en'] : ['en', 'fr'];
   }, [readLang, mangaReadLangs, preferredLang]);
 
-  // Comick and MangaPlus have their own chapter feeds; other sources use MangaDex
-  const selfSourcedKey = isComick ? `ck-${id}` : isMangaPlus ? `mp-${id}` : effectiveMdId;
+  // Comick, MangaPlus and Webtoon have their own chapter feeds; others use MangaDex
+  const selfKey = isComick ? `ck-${id}` : isMangaPlus ? `mp-${id}` : isWebtoon ? `wt-${id}` : effectiveMdId;
   const chaptersEnabled = isSelfSourced ? !!manga : !!effectiveMdId;
   const { data: chapters } = useQuery({
-    queryKey: ['tracking-chapters', selfSourcedKey, readLang, mangaReadLangs.length],
+    queryKey: ['tracking-chapters', selfKey, readLang, mangaReadLangs.length],
     queryFn: () => {
       if (isComick) return comick.getTrackingChapters(id!, langParam);
       if (isMangaPlus) return mangaplus.getTrackingChapters(id!);
+      if (isWebtoon) return webtoon.getTrackingChapters(id!);
       return mangadex.getTrackingChapters(effectiveMdId!, langParam);
     },
     enabled: chaptersEnabled,

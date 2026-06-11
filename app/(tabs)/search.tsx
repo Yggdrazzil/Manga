@@ -20,6 +20,7 @@ import * as anilist from '@/lib/api/anilist';
 import * as mangadex from '@/lib/api/mangadex';
 import * as comick from '@/lib/api/comick';
 import * as mangaplus from '@/lib/api/mangaplus';
+import * as webtoon from '@/lib/api/webtoon';
 import * as jikan from '@/lib/api/jikan';
 import {
   searchComics,
@@ -74,15 +75,17 @@ async function searchManga(query: string, filter: FilterType): Promise<Manga[]> 
   if (filter === 'BD') return [];
 
   if (filter === 'WEBTOON') {
-    // Comick has better webtoon coverage (Korean/Chinese web comics)
-    const [md, ck] = await Promise.allSettled([
-      mangadex.searchManga(query, 1, 15, 'ko'),
-      comick.searchManga(query, 1, 15),
+    // Webtoon ORIGINALS first (official + directly readable), then other sources
+    const [wt, md, ck] = await Promise.allSettled([
+      webtoon.searchManga(query, 1, 10),
+      mangadex.searchManga(query, 1, 10, 'ko'),
+      comick.searchManga(query, 1, 10),
     ]);
-    return [
+    return dedupeByTitle([
+      ...(wt.status === 'fulfilled' ? wt.value.items : []),
       ...(md.status === 'fulfilled' ? md.value.items.filter(m => m.type === 'WEBTOON') : []),
       ...(ck.status === 'fulfilled' ? ck.value.items.filter(m => m.type === 'WEBTOON') : []),
-    ];
+    ]);
   }
   if (filter === 'MANHWA') {
     const [al, md, ck] = await Promise.allSettled([
@@ -113,9 +116,10 @@ async function searchManga(query: string, filter: FilterType): Promise<Manga[]> 
     ]);
   }
 
-  // ALL: MangaPlus + AniList + MangaDex + Jikan + Comick (de-duped by title).
-  // MangaPlus leads so readable official chapters win over catalogue-only hits.
-  const [mp, al, md, jk, ck] = await Promise.allSettled([
+  // ALL: Webtoon + MangaPlus + AniList + MangaDex + Jikan + Comick (de-duped by title).
+  // Official sources lead so directly-readable chapters win over catalogue-only hits.
+  const [wt, mp, al, md, jk, ck] = await Promise.allSettled([
+    webtoon.searchManga(query, 1, 6),
     mangaplus.searchManga(query, 1, 6),
     anilist.searchManga(query, 1, 10),
     mangadex.searchManga(query, 1, 6),
@@ -123,6 +127,7 @@ async function searchManga(query: string, filter: FilterType): Promise<Manga[]> 
     comick.searchManga(query, 1, 6),
   ]);
   return dedupeByTitle([
+    ...(wt.status === 'fulfilled' ? wt.value.items : []),
     ...(mp.status === 'fulfilled' ? mp.value.items : []),
     ...(al.status === 'fulfilled' ? al.value.items : []),
     ...(md.status === 'fulfilled' ? md.value.items : []),
