@@ -7,8 +7,16 @@ import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import {
+  getReadingActivity,
+  getReadingStreak,
+  getWeekActivity,
+  getAnnualStats,
+  type DayActivity,
+} from '@/lib/utils/readingActivity';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BORDERS, COLORS, FONTS, RADIUS, SCRIMS, SPACING, STATUS_LABELS, inkScrim, themedStyles } from '@/constants/theme';
+import { StarRating } from '@/components/ui/StarRating';
 import { useLibraryStore } from '@/lib/store/library';
 import { useComicsStore } from '@/lib/store/comics';
 import { confirmAction } from '@/lib/utils/confirm';
@@ -71,6 +79,61 @@ function StatusBar({ status, count, total }: { status: ReadingStatus; count: num
   );
 }
 
+function WeeklyActivityChart({ weekData, streak }: { weekData: DayActivity[]; streak: number }) {
+  const maxCount = Math.max(1, ...weekData.map(d => d.count));
+
+  return (
+    <View style={styles.chartContainer}>
+      <View style={styles.chartHeader}>
+        <Typography variant="kicker" color={COLORS.textInkMuted} style={styles.chartTitle}>
+          ACTIVITÉ (7 JOURS)
+        </Typography>
+        {streak > 0 && (
+          <View style={styles.streakChip}>
+            <Typography variant="label" color={COLORS.star} style={styles.streakLabel}>
+              🔥 {streak} jour{streak > 1 ? 's' : ''}
+            </Typography>
+          </View>
+        )}
+      </View>
+      <View style={styles.barsRow}>
+        {weekData.map(day => {
+          const fillH = day.count > 0 ? Math.max(8, Math.round((day.count / maxCount) * 44)) : 0;
+          const barColor = day.isToday ? COLORS.accentRed : `${COLORS.accentRed}66`;
+          return (
+            <View key={day.dateStr} style={styles.barCol}>
+              <View style={styles.barTrack}>
+                {fillH > 0 && <View style={[styles.barFill, { height: fillH, backgroundColor: barColor }]} />}
+              </View>
+              {day.count > 0 && (
+                <Typography variant="caption" color={day.isToday ? COLORS.accentRed : COLORS.textInkMuted} style={styles.barCount}>
+                  {day.count}
+                </Typography>
+              )}
+              <Typography
+                variant="caption"
+                color={day.isToday ? COLORS.accentRed : COLORS.textInkMuted}
+                style={[styles.barLabel, day.isToday && styles.barLabelToday]}
+              >
+                {day.label}
+              </Typography>
+            </View>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+function AnnualStatItem({ value, label }: { value: string | number; label: string }) {
+  return (
+    <View style={styles.annualItem}>
+      <Typography variant="display" color={COLORS.textInk} style={styles.annualValue}>{value}</Typography>
+      <Typography variant="caption" color={COLORS.textInkMuted} style={styles.annualLabel}>{label}</Typography>
+    </View>
+  );
+}
+
 function HistoryRow({ entry }: { entry: LibraryEntry }) {
   const router = useRouter();
   const updateProgress = useLibraryStore(s => s.updateProgress);
@@ -128,7 +191,7 @@ function HistoryRow({ entry }: { entry: LibraryEntry }) {
               <StatusBadge status={entry.status} compact />
               <Typography variant="label" color={COLORS.textInkMuted}>{relative}</Typography>
               {entry.score ? (
-                <Typography variant="label" color={COLORS.warning}>★ {entry.score}</Typography>
+                <StarRating score={entry.score} readonly size={14} showLabel={false} />
               ) : null}
             </View>
             <View style={styles.progressRow}>
@@ -262,6 +325,12 @@ export default function ProfileScreen() {
   // entries is the getter's hidden input, so it must stay in the deps.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const stats = useMemo(() => getStats(), [entries, getStats]);
+
+  const activity = useMemo(() => getReadingActivity(entries), [entries]);
+  const streak = useMemo(() => getReadingStreak(activity), [activity]);
+  const weekData = useMemo(() => getWeekActivity(activity), [activity]);
+  const annualStats = useMemo(() => getAnnualStats(entries), [entries]);
+  const currentYear = new Date().getFullYear();
 
   const featured = entries.find(e => e.manga.bannerImage) ?? entries[0];
   const autoBanner = featured?.manga.bannerImage ?? featured?.manga.coverImage;
@@ -482,6 +551,39 @@ export default function ProfileScreen() {
                     <View style={styles.sectionMarker} />
                     <Typography variant="title" color={COLORS.textInk}>Statistiques</Typography>
                   </View>
+
+                  {/* Weekly activity bar chart + reading streak */}
+                  <WeeklyActivityChart weekData={weekData} streak={streak} />
+
+                  {/* Annual recap */}
+                  {(annualStats.chaptersThisYear > 0 || annualStats.seriesStarted > 0) && (
+                    <View>
+                      <View style={[styles.sectionHeaderRow, styles.annualHeaderRow]}>
+                        <View style={[styles.sectionMarker, { backgroundColor: COLORS.cyan }]} />
+                        <Typography variant="label" color={COLORS.textInkMuted} style={styles.annualYearLabel}>
+                          BILAN {currentYear}
+                        </Typography>
+                      </View>
+                      <View style={styles.annualRow}>
+                        {annualStats.chaptersThisYear > 0 && (
+                          <AnnualStatItem value={annualStats.chaptersThisYear} label="chapitres" />
+                        )}
+                        {annualStats.seriesStarted > 0 && (
+                          <AnnualStatItem value={annualStats.seriesStarted} label="démarrées" />
+                        )}
+                        {annualStats.seriesCompleted > 0 && (
+                          <AnnualStatItem value={annualStats.seriesCompleted} label="terminées" />
+                        )}
+                        {annualStats.averageScore > 0 && (
+                          <AnnualStatItem
+                            value={`${(annualStats.averageScore / 20).toFixed(1)}★`}
+                            label="note moy."
+                          />
+                        )}
+                      </View>
+                    </View>
+                  )}
+
                   <View style={styles.statusBars}>
                     {statuses.map(s => (
                       stats.byStatus[s] > 0 && (
@@ -712,6 +814,43 @@ const styles = themedStyles(() => StyleSheet.create({
   timeStripRow: { flexDirection: 'row', gap: SPACING.xl },
   timeUnit: { alignItems: 'center', gap: 2 },
   timeValue: { fontSize: 28, lineHeight: 30, letterSpacing: 1 },
+
+  // Weekly activity chart
+  chartContainer: { gap: SPACING.sm },
+  chartHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  chartTitle: { letterSpacing: 1.2, fontSize: 10 },
+  streakChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: `${COLORS.star}1A`,
+    borderRadius: RADIUS.full,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 3,
+    borderWidth: BORDERS.hair,
+    borderColor: `${COLORS.star}44`,
+  },
+  streakLabel: { fontSize: 12 },
+  barsRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 6, height: 76 },
+  barCol: { flex: 1, alignItems: 'center', gap: 3, justifyContent: 'flex-end' },
+  barTrack: {
+    width: '100%',
+    height: 44,
+    justifyContent: 'flex-end',
+    borderRadius: 3,
+    backgroundColor: COLORS.paperSunken,
+    overflow: 'hidden',
+  },
+  barFill: { width: '100%', borderRadius: 3 },
+  barCount: { fontSize: 9, letterSpacing: 0 },
+  barLabel: { fontSize: 10, letterSpacing: 0 },
+  barLabelToday: { fontFamily: FONTS.bodyBold },
+  // Annual recap
+  annualHeaderRow: { marginTop: SPACING.xs },
+  annualYearLabel: { letterSpacing: 1.5, fontSize: 10 },
+  annualRow: { flexDirection: 'row', gap: SPACING.md, flexWrap: 'wrap' },
+  annualItem: { minWidth: 64, gap: 2 },
+  annualValue: { fontSize: 22, lineHeight: 24, letterSpacing: 0.5 },
+  annualLabel: { fontSize: 10, letterSpacing: 0.5 },
 
   favRail: { gap: SPACING.md, paddingTop: SPACING.base },
   favCard: { width: 92, gap: SPACING.xs },

@@ -126,6 +126,8 @@ export interface BDSeriesEntry {
   updatedAt: string;
   series: BDSeries;
   favorite?: boolean;
+  score?: number;   // 0–100, same scale as LibraryEntry.score
+  notes?: string;
 }
 
 export interface ReadingStats {

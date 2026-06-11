@@ -11,6 +11,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  TextInput,
   View,
 } from 'react-native';
 
@@ -27,10 +28,11 @@ import { useSettingsStore } from '@/lib/store/settings';
 import { confirmAction } from '@/lib/utils/confirm';
 import { Panel } from '@/components/ui/Panel';
 import { Halftone } from '@/components/ui/Halftone';
+import { StarRating } from '@/components/ui/StarRating';
 import { TypeBadge } from '@/components/ui/TypeBadge';
 import { Typography } from '@/components/ui/Typography';
 import { ChapterList } from '@/components/manga/ChapterList';
-import { BORDERS, COLORS, RADIUS, SPACING, STATUS_LABELS, inkScrim, themedStyles } from '@/constants/theme';
+import { BORDERS, COLORS, FONTS, RADIUS, SPACING, STATUS_LABELS, inkScrim, themedStyles } from '@/constants/theme';
 import type { Manga, MangaChapter, MangaCharacter, ReadingStatus } from '@/lib/types';
 
 const STATUSES: ReadingStatus[] = ['READING', 'PLAN_TO_READ', 'COMPLETED', 'PAUSED', 'DROPPED'];
@@ -68,10 +70,15 @@ function TrackingPanel({ manga, totalChapters, readCount }: {
 }) {
   const addEntry = useLibraryStore(s => s.addEntry);
   const updateStatus = useLibraryStore(s => s.updateStatus);
+  const updateScore = useLibraryStore(s => s.updateScore);
+  const updateEntry = useLibraryStore(s => s.updateEntry);
   const removeEntry = useLibraryStore(s => s.removeEntry);
   const entry = useLibraryStore(s =>
     s.entries.find(e => e.mangaId === manga.id && e.source === manga.source),
   );
+  const [notes, setNotes] = useState(entry?.notes ?? '');
+  // Keep local notes in sync when entry changes (e.g. entry removed then re-added)
+  React.useEffect(() => { setNotes(entry?.notes ?? ''); }, [entry?.notes]);
 
   const handleAddWithStatus = (status: ReadingStatus) => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -133,6 +140,18 @@ function TrackingPanel({ manga, totalChapters, readCount }: {
 
         {entry && (
           <>
+            {/* Work-level rating (Kitsu-style — one score per œuvre, no per-chapter) */}
+            <View style={styles.ratingSection}>
+              <View style={styles.ratingSectionHeader}>
+                <View style={styles.sectionMarker} />
+                <Typography variant="subheading" color={COLORS.textInk}>Ma note</Typography>
+              </View>
+              <StarRating
+                score={entry.score}
+                onRate={score => updateScore(manga.id, manga.source, score)}
+              />
+            </View>
+
             {totalChapters > 0 && (
               <View style={styles.progressSection}>
                 <View style={styles.progressHeader}>
@@ -148,6 +167,25 @@ function TrackingPanel({ manga, totalChapters, readCount }: {
                 </View>
               </View>
             )}
+
+            {/* Journal de lecture */}
+            <View style={styles.notesSection}>
+              <View style={styles.ratingSectionHeader}>
+                <View style={styles.sectionMarker} />
+                <Typography variant="subheading" color={COLORS.textInk}>Notes</Typography>
+              </View>
+              <TextInput
+                style={styles.notesInput}
+                value={notes}
+                onChangeText={setNotes}
+                onBlur={() => updateEntry(manga.id, manga.source, { notes })}
+                placeholder="Vos impressions sur cette œuvre…"
+                placeholderTextColor={COLORS.textInkMuted}
+                multiline
+                numberOfLines={3}
+                accessibilityLabel="Journal de lecture"
+              />
+            </View>
 
             <Pressable onPress={handleRemove} style={styles.removeBtn} hitSlop={8}>
               <Typography variant="label" color={COLORS.error}>
@@ -849,6 +887,22 @@ const styles = themedStyles(() => StyleSheet.create({
   removeBtn: {
     alignSelf: 'center',
     paddingVertical: SPACING.sm,
+  },
+  ratingSection: { gap: SPACING.sm },
+  ratingSectionHeader: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+  notesSection: { gap: SPACING.sm },
+  notesInput: {
+    backgroundColor: COLORS.paperSunken,
+    borderWidth: BORDERS.bold,
+    borderColor: COLORS.line,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    color: COLORS.textInk,
+    fontFamily: FONTS.body,
+    fontSize: 14,
+    lineHeight: 20,
+    minHeight: 80,
+    textAlignVertical: 'top',
   },
   errorState: {
     flex: 1,

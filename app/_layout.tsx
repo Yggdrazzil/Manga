@@ -19,6 +19,7 @@ import {
   registerBackgroundCheck,
   unregisterBackgroundCheck,
 } from '@/lib/utils/notifications';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -108,6 +109,7 @@ export default function RootLayout() {
   }
 
   return (
+    <ErrorBoundary>
     <GestureHandlerRootView key={theme} style={styles.root}>
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
@@ -153,6 +155,7 @@ export default function RootLayout() {
         </QueryClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
+    </ErrorBoundary>
   );
 }
 

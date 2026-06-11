@@ -10,6 +10,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,6 +20,7 @@ import { getWikipediaSummaryByTitle } from '@/lib/api/wikipedia';
 import { useComicsStore } from '@/lib/store/comics';
 import { confirmAction } from '@/lib/utils/confirm';
 import { Panel } from '@/components/ui/Panel';
+import { StarRating } from '@/components/ui/StarRating';
 import { Typography } from '@/components/ui/Typography';
 import { BORDERS, COLORS, FONTS, RADIUS, SPACING, STATUS_LABELS, inkScrim, themedStyles } from '@/constants/theme';
 import type { BDSeries, BDVolume, ReadingStatus } from '@/lib/types';
@@ -138,8 +140,12 @@ export default function SeriesDetailScreen() {
   const removeEntry = useComicsStore(s => s.removeEntry);
   const toggleVolumeRead = useComicsStore(s => s.toggleVolumeRead);
   const updateStatus = useComicsStore(s => s.updateStatus);
+  const updateScore = useComicsStore(s => s.updateScore);
+  const updateNotes = useComicsStore(s => s.updateNotes);
   const updateVolumeDetail = useComicsStore(s => s.updateVolumeDetail);
   const toggleFavorite = useComicsStore(s => s.toggleFavorite);
+  const [notes, setNotes] = useState(entry?.notes ?? '');
+  useEffect(() => { setNotes(entry?.notes ?? ''); }, [entry?.notes]);
 
   // If the series isn't in the store yet, run the full consolidation pipeline.
   // expo-router already decodes params — no manual decodeURIComponent (it
@@ -407,11 +413,44 @@ export default function SeriesDetailScreen() {
                 )}
 
                 {entry && (
-                  <Pressable onPress={handleRemove} style={styles.removeBtn} hitSlop={8}>
-                    <Typography variant="label" color={COLORS.error}>
-                      Retirer de la bibliothèque
-                    </Typography>
-                  </Pressable>
+                  <>
+                    {/* Work-level rating */}
+                    <View style={styles.ratingSection}>
+                      <View style={styles.sectionHeaderRow}>
+                        <View style={styles.sectionMarker} />
+                        <Typography variant="subheading" color={COLORS.textInk}>Ma note</Typography>
+                      </View>
+                      <StarRating
+                        score={entry.score}
+                        onRate={score => updateScore(entry.seriesId, score)}
+                      />
+                    </View>
+
+                    {/* Journal de lecture */}
+                    <View style={styles.ratingSection}>
+                      <View style={styles.sectionHeaderRow}>
+                        <View style={styles.sectionMarker} />
+                        <Typography variant="subheading" color={COLORS.textInk}>Notes</Typography>
+                      </View>
+                      <TextInput
+                        style={styles.notesInput}
+                        value={notes}
+                        onChangeText={setNotes}
+                        onBlur={() => updateNotes(entry.seriesId, notes)}
+                        placeholder="Vos impressions sur cette série…"
+                        placeholderTextColor={COLORS.textInkMuted}
+                        multiline
+                        numberOfLines={3}
+                        accessibilityLabel="Journal de lecture"
+                      />
+                    </View>
+
+                    <Pressable onPress={handleRemove} style={styles.removeBtn} hitSlop={8}>
+                      <Typography variant="label" color={COLORS.error}>
+                        Retirer de la bibliothèque
+                      </Typography>
+                    </Pressable>
+                  </>
                 )}
               </View>
             </Panel>
@@ -534,6 +573,20 @@ const styles = themedStyles(() => StyleSheet.create({
   },
   progressFill: { height: '100%', backgroundColor: COLORS.accentRed, borderRadius: RADIUS.full },
   removeBtn: { alignSelf: 'center', paddingVertical: SPACING.sm },
+  ratingSection: { gap: SPACING.sm },
+  notesInput: {
+    backgroundColor: COLORS.paperSunken,
+    borderWidth: BORDERS.bold,
+    borderColor: COLORS.line,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    color: COLORS.textInk,
+    fontFamily: FONTS.body,
+    fontSize: 14,
+    lineHeight: 20,
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
 
   volumesList: { borderRadius: RADIUS.lg, overflow: 'hidden' },
   divider: { height: BORDERS.hair, backgroundColor: COLORS.line, marginHorizontal: SPACING.md },

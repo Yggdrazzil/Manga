@@ -37,6 +37,8 @@ interface ComicsState {
   updateStatus: (seriesId: string, status: ReadingStatus) => void;
 
   toggleFavorite: (seriesId: string) => void;
+  updateScore: (seriesId: string, score: number) => void;
+  updateNotes: (seriesId: string, notes: string) => void;
 
   // Enrich stored volumes with lazily-loaded subtitle/description/publisher.
   updateVolumeDetail: (
@@ -127,6 +129,26 @@ export const useComicsStore = create<ComicsState>()(
           entries: state.entries.map(e =>
             e.seriesId === seriesId
               ? { ...e, favorite: !e.favorite, updatedAt: new Date().toISOString() }
+              : e,
+          ),
+        }));
+      },
+
+      updateScore: (seriesId, score) => {
+        set(state => ({
+          entries: state.entries.map(e =>
+            e.seriesId === seriesId
+              ? { ...e, score, updatedAt: new Date().toISOString() }
+              : e,
+          ),
+        }));
+      },
+
+      updateNotes: (seriesId, notes) => {
+        set(state => ({
+          entries: state.entries.map(e =>
+            e.seriesId === seriesId
+              ? { ...e, notes, updatedAt: new Date().toISOString() }
               : e,
           ),
         }));
