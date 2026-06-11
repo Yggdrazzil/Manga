@@ -1,4 +1,5 @@
 import type { Manga, MangaChapter, PaginatedResult, MediaType, OngoingStatus } from '../types';
+import { fillChapterGaps } from '../utils/chapter';
 
 const BASE = 'https://api.mangadex.org';
 const WEBTOON_TAG_ID = '3e2b8dae-350e-4ab8-a3ac-3a6f9a58f83b'; // Long Strip tag
@@ -544,19 +545,25 @@ export async function getTrackingChapters(
     if (m) {
       chapters.push({ ...m, volume: m.volume ?? a.volume });
     } else {
+      // Aggregate-only chapter: no fr/en upload exists. NEVER reuse a.id here —
+      // it points at a real upload in an arbitrary language (pl, vi, …) and the
+      // reader would happily render those pages. Synthetic id = checkable-only.
       chapters.push({
-        id: a.id || `${mangaId}-agg-${a.chapter}`,
+        id: `${mangaId}-agg-${a.chapter}`,
         mangaId,
         chapter: a.chapter,
         volume: a.volume,
         pages: 0,
         publishAt: '',
-        translatedLanguage: languages[0],
+        translatedLanguage: '',
         isReadable: false,
       });
     }
   }
-  return chapters;
+
+  // MangaDex drops licensed chapters entirely (One Piece: 57-370 missing from
+  // the aggregate) — fill the holes so tracking shows a contiguous list.
+  return fillChapterGaps(chapters, mangaId);
 }
 
 interface MDAtHomeResponse {

@@ -201,13 +201,16 @@ export async function getTrackingChapters(
   const languages = lang ?? ['fr', 'en'];
   const limit = 100;
   const chapters: MangaChapter[] = [];
+  // Shared across languages: the first language wins a chapter number, the
+  // second only fills numbers the first didn't have.
   const seen = new Set<string>();
 
   for (const l of languages) {
     let page = 1;
+    let fetched = 0;
     let total = Infinity;
 
-    while (chapters.length < total || page === 1) {
+    while (fetched < total || page === 1) {
       const data = await fetchCK<CKChapterFeedResponse>(`/comic/${hid}/chapters`, {
         lang: l,
         limit,
@@ -217,25 +220,23 @@ export async function getTrackingChapters(
       });
 
       if (page === 1) total = data.total ?? 0;
+      const batch = data.chapters ?? [];
+      fetched += batch.length;
 
-      for (const ch of data.chapters ?? []) {
+      for (const ch of batch) {
+        // Trust but verify: the API has returned off-language chapters in the
+        // past, and one bad hid means the reader renders the wrong language.
+        if (ch.lang !== l) continue;
         const num = ch.chap ?? 'none';
         if (seen.has(num)) continue;
-        // If iterating second lang (EN fallback), skip chapters already found in FR
         seen.add(num);
         chapters.push(normalizeChapter(ch, hid));
       }
 
-      if ((data.chapters ?? []).length < limit || chapters.length >= total) break;
+      if (batch.length < limit || fetched >= total) break;
       page += 1;
 
       if (page > 30) break; // safety
-    }
-
-    // After first language pass: already-seen chapters are locked; second lang fills gaps
-    // Re-use same `seen` set so EN doesn't clobber FR entries
-    if (l === languages[0] && languages.length > 1) {
-      // freeze seen at this point so second language only adds missing chapter numbers
     }
   }
 

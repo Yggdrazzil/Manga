@@ -29,3 +29,37 @@ export function maxChapterProgress(current: number, label: string | null | undef
   if (Number.isNaN(n)) return current;
   return Math.max(current, Math.floor(n));
 }
+
+/**
+ * Fills integer gaps in a chapter list with synthetic checkable-only cards.
+ * MangaDex drops licensed chapters from its catalogue (e.g. One Piece EN
+ * 57–370), so even the "authoritative" aggregate is not contiguous. Tracking
+ * needs every chapter to exist as a card. Only integers strictly between the
+ * lowest and highest observed numbers are added; decimals (56.5 extras) and
+ * non-numeric labels are left untouched.
+ */
+export function fillChapterGaps(chapters: MangaChapter[], mangaId: string): MangaChapter[] {
+  const nums = chapters
+    .map(c => chapterNumber(c.chapter))
+    .filter(n => Number.isFinite(n));
+  if (nums.length === 0) return chapters;
+
+  const present = new Set(nums.filter(n => Number.isInteger(n)));
+  const min = Math.ceil(Math.min(...nums));
+  const max = Math.floor(Math.max(...nums));
+
+  const filled = [...chapters];
+  for (let n = min; n <= max; n++) {
+    if (present.has(n)) continue;
+    filled.push({
+      id: `${mangaId}-syn-${n}`,
+      mangaId,
+      chapter: String(n),
+      pages: 0,
+      publishAt: '',
+      translatedLanguage: '',
+      isReadable: false,
+    });
+  }
+  return filled.sort(compareChapters);
+}

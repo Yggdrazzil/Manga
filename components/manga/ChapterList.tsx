@@ -87,6 +87,8 @@ export function ChapterList({ chapters, entryMangaId, source, manga, mode, activ
   };
 
   const openReader = (ch: MangaChapter) => {
+    // Synthetic / aggregate-only cards have no readable fr/en upload behind them
+    if (!ch.isReadable) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     router.push(
       `/reader/${ch.id}?chapter=${encodeURIComponent(ch.chapter)}&title=${encodeURIComponent(ch.title ?? '')}&entryMangaId=${encodeURIComponent(entryMangaId)}&source=${encodeURIComponent(source)}&mangaTitle=${encodeURIComponent(mangaTitle)}` as never,
@@ -131,6 +133,13 @@ export function ChapterList({ chapters, entryMangaId, source, manga, mode, activ
     [chapters],
   );
 
+  // Read mode lists only chapters that can actually be opened in the reader;
+  // track mode keeps everything (checkable cards include synthetic fillers).
+  const readableChapters = useMemo(
+    () => (isTrack ? sortedChapters : sortedChapters.filter(ch => ch.isReadable)),
+    [sortedChapters, isTrack],
+  );
+
   const totalRead = useMemo(
     () => sortedChapters.filter(ch => isChapterRead(ch)).length,
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -141,9 +150,9 @@ export function ChapterList({ chapters, entryMangaId, source, manga, mode, activ
 
   const focusChapter = useMemo(() => {
     if (isTrack) return sortedChapters.find(ch => !isChapterRead(ch)) ?? null;
-    return sortedChapters[0] ?? null;
+    return readableChapters.find(ch => !isChapterRead(ch)) ?? readableChapters[0] ?? null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sortedChapters, entry?.readChapterIds, entry?.progress, isTrack]);
+  }, [sortedChapters, readableChapters, entry?.readChapterIds, entry?.progress, isTrack]);
 
   const finishDate = useMemo(() => {
     if (!allRead || !entry?.chapterData) return null;
@@ -169,7 +178,7 @@ export function ChapterList({ chapters, entryMangaId, source, manga, mode, activ
   };
 
   // ── READ MODE: volume accordion (same as before) ──────────────────────────
-  const volumeMap = useMemo(() => groupByVolume(sortedChapters), [sortedChapters]);
+  const volumeMap = useMemo(() => groupByVolume(readableChapters), [readableChapters]);
   const volumeKeys = useMemo(() => sortedVolumeKeys(volumeMap), [volumeMap]);
 
   const firstExpandedVolume = focusChapter ? (focusChapter.volume ?? 'Hors volume') : null;
@@ -274,7 +283,7 @@ export function ChapterList({ chapters, entryMangaId, source, manga, mode, activ
           </Typography>
           <View style={styles.countBadge}>
             <Typography variant="caption" color={COLORS.textInkMuted}>
-              {isTrack ? `${totalRead}/${sortedChapters.length}` : `${sortedChapters.length}`}
+              {isTrack ? `${totalRead}/${sortedChapters.length}` : `${readableChapters.length}`}
             </Typography>
           </View>
         </View>

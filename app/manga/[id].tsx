@@ -334,11 +334,11 @@ export default function MangaDetailScreen() {
     return (['fr', 'en'] as const).filter(l => langs.has(l));
   }, [mangaReadLangs, chapters]);
 
-  // Hide Chapters tab entirely when a manga is only available in non-FR/EN languages
-  const hasReadableInSupportedLang = effectiveMdId == null
-    || detectedReadLangs.length > 0
-    || (chapters == null); // still loading — optimistically show tab
-  const showChaptersTab = displayChapters.length > 0 && hasReadableInSupportedLang;
+  // The read tab only shows chapters that open in the reader (fr/en uploads).
+  // Hide it when nothing is readable — synthetic/aggregate-only cards stay
+  // checkable from the À propos tab but must never reach the reader.
+  const showChaptersTab = displayChapters.some(ch => ch.isReadable)
+    || (chaptersEnabled && chapters == null); // still loading — optimistically show tab
   const totalChapters = displayChapters.length || manga?.chapters || 0;
 
   if (isLoading) return <LoadingScreen />;
