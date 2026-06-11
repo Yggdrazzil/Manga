@@ -19,6 +19,7 @@ import { useQuery } from '@tanstack/react-query';
 import * as anilist from '@/lib/api/anilist';
 import * as mangadex from '@/lib/api/mangadex';
 import * as comick from '@/lib/api/comick';
+import * as mangaplus from '@/lib/api/mangaplus';
 import * as jikan from '@/lib/api/jikan';
 import {
   searchComics,
@@ -59,6 +60,16 @@ function resultId(r: UnifiedResult): string {
 
 // ── Search logic ──────────────────────────────────────────────────────────────
 
+function dedupeByTitle(items: Manga[]): Manga[] {
+  const seen = new Set<string>();
+  return items.filter(item => {
+    const key = item.title.userPreferred.toLowerCase().replace(/\s/g, '');
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 async function searchManga(query: string, filter: FilterType): Promise<Manga[]> {
   if (filter === 'BD') return [];
 
@@ -90,30 +101,34 @@ async function searchManga(query: string, filter: FilterType): Promise<Manga[]> 
     return r.items;
   }
   if (filter === 'MANGA') {
-    const r = await anilist.searchManga(query, 1, 20, 'JP');
-    return r.items;
+    // MangaPlus first so its directly-readable official version wins de-dup
+    // (One Piece, Jujutsu Kaisen, …) over the AniList catalogue entry.
+    const [mp, al] = await Promise.allSettled([
+      mangaplus.searchManga(query, 1, 8),
+      anilist.searchManga(query, 1, 16, 'JP'),
+    ]);
+    return dedupeByTitle([
+      ...(mp.status === 'fulfilled' ? mp.value.items : []),
+      ...(al.status === 'fulfilled' ? al.value.items : []),
+    ]);
   }
 
-  // ALL: AniList + MangaDex + Jikan + Comick (de-duped by title)
-  const [al, md, jk, ck] = await Promise.allSettled([
+  // ALL: MangaPlus + AniList + MangaDex + Jikan + Comick (de-duped by title).
+  // MangaPlus leads so readable official chapters win over catalogue-only hits.
+  const [mp, al, md, jk, ck] = await Promise.allSettled([
+    mangaplus.searchManga(query, 1, 6),
     anilist.searchManga(query, 1, 10),
     mangadex.searchManga(query, 1, 6),
     jikan.searchManga(query, 1),
     comick.searchManga(query, 1, 6),
   ]);
-  const all = [
+  return dedupeByTitle([
+    ...(mp.status === 'fulfilled' ? mp.value.items : []),
     ...(al.status === 'fulfilled' ? al.value.items : []),
     ...(md.status === 'fulfilled' ? md.value.items : []),
     ...(jk.status === 'fulfilled' ? jk.value.items : []),
     ...(ck.status === 'fulfilled' ? ck.value.items : []),
-  ];
-  const seen = new Set<string>();
-  return all.filter(item => {
-    const key = item.title.userPreferred.toLowerCase().replace(/\s/g, '');
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+  ]);
 }
 
 async function searchBD(query: string, filter: FilterType): Promise<OLBook[]> {

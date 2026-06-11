@@ -77,6 +77,9 @@ export function ChapterList({ chapters, entryMangaId, source, manga, mode, activ
   const downloadProgress = useDownloadsStore(s => s.progress);
 
   const mangaTitle = manga.title.english ?? manga.title.romaji ?? manga.title.userPreferred;
+  // MangaPlus pages are XOR-decrypted into a local cache on read; the generic
+  // remote-URL download path doesn't apply, so the offline button is hidden.
+  const canDownload = source !== 'mangaplus';
 
   const isChapterRead = (ch: MangaChapter): boolean => {
     const num = parseFloat(ch.chapter);
@@ -508,34 +511,36 @@ export function ChapterList({ chapters, entryMangaId, source, manga, mode, activ
                                 </Typography>
                               )}
                             </View>
-                            <Pressable
-                              style={({ pressed }) => [
-                                styles.dlBtn,
-                                downloads[ch.id] != null && styles.dlBtnDone,
-                                pressed && { opacity: 0.7 },
-                              ]}
-                              onPress={e => { e.stopPropagation(); handleDownload(ch); }}
-                              hitSlop={6}
-                              accessibilityRole="button"
-                              accessibilityLabel={
-                                downloadProgress[ch.id] != null
-                                  ? `Téléchargement du chapitre ${ch.chapter} en cours`
-                                  : downloads[ch.id]
-                                    ? `Chapitre ${ch.chapter} téléchargé — appuyer pour supprimer`
-                                    : `Télécharger le chapitre ${ch.chapter}`
-                              }
-                              accessibilityState={{ busy: downloadProgress[ch.id] != null }}
-                            >
-                              {downloadProgress[ch.id] != null ? (
-                                <ActivityIndicator size="small" color={COLORS.accentRed} />
-                              ) : (
-                                <Ionicons
-                                  name={downloads[ch.id] ? 'checkmark-done' : 'arrow-down'}
-                                  size={15}
-                                  color={downloads[ch.id] ? COLORS.statusCompleted : COLORS.textInkMuted}
-                                />
-                              )}
-                            </Pressable>
+                            {canDownload && (
+                              <Pressable
+                                style={({ pressed }) => [
+                                  styles.dlBtn,
+                                  downloads[ch.id] != null && styles.dlBtnDone,
+                                  pressed && { opacity: 0.7 },
+                                ]}
+                                onPress={e => { e.stopPropagation(); handleDownload(ch); }}
+                                hitSlop={6}
+                                accessibilityRole="button"
+                                accessibilityLabel={
+                                  downloadProgress[ch.id] != null
+                                    ? `Téléchargement du chapitre ${ch.chapter} en cours`
+                                    : downloads[ch.id]
+                                      ? `Chapitre ${ch.chapter} téléchargé — appuyer pour supprimer`
+                                      : `Télécharger le chapitre ${ch.chapter}`
+                                }
+                                accessibilityState={{ busy: downloadProgress[ch.id] != null }}
+                              >
+                                {downloadProgress[ch.id] != null ? (
+                                  <ActivityIndicator size="small" color={COLORS.accentRed} />
+                                ) : (
+                                  <Ionicons
+                                    name={downloads[ch.id] ? 'checkmark-done' : 'arrow-down'}
+                                    size={15}
+                                    color={downloads[ch.id] ? COLORS.statusCompleted : COLORS.textInkMuted}
+                                  />
+                                )}
+                              </Pressable>
+                            )}
                             <View style={styles.readChip}>
                               <Ionicons name="book-outline" size={16} color={COLORS.accentRed} />
                             </View>

@@ -22,6 +22,7 @@ import * as anilist from '@/lib/api/anilist';
 import * as mangadex from '@/lib/api/mangadex';
 import { findMangadexId } from '@/lib/api/mangadex';
 import * as comick from '@/lib/api/comick';
+import * as mangaplus from '@/lib/api/mangaplus';
 import * as jikan from '@/lib/api/jikan';
 import { useLibraryStore } from '@/lib/store/library';
 import { useSettingsStore } from '@/lib/store/settings';
@@ -230,6 +231,7 @@ export default function MangaDetailScreen() {
       if (!id) throw new Error('No ID');
       if (source === 'mangadex') return mangadex.getMangaById(id);
       if (source === 'comick') return comick.getMangaById(id);
+      if (source === 'mangaplus') return mangaplus.getMangaById(id);
       if (source === 'jikan') return jikan.getMangaById(id);
       return anilist.getMangaById(id);
     },
@@ -245,11 +247,14 @@ export default function MangaDetailScreen() {
     ? (manga.source === 'mangadex' ? manga.id : manga.mangadexId ?? null)
     : null;
   const isComick = manga?.source === 'comick';
+  const isMangaPlus = manga?.source === 'mangaplus';
+  // Sources that ship their own chapter feed don't need a MangaDex fallback.
+  const isSelfSourced = isComick || isMangaPlus;
 
   const { data: resolvedMdId } = useQuery({
     queryKey: ['resolve-mdid', manga?.source, manga?.id, manga?.year],
     queryFn: () => findMangadexId(searchTitle, manga?.year ? { year: manga.year } : undefined),
-    enabled: !!manga && !directMdId && !isComick && !!searchTitle,
+    enabled: !!manga && !directMdId && !isSelfSourced && !!searchTitle,
     staleTime: 1000 * 60 * 60,
   });
   const effectiveMdId = directMdId ?? resolvedMdId ?? null;
@@ -269,14 +274,16 @@ export default function MangaDetailScreen() {
     return readLang === 'fr' ? ['fr', 'en'] : ['en', 'fr'];
   }, [readLang, mangaReadLangs, preferredLang]);
 
-  // Comick has its own chapter feed; non-Comick sources use MangaDex
-  const chaptersEnabled = isComick ? !!manga : !!effectiveMdId;
+  // Comick and MangaPlus have their own chapter feeds; other sources use MangaDex
+  const selfSourcedKey = isComick ? `ck-${id}` : isMangaPlus ? `mp-${id}` : effectiveMdId;
+  const chaptersEnabled = isSelfSourced ? !!manga : !!effectiveMdId;
   const { data: chapters } = useQuery({
-    queryKey: ['tracking-chapters', isComick ? `ck-${id}` : effectiveMdId, readLang, mangaReadLangs.length],
-    queryFn: () =>
-      isComick
-        ? comick.getTrackingChapters(id!, langParam)
-        : mangadex.getTrackingChapters(effectiveMdId!, langParam),
+    queryKey: ['tracking-chapters', selfSourcedKey, readLang, mangaReadLangs.length],
+    queryFn: () => {
+      if (isComick) return comick.getTrackingChapters(id!, langParam);
+      if (isMangaPlus) return mangaplus.getTrackingChapters(id!);
+      return mangadex.getTrackingChapters(effectiveMdId!, langParam);
+    },
     enabled: chaptersEnabled,
     staleTime: 1000 * 60 * 5,
   });

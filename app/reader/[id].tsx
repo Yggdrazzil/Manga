@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getChapterPages as getMDChapterPages } from '@/lib/api/mangadex';
 import { getChapterPages as getCKChapterPages } from '@/lib/api/comick';
+import { getChapterPages as getMPChapterPages } from '@/lib/api/mangaplus';
 import { useDownloadsStore } from '@/lib/store/downloads';
 import { getLocalPages } from '@/lib/utils/downloads';
 import { useLibraryStore } from '@/lib/store/library';
@@ -329,10 +330,12 @@ export default function ReaderScreen() {
 
   const { data: pages, isLoading, isError } = useQuery({
     queryKey: ['chapter-pages', id, source, dataSaver, localPages != null],
-    queryFn: () =>
-      localPages
-        ? Promise.resolve(localPages)
-        : source === 'comick' ? getCKChapterPages(id!) : getMDChapterPages(id!, dataSaver),
+    queryFn: () => {
+      if (localPages) return Promise.resolve(localPages);
+      if (source === 'comick') return getCKChapterPages(id!);
+      if (source === 'mangaplus') return getMPChapterPages(id!);
+      return getMDChapterPages(id!, dataSaver);
+    },
     enabled: !!id,
   });
 
