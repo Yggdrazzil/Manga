@@ -17,6 +17,7 @@ import { ChapterDetailSheet } from './ChapterDetailSheet';
 import { compareChapters } from '@/lib/utils/chapter';
 import { BORDERS, COLORS, RADIUS, SPACING, themedStyles } from '@/constants/theme';
 import type { Manga, MangaChapter } from '@/lib/types';
+import { coverSource } from '@/lib/utils/images';
 
 type ChapterListMode = 'track' | 'read';
 
@@ -98,7 +99,7 @@ export function ChapterList({ chapters, entryMangaId, source, pagesSource, manga
     if (!ch.isReadable) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     router.push(
-      `/reader/${ch.id}?chapter=${encodeURIComponent(ch.chapter)}&title=${encodeURIComponent(ch.title ?? '')}&entryMangaId=${encodeURIComponent(entryMangaId)}&source=${encodeURIComponent(source)}&pagesSource=${encodeURIComponent(feedSource)}&mangaTitle=${encodeURIComponent(mangaTitle)}` as never,
+      `/reader/${encodeURIComponent(ch.id)}?chapter=${encodeURIComponent(ch.chapter)}&title=${encodeURIComponent(ch.title ?? '')}&entryMangaId=${encodeURIComponent(entryMangaId)}&source=${encodeURIComponent(source)}&pagesSource=${encodeURIComponent(feedSource)}&mangaTitle=${encodeURIComponent(mangaTitle)}` as never,
     );
   };
 
@@ -246,7 +247,7 @@ export function ChapterList({ chapters, entryMangaId, source, pagesSource, manga
             <View style={styles.continueInner}>
               <View style={styles.continueCoverFrame}>
                 <Image
-                  source={{ uri: manga.coverImage }}
+                  source={coverSource(manga.coverImage)}
                   style={styles.continueCover}
                   contentFit="cover"
                   cachePolicy="memory-disk"
@@ -364,7 +365,7 @@ export function ChapterList({ chapters, entryMangaId, source, pagesSource, manga
                 >
                   <View style={styles.chapterCoverFrame}>
                     <Image
-                      source={{ uri: manga.coverImage }}
+                      source={coverSource(manga.coverImage)}
                       style={styles.chapterThumb}
                       contentFit="cover"
                       cachePolicy="memory-disk"
@@ -499,7 +500,7 @@ export function ChapterList({ chapters, entryMangaId, source, pagesSource, manga
                           >
                             <View style={styles.chapterCoverFrame}>
                               <Image
-                                source={{ uri: manga.coverImage }}
+                                source={coverSource(manga.coverImage)}
                                 style={styles.chapterThumb}
                                 contentFit="cover"
                                 cachePolicy="memory-disk"

@@ -20,6 +20,7 @@ import { useLibraryStore } from '@/lib/store/library';
 import { Typography } from '@/components/ui/Typography';
 import { BORDERS, COLORS, FONTS, RADIUS, SPACING, inkScrim, themedStyles } from '@/constants/theme';
 import type { Manga, MangaChapter } from '@/lib/types';
+import { coverSource } from '@/lib/utils/images';
 
 interface ChapterDetailSheetProps {
   chapter: MangaChapter | null;
@@ -129,7 +130,7 @@ export function ChapterDetailSheet({
           <View style={styles.header}>
             <View style={styles.coverFrame}>
               <Image
-                source={{ uri: manga.coverImage }}
+                source={coverSource(manga.coverImage)}
                 style={styles.cover}
                 contentFit="cover"
                 cachePolicy="memory-disk"
@@ -197,7 +198,7 @@ export function ChapterDetailSheet({
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                 onClose();
                 router.push(
-                  `/reader/${chapter.id}?chapter=${encodeURIComponent(chapter.chapter)}&title=${encodeURIComponent(chapter.title ?? '')}&entryMangaId=${encodeURIComponent(entryMangaId)}&source=${encodeURIComponent(source)}&pagesSource=${encodeURIComponent(pagesSource ?? source)}&mangaTitle=${encodeURIComponent(displayTitle)}` as never,
+                  `/reader/${encodeURIComponent(chapter.id)}?chapter=${encodeURIComponent(chapter.chapter)}&title=${encodeURIComponent(chapter.title ?? '')}&entryMangaId=${encodeURIComponent(entryMangaId)}&source=${encodeURIComponent(source)}&pagesSource=${encodeURIComponent(pagesSource ?? source)}&mangaTitle=${encodeURIComponent(displayTitle)}` as never,
                 );
               }}
               accessibilityRole="button"

@@ -19,7 +19,7 @@ import type { BDSeries, BDVolume } from '../types';
 import { searchBnFSeries } from './bnf';
 import { searchGoogleBooksSeries } from './googlebooks';
 import { searchSeriesVolumes, extractVolumeNumber, seriesKeyFromTitle } from './openlib';
-import { getWikipediaSeriesSummary } from './wikipedia';
+import { getWikipediaAlbumList, getWikipediaSeriesSummary } from './wikipedia';
 import { searchWikidataSeries } from './wikidata';
 
 // ── Google Books matcher ──────────────────────────────────────────────────────
@@ -66,12 +66,13 @@ export async function consolidateBDSeries(
   const seriesId = seriesKeyFromTitle(seriesTitle);
 
   // Fire all sources in parallel — failures are silenced via allSettled
-  const [wdResult, bnfResult, gbResult, olResult, wikiResult] = await Promise.allSettled([
+  const [wdResult, bnfResult, gbResult, olResult, wikiResult, wpListResult] = await Promise.allSettled([
     searchWikidataSeries(seriesTitle),
     searchBnFSeries(seriesTitle),
     searchGoogleBooksSeries(seriesTitle),
     searchSeriesVolumes(seriesTitle),
     getWikipediaSeriesSummary(seriesTitle),
+    getWikipediaAlbumList(seriesTitle),
   ]);
 
   const wd = wdResult.status === 'fulfilled' ? wdResult.value : { albums: [], authors: [] };
@@ -80,6 +81,7 @@ export async function consolidateBDSeries(
   const gbItems  = gbResult.status  === 'fulfilled' ? gbResult.value  : [];
   const olData   = olResult.status  === 'fulfilled' ? olResult.value  : { volumes: [], totalVolumes: 0 };
   const seriesDescription = wikiResult.status === 'fulfilled' ? wikiResult.value : undefined;
+  const wpAlbums = wpListResult.status === 'fulfilled' ? wpListResult.value : [];
 
   // ── Build volume map ────────────────────────────────────────────────────────
   const map = new Map<number, BDVolume>();
@@ -113,6 +115,25 @@ export async function consolidateBDSeries(
       publishedDate: wdAlbum.date || existing?.publishedDate,
       authors: existing?.authors ?? [],
       frwikiTitle: wdAlbum.frwikiTitle,
+    });
+  }
+
+  // Layer 2b — Wikipedia FR album list (freshest source for new albums:
+  // catalogues often file late releases under standalone titles that escape
+  // series queries — e.g. Lanfeust de Troy 9, "La forêt noiseuse")
+  for (const wpAlbum of wpAlbums) {
+    const existing = map.get(wpAlbum.num);
+    map.set(wpAlbum.num, {
+      num: wpAlbum.num,
+      workId: existing?.workId,
+      title: existing?.title ?? `${seriesTitle} tome ${wpAlbum.num}`,
+      subtitle: existing?.subtitle || wpAlbum.title,
+      coverImage: existing?.coverImage,
+      description: existing?.description,
+      publisher: existing?.publisher,
+      publishedDate: existing?.publishedDate || wpAlbum.date,
+      authors: existing?.authors ?? [],
+      frwikiTitle: existing?.frwikiTitle,
     });
   }
 

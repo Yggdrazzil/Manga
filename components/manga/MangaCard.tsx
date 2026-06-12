@@ -8,6 +8,7 @@ import { BORDERS, COLORS, FONTS, RADIUS, SPACING, inkScrim, themedStyles } from 
 import type { Manga } from '@/lib/types';
 import { TypeBadge } from '../ui/TypeBadge';
 import { Typography } from '../ui/Typography';
+import { coverSource } from '@/lib/utils/images';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -26,7 +27,7 @@ export function MangaCard({ manga, width = 120 }: MangaCardProps) {
 
   const handlePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push(`/manga/${manga.id}?source=${manga.source}`);
+    router.push(`/manga/${encodeURIComponent(manga.id)}?source=${encodeURIComponent(manga.source)}`);
   };
 
   const imageHeight = Math.round(width * 1.42);
@@ -43,7 +44,7 @@ export function MangaCard({ manga, width = 120 }: MangaCardProps) {
     >
       <View style={[styles.imageFrame, { height: imageHeight }]}>
         <Image
-          source={{ uri: manga.coverImage }}
+          source={coverSource(manga.coverImage)}
           style={StyleSheet.absoluteFillObject}
           contentFit="cover"
           transition={300}

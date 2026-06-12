@@ -16,6 +16,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { consolidateBDSeries } from '@/lib/api/bdconsolidate';
+import { getVolumeDescription } from '@/lib/api/googlebooks';
 import { getWikipediaSummaryByTitle } from '@/lib/api/wikipedia';
 import { useComicsStore } from '@/lib/store/comics';
 import { confirmAction } from '@/lib/utils/confirm';
@@ -32,11 +33,13 @@ const STATUSES: ReadingStatus[] = ['READING', 'PLAN_TO_READ', 'COMPLETED', 'PAUS
 
 function VolumeCard({
   volume,
+  seriesTitle,
   isRead,
   onToggle,
   onEnrich,
 }: {
   volume: BDVolume;
+  seriesTitle: string;
   isRead: boolean;
   onToggle: () => void;
   onEnrich?: (description: string) => void;
@@ -47,12 +50,22 @@ function VolumeCard({
   const { subtitle, publisher } = volume;
   const description = volume.description ?? localDesc;
 
-  // Lazy per-volume synopsis: Wikidata gave us the exact FR article title,
-  // fetch its intro the first time the row is expanded
+  // Lazy per-volume synopsis, fetched the first time the card is expanded:
+  // dedicated FR Wikipedia article when Wikidata knows it, else Google Books
+  // (4e de couverture) looked up by episode title.
   useEffect(() => {
-    if (!expanded || description || fetchingDesc || !volume.frwikiTitle) return;
+    if (!expanded || description || fetchingDesc) return;
+    if (!volume.frwikiTitle && !subtitle) return;
     setFetchingDesc(true);
-    getWikipediaSummaryByTitle(volume.frwikiTitle)
+    const lookup = async (): Promise<string | undefined> => {
+      if (volume.frwikiTitle) {
+        const extract = await getWikipediaSummaryByTitle(volume.frwikiTitle);
+        if (extract) return extract;
+      }
+      if (subtitle) return getVolumeDescription(seriesTitle, subtitle);
+      return undefined;
+    };
+    lookup()
       .then(extract => {
         if (!extract) return;
         setLocalDesc(extract);
@@ -490,6 +503,7 @@ export default function SeriesDetailScreen() {
                     <VolumeCard
                       key={vol.num}
                       volume={vol}
+                      seriesTitle={series.title}
                       isRead={isRead}
                       onToggle={() => handleToggle(vol.num)}
                       onEnrich={desc => updateVolumeDetail(series.id, vol.num, { description: desc })}

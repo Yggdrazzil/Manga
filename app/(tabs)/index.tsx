@@ -21,6 +21,7 @@ import { useLibraryStore } from '@/lib/store/library';
 import { Typography } from '@/components/ui/Typography';
 import { BORDERS, COLORS, FONTS, RADIUS, SPACING, themedStyles } from '@/constants/theme';
 import type { LibraryEntry, MangaChapter } from '@/lib/types';
+import { coverSource } from '@/lib/utils/images';
 
 const TAB_BAR_HEIGHT = 88;
 
@@ -83,14 +84,14 @@ function TrackerCard({ entry, index }: { entry: LibraryEntry; index: number }) {
         style={({ pressed }) => [styles.tvCard, pressed && styles.tvCardPressed]}
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          router.push(`/manga/${entry.mangaId}?source=${entry.source}` as never);
+          router.push(`/manga/${encodeURIComponent(entry.mangaId)}?source=${encodeURIComponent(entry.source)}` as never);
         }}
         accessibilityRole="button"
         accessibilityLabel={entry.manga.title.userPreferred}
       >
         <View style={styles.tvCoverWrap}>
           {entry.manga.coverImage ? (
-            <Image source={{ uri: entry.manga.coverImage }} style={styles.tvCover} contentFit="cover" cachePolicy="memory-disk" />
+            <Image source={coverSource(entry.manga.coverImage)} style={styles.tvCover} contentFit="cover" cachePolicy="memory-disk" />
           ) : (
             <View style={[styles.tvCover, styles.tvCoverEmpty]}>
               <Ionicons name="book" size={22} color={COLORS.textInkMuted} />
@@ -101,7 +102,7 @@ function TrackerCard({ entry, index }: { entry: LibraryEntry; index: number }) {
         <View style={styles.tvBody}>
           <Pressable
             style={styles.tvTitlePill}
-            onPress={() => router.push(`/manga/${entry.mangaId}?source=${entry.source}` as never)}
+            onPress={() => router.push(`/manga/${encodeURIComponent(entry.mangaId)}?source=${encodeURIComponent(entry.source)}` as never)}
             hitSlop={4}
           >
             <Typography variant="caption" style={styles.tvTitlePillText} numberOfLines={1}>
@@ -163,12 +164,12 @@ function ChapterCard({
         style={({ pressed }) => [styles.tvCard, pressed && styles.tvCardPressed]}
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          router.push(`/manga/${entry.mangaId}?source=${entry.source}` as never);
+          router.push(`/manga/${encodeURIComponent(entry.mangaId)}?source=${encodeURIComponent(entry.source)}` as never);
         }}
       >
         <View style={styles.tvCoverWrap}>
           {entry.manga.coverImage ? (
-            <Image source={{ uri: entry.manga.coverImage }} style={styles.tvCover} contentFit="cover" cachePolicy="memory-disk" />
+            <Image source={coverSource(entry.manga.coverImage)} style={styles.tvCover} contentFit="cover" cachePolicy="memory-disk" />
           ) : (
             <View style={[styles.tvCover, styles.tvCoverEmpty]}>
               <Ionicons name="book" size={22} color={COLORS.textInkMuted} />
@@ -179,7 +180,7 @@ function ChapterCard({
         <View style={styles.tvBody}>
           <Pressable
             style={styles.tvTitlePill}
-            onPress={() => router.push(`/manga/${entry.mangaId}?source=${entry.source}` as never)}
+            onPress={() => router.push(`/manga/${encodeURIComponent(entry.mangaId)}?source=${encodeURIComponent(entry.source)}` as never)}
             hitSlop={4}
           >
             <Typography variant="caption" style={styles.tvTitlePillText} numberOfLines={1}>

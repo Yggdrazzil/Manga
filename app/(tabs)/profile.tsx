@@ -27,6 +27,7 @@ import { Typography } from '@/components/ui/Typography';
 import { AvatarPicker } from '@/components/profile/AvatarPicker';
 import { BannerPicker } from '@/components/profile/BannerPicker';
 import { Ionicons } from '@expo/vector-icons';
+import { coverSource } from '@/lib/utils/images';
 
 const TAB_BAR_HEIGHT = 88;
 
@@ -172,14 +173,14 @@ function HistoryRow({ entry }: { entry: LibraryEntry }) {
 
   return (
     <Pressable
-      onPress={() => router.push(`/manga/${entry.mangaId}?source=${entry.source}`)}
+      onPress={() => router.push(`/manga/${encodeURIComponent(entry.mangaId)}?source=${encodeURIComponent(entry.source)}`)}
       onLongPress={confirmRemove}
     >
       <Panel variant="paper" bordered style={styles.row}>
         <View style={styles.rowInner}>
           <View style={styles.rowCoverFrame}>
             <Image
-              source={{ uri: entry.manga.coverImage }}
+              source={coverSource(entry.manga.coverImage)}
               style={styles.rowCover}
               contentFit="cover"
               cachePolicy="memory-disk"
@@ -370,7 +371,7 @@ export default function ProfileScreen() {
         key: `m-${e.mangaId}-${e.source}`,
         title: e.manga.title.english ?? e.manga.title.userPreferred,
         cover: e.manga.coverImage as string | undefined,
-        href: `/manga/${e.mangaId}?source=${e.source}`,
+        href: `/manga/${encodeURIComponent(e.mangaId)}?source=${encodeURIComponent(e.source)}`,
         updatedAt: e.updatedAt,
       }));
     const bdFavs = bdEntries
@@ -524,7 +525,7 @@ export default function ProfileScreen() {
                   >
                     <View style={styles.favCoverFrame}>
                       {fav.cover ? (
-                        <Image source={{ uri: fav.cover }} style={styles.favCover} contentFit="cover" cachePolicy="memory-disk" />
+                        <Image source={coverSource(fav.cover)} style={styles.favCover} contentFit="cover" cachePolicy="memory-disk" />
                       ) : (
                         <View style={[styles.favCover, styles.favCoverEmpty]}>
                           <Ionicons name="book" size={20} color={COLORS.textInkMuted} />

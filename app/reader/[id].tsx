@@ -436,7 +436,7 @@ export default function ReaderScreen() {
     if (!nextChapter) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     router.replace(
-      `/reader/${nextChapter.id}?chapter=${encodeURIComponent(nextChapter.chapter ?? '')}&title=${encodeURIComponent(nextChapter.title ?? '')}&entryMangaId=${encodeURIComponent(entryMangaId ?? '')}&source=${encodeURIComponent(source ?? '')}&pagesSource=${encodeURIComponent(feedSource ?? '')}&mangaTitle=${encodeURIComponent(mangaTitle ?? '')}` as never,
+      `/reader/${encodeURIComponent(nextChapter.id)}?chapter=${encodeURIComponent(nextChapter.chapter ?? '')}&title=${encodeURIComponent(nextChapter.title ?? '')}&entryMangaId=${encodeURIComponent(entryMangaId ?? '')}&source=${encodeURIComponent(source ?? '')}&pagesSource=${encodeURIComponent(feedSource ?? '')}&mangaTitle=${encodeURIComponent(mangaTitle ?? '')}` as never,
     );
   }, [nextChapter, router, entryMangaId, source, feedSource, mangaTitle]);
 

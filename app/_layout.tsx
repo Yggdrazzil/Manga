@@ -94,7 +94,7 @@ export default function RootLayout() {
         | { mangaId?: string; source?: string }
         | undefined;
       if (data?.mangaId && data?.source) {
-        router.push(`/manga/${data.mangaId}?source=${data.source}` as never);
+        router.push(`/manga/${encodeURIComponent(data.mangaId)}?source=${encodeURIComponent(data.source)}` as never);
       }
     });
 

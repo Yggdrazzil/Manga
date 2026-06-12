@@ -2,11 +2,8 @@
  * Google Books API — French synopses + cover images
  *
  * Best free source for French-language BD descriptions (4e de couverture).
- * Requires a free API key: console.cloud.google.com → enable Books API → create key
- * Set as EXPO_PUBLIC_GOOGLE_BOOKS_KEY in your .env.local and as an EAS secret.
- *
- * Without a key: requests fail silently (descriptions left empty).
- * Daily quota: 1 000 req/day on the free tier.
+ * Works without a key (shared anonymous quota); set a free API key as
+ * EXPO_PUBLIC_GOOGLE_BOOKS_KEY for a dedicated 1 000 req/day quota.
  */
 
 const BASE = 'https://www.googleapis.com/books/v1/volumes';
@@ -30,15 +27,14 @@ export interface GBItem {
   };
 }
 
-export async function searchGoogleBooksSeries(seriesTitle: string): Promise<GBItem[]> {
-  if (!API_KEY) return [];
-
+async function queryGB(q: string, maxResults: number): Promise<GBItem[]> {
   const params = new URLSearchParams({
-    q: `intitle:${seriesTitle}`,
+    q,
     country: 'FR',
-    maxResults: '40',
-    key: API_KEY,
+    langRestrict: 'fr',
+    maxResults: String(maxResults),
   });
+  if (API_KEY) params.set('key', API_KEY);
 
   try {
     const res = await fetch(`${BASE}?${params}`);
@@ -49,4 +45,23 @@ export async function searchGoogleBooksSeries(seriesTitle: string): Promise<GBIt
   } catch {
     return [];
   }
+}
+
+export async function searchGoogleBooksSeries(seriesTitle: string): Promise<GBItem[]> {
+  return queryGB(`intitle:${seriesTitle}`, 40);
+}
+
+/**
+ * Targeted lookup for one album's synopsis (lazy, on card expand).
+ * The episode title is the strongest discriminator; the series title keeps
+ * homonyms away.
+ */
+export async function getVolumeDescription(
+  seriesTitle: string,
+  episodeTitle: string,
+): Promise<string | undefined> {
+  if (!episodeTitle) return undefined;
+  const items = await queryGB(`"${seriesTitle}" intitle:"${episodeTitle}"`, 5);
+  const withDesc = items.find(it => (it.volumeInfo.description ?? '').length > 40);
+  return withDesc?.volumeInfo.description ?? undefined;
 }

@@ -37,6 +37,7 @@ import { Typography } from '@/components/ui/Typography';
 import { ChapterList } from '@/components/manga/ChapterList';
 import { BORDERS, COLORS, FONTS, RADIUS, SPACING, STATUS_LABELS, inkScrim, themedStyles } from '@/constants/theme';
 import type { Manga, MangaChapter, MangaCharacter, ReadingStatus } from '@/lib/types';
+import { coverSource } from '@/lib/utils/images';
 
 const STATUSES: ReadingStatus[] = ['READING', 'PLAN_TO_READ', 'COMPLETED', 'PAUSED', 'DROPPED'];
 
@@ -452,7 +453,7 @@ export default function MangaDetailScreen() {
         {/* Ink hero */}
         <View style={styles.hero}>
           <Image
-            source={{ uri: manga.bannerImage ?? manga.coverImage }}
+            source={coverSource(manga.bannerImage ?? manga.coverImage)}
             style={StyleSheet.absoluteFillObject}
             contentFit="cover"
             cachePolicy="memory-disk"
@@ -725,13 +726,13 @@ function RecommendationRail({ recommendations }: { recommendations: Manga[] }) {
             style={({ pressed }) => [styles.recCard, pressed && { opacity: 0.8 }]}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              router.push(`/manga/${rec.id}?source=${rec.source}` as never);
+              router.push(`/manga/${encodeURIComponent(rec.id)}?source=${encodeURIComponent(rec.source)}` as never);
             }}
             accessibilityRole="button"
             accessibilityLabel={rec.title.userPreferred}
           >
             <View style={styles.recCoverFrame}>
-              <Image source={{ uri: rec.coverImage }} style={styles.recCover} contentFit="cover" cachePolicy="memory-disk" />
+              <Image source={coverSource(rec.coverImage)} style={styles.recCover} contentFit="cover" cachePolicy="memory-disk" />
             </View>
             <Typography variant="caption" color={COLORS.textInk} numberOfLines={2} style={styles.recTitle}>
               {rec.title.english ?? rec.title.userPreferred}

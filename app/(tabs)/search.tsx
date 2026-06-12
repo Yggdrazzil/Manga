@@ -36,6 +36,7 @@ import { Typography } from '@/components/ui/Typography';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { BORDERS, COLORS, FONTS, RADIUS, SPACING, TYPE_LABELS, themedStyles } from '@/constants/theme';
 import type { Manga, MediaType } from '@/lib/types';
+import { coverSource } from '@/lib/utils/images';
 
 const TAB_BAR_HEIGHT = 88;
 
@@ -234,11 +235,11 @@ function ResultCard({
   const handleCardPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (result.kind === 'manga') {
-      router.push(`/manga/${result.data.id}?source=${result.data.source}` as never);
+      router.push(`/manga/${encodeURIComponent(result.data.id)}?source=${encodeURIComponent(result.data.source)}` as never);
     } else {
       const sid = seriesKeyFromTitle(title);
       const seriesTitle = seriesTitleFromFull(title);
-      router.push(`/comic/${sid}?title=${encodeURIComponent(seriesTitle)}` as never);
+      router.push(`/comic/${encodeURIComponent(sid)}?title=${encodeURIComponent(seriesTitle)}` as never);
     }
   };
 
@@ -270,7 +271,7 @@ function ResultCard({
       >
         <View style={styles.coverFrame}>
           {coverUri ? (
-            <Image source={{ uri: coverUri }} style={styles.cover} contentFit="cover" cachePolicy="memory-disk" />
+            <Image source={coverSource(coverUri)} style={styles.cover} contentFit="cover" cachePolicy="memory-disk" />
           ) : (
             <View style={[styles.cover, styles.coverEmpty]}>
               <Ionicons name="book" size={22} color={COLORS.textInkMuted} />
@@ -444,14 +445,14 @@ function SearchDiscovery({ onPickQuery }: { onPickQuery: (q: string) => void }) 
                   style={({ pressed }) => pressed && { opacity: 0.8, transform: [{ scale: 0.97 }] }}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    router.push(`/manga/${m.id}?source=${m.source}` as never);
+                    router.push(`/manga/${encodeURIComponent(m.id)}?source=${encodeURIComponent(m.source)}` as never);
                   }}
                   accessibilityRole="button"
                   accessibilityLabel={m.title.userPreferred}
                 >
                   <View style={styles.trendingCoverFrame}>
                     <Image
-                      source={{ uri: m.coverImage }}
+                      source={coverSource(m.coverImage)}
                       style={styles.trendingCover}
                       contentFit="cover"
                       cachePolicy="memory-disk"
