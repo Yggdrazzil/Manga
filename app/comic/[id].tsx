@@ -72,8 +72,10 @@ function VolumeCard({
         onEnrich?.(extract);
       })
       .finally(() => setFetchingDesc(false));
+    // frwikiTitle / subtitle included so the effect re-fires when a background
+    // refreshSeries populates these after the card was already expanded.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [expanded]);
+  }, [expanded, volume.frwikiTitle, subtitle]);
 
   return (
     <View style={[styles.volumeCard, isRead && styles.volumeCardRead]}>

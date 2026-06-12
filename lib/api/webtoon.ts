@@ -249,16 +249,25 @@ export async function getChapterPages(chapterId: string): Promise<string[]> {
   }
 
   // Episode images: <img class="_images" data-url="https://...">
-  // data-url is in the static HTML; src is a transparent placeholder until JS runs.
-  const imageUrls = [
-    ...html.matchAll(/data-url="(https:\/\/[^"]+)"/g),
-  ]
-    .map(m => m[1])
-    .filter(u => !u.includes('bg_transparency') && !u.includes('placeholder'));
+  // data-url is in the static HTML for Originals; Canvas episodes load images
+  // via JS — the static HTML only has non-panel data-url attributes (carousels,
+  // covers) that would show the wrong repeated image. Restrict to _images class.
+  const imageUrls: string[] = [];
+  for (const m of html.matchAll(/<img\b[^>]+>/g)) {
+    const tag = m[0];
+    if (!tag.includes('_images')) continue;
+    const urlMatch = /\bdata-url="(https?:\/\/[^"]+)"/.exec(tag);
+    if (urlMatch && !urlMatch[1].includes('bg_transparency')) {
+      imageUrls.push(urlMatch[1]);
+    }
+  }
 
   if (imageUrls.length === 0) {
+    const isCanvas = chapterId.includes('/canvas/');
     throw new Error(
-      'Webtoon: aucune image trouvée. Ce contenu nécessite peut-être une connexion ou a changé de format.',
+      isCanvas
+        ? "Webtoon Canvas : les images de cet épisode ne sont pas disponibles dans le lecteur intégré. Utilisez l'application officielle Webtoon."
+        : 'Webtoon: aucune image trouvée. Ce contenu nécessite peut-être une connexion ou a changé de format.',
     );
   }
 

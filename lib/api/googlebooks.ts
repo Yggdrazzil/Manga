@@ -54,14 +54,28 @@ export async function searchGoogleBooksSeries(seriesTitle: string): Promise<GBIt
 /**
  * Targeted lookup for one album's synopsis (lazy, on card expand).
  * The episode title is the strongest discriminator; the series title keeps
- * homonyms away.
+ * homonyms away. Does NOT apply langRestrict — Google's language classification
+ * is unreliable for French BD and would filter out valid results.
  */
 export async function getVolumeDescription(
   seriesTitle: string,
   episodeTitle: string,
 ): Promise<string | undefined> {
   if (!episodeTitle) return undefined;
-  const items = await queryGB(`"${seriesTitle}" intitle:"${episodeTitle}"`, 5);
-  const withDesc = items.find(it => (it.volumeInfo.description ?? '').length > 40);
-  return withDesc?.volumeInfo.description ?? undefined;
+  const params = new URLSearchParams({
+    q: `"${seriesTitle}" intitle:"${episodeTitle}"`,
+    country: 'FR',
+    maxResults: '5',
+  });
+  if (API_KEY) params.set('key', API_KEY);
+  try {
+    const res = await fetch(`${BASE}?${params}`);
+    if (!res.ok) return undefined;
+    const data = await res.json() as { items?: GBItem[]; error?: unknown };
+    if (data.error) return undefined;
+    const withDesc = (data.items ?? []).find(it => (it.volumeInfo.description ?? '').length > 20);
+    return withDesc?.volumeInfo.description ?? undefined;
+  } catch {
+    return undefined;
+  }
 }
