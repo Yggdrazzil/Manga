@@ -251,6 +251,11 @@ export default function MangaTrackerScreen() {
     const notStarted: LibraryEntry[] = [];
     const now = Date.now();
     for (const e of entries) {
+      // Works shelved as "À lire" (plan-to-read) queue up under Pas commencé
+      if (e.status === 'PLAN_TO_READ') {
+        notStarted.push(e);
+        continue;
+      }
       if (e.status !== 'READING') continue;
       const started = e.progress > 0 || (e.readChapterIds?.length ?? 0) > 0;
       if (!started) notStarted.push(e);
@@ -387,7 +392,7 @@ export default function MangaTrackerScreen() {
             keyExtractor={item => `${item.mangaId}-${item.source}`}
             renderSectionHeader={({ section }) => <SectionHeader title={section.title} />}
             renderItem={({ item, index }) => <TrackerCard entry={item} index={index} />}
-            stickySectionHeadersEnabled={false}
+            stickySectionHeadersEnabled
             showsVerticalScrollIndicator={false}
             contentContainerStyle={[styles.listContent, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom }]}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accentRed} colors={[COLORS.accentRed]} />}
@@ -435,6 +440,7 @@ export default function MangaTrackerScreen() {
               if (!entry) return null;
               return <ChapterCard chapter={item} entry={entry} index={index} />;
             }}
+            stickySectionHeadersEnabled
             showsVerticalScrollIndicator={false}
             contentContainerStyle={[styles.listContent, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom }]}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accentRed} colors={[COLORS.accentRed]} />}
@@ -487,21 +493,27 @@ const styles = themedStyles(() => StyleSheet.create({
     borderRadius: 1,
   },
 
-  listContent: { paddingTop: SPACING.sm },
-  tabPane: { flex: 1 },
+  listContent: { paddingTop: SPACING.md },
+  // TV Time-style contrast: raised cards float on a sunken pane
+  tabPane: { flex: 1, backgroundColor: COLORS.paperSunken },
 
   // TV Time card
   tvCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: SPACING.base,
-    paddingVertical: SPACING.md,
+    marginHorizontal: SPACING.base,
+    marginBottom: SPACING.md,
+    padding: SPACING.md,
     gap: SPACING.md,
-    borderBottomWidth: BORDERS.hair,
-    borderBottomColor: COLORS.line,
-    backgroundColor: COLORS.paper,
+    borderRadius: RADIUS.lg,
+    backgroundColor: COLORS.paperRaised,
+    shadowColor: COLORS.ink,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.07,
+    shadowRadius: 10,
+    elevation: 2,
   },
-  tvCardPressed: { backgroundColor: COLORS.paperSunken },
+  tvCardPressed: { backgroundColor: COLORS.paper },
   tvCoverWrap: {
     borderRadius: RADIUS.sm,
     borderWidth: BORDERS.bold,
