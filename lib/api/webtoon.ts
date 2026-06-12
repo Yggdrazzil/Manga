@@ -6,7 +6,9 @@ import { logger } from '../utils/logger';
 // Tower of God, True Beauty, The God of High School, etc.
 // No JSON API: reader page HTML has img[data-url] for episode images.
 const BASE = 'https://www.webtoons.com';
-const CACHE_DIR = 'webtoon-pages';
+// v2: v1 entries could hold wrong images (episode-list thumbnails) under
+// index-only filenames — never reuse them.
+const CACHE_DIR = 'webtoon-pages-v2';
 
 const HEADERS: Record<string, string> = {
   'User-Agent':
@@ -240,6 +242,12 @@ function pageDir(chapterId: string): Directory {
   return new Directory(Paths.cache, CACHE_DIR, safe);
 }
 
+function urlHash(url: string): string {
+  let h = 0;
+  for (let i = 0; i < url.length; i++) h = (h * 31 + url.charCodeAt(i)) >>> 0;
+  return h.toString(36);
+}
+
 export async function getChapterPages(chapterId: string): Promise<string[]> {
   let html: string;
   try {
@@ -248,10 +256,10 @@ export async function getChapterPages(chapterId: string): Promise<string[]> {
     throw new Error(`Webtoon: impossible de charger ce chapitre. ${String(e)}`);
   }
 
-  // Episode images: <img class="_images" data-url="https://...">
-  // data-url is in the static HTML for Originals; Canvas episodes load images
-  // via JS — the static HTML only has non-panel data-url attributes (carousels,
-  // covers) that would show the wrong repeated image. Restrict to _images class.
+  // Episode panels: <img class="_images" data-url="https://...">, present in
+  // the static HTML for Originals AND Canvas. The page also carries data-url
+  // on episode-list thumbnails (160px) — matching those shows the same
+  // pixelated cover N times. Restrict to the _images class.
   const imageUrls: string[] = [];
   for (const m of html.matchAll(/<img\b[^>]+>/g)) {
     const tag = m[0];
@@ -263,11 +271,9 @@ export async function getChapterPages(chapterId: string): Promise<string[]> {
   }
 
   if (imageUrls.length === 0) {
-    const isCanvas = chapterId.includes('/canvas/');
+    // Happens for mature-gated episodes (login wall) — not for regular Canvas.
     throw new Error(
-      isCanvas
-        ? "Webtoon Canvas : les images de cet épisode ne sont pas disponibles dans le lecteur intégré. Utilisez l'application officielle Webtoon."
-        : 'Webtoon: aucune image trouvée. Ce contenu nécessite peut-être une connexion ou a changé de format.',
+      'Webtoon : cet épisode nécessite une connexion sur webtoons.com (contenu restreint).',
     );
   }
 
@@ -281,7 +287,9 @@ export async function getChapterPages(chapterId: string): Promise<string[]> {
   const worker = async () => {
     while (next < imageUrls.length) {
       const i = next++;
-      const file = new File(dir, `${String(i).padStart(3, '0')}.jpg`);
+      // Filename keyed on the source URL: a cache entry written by an earlier
+      // (buggy or outdated) extraction can never be served for a new URL.
+      const file = new File(dir, `${String(i).padStart(3, '0')}_${urlHash(imageUrls[i])}.jpg`);
       if (!file.exists) {
         const res = await fetch(imageUrls[i], { headers: HEADERS });
         if (!res.ok) throw new Error(`Webtoon image ${i}: ${res.status}`);
