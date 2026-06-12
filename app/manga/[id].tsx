@@ -306,14 +306,18 @@ export default function MangaDetailScreen() {
     !isSelfSourced &&
     mdResolveDone &&
     (effectiveMdId ? chapters != null && !primaryHasReadable : true);
-  const { data: fallbackFeed } = useQuery({
+  const fallbackQuery = useQuery({
     queryKey: ['reading-fallback', manga?.source, manga?.id, readLang],
     queryFn: () => resolveFallbackFeed(manga!, langParam),
     enabled: needFallback,
     staleTime: 1000 * 60 * 30,
   });
+  const fallbackFeed = fallbackQuery.data;
   const fallbackInUse = needFallback && !!fallbackFeed;
-  const fallbackPending = needFallback && fallbackFeed === undefined;
+  // Resolved with `null` (nothing found) ≠ still loading — only the latter
+  // should hold the tab open.
+  const fallbackPending =
+    needFallback && fallbackFeed === undefined && !fallbackQuery.isError;
 
   // Characters + recommendations rails (AniList catalogue only)
   const { data: extras } = useQuery({
@@ -382,6 +386,7 @@ export default function MangaDetailScreen() {
   // so it doesn't flash in and out before settling.
   const showChaptersTab = displayChapters.some(ch => ch.isReadable)
     || (chaptersEnabled && chapters == null)
+    || (!!manga && !isSelfSourced && !mdResolveDone)
     || fallbackPending;
   const totalChapters = displayChapters.length || manga?.chapters || 0;
 

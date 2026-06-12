@@ -415,7 +415,10 @@ export default function ReaderScreen() {
     },
   ).current;
 
-  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 50 }).current;
+  // viewAreaCoveragePercentThreshold: measures % of the VIEWPORT the item covers,
+  // not % of the item that is visible. Tall webtoon/MangaPlus strips easily cover
+  // 100 % of the viewport even though < 50 % of the strip itself is on screen.
+  const viewabilityConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current;
 
   const handleResume = useCallback(() => {
     setResumeVisible(false);

@@ -74,7 +74,11 @@ interface MPPage {
 
 interface MPResponse {
   success?: {
-    allTitlesViewV2?: { allTitlesGroup?: Array<{ titles?: MPTitle[] }> };
+    // The JSON casing of this key has flipped between API revisions.
+    allTitlesViewV2?: {
+      allTitlesGroup?: Array<{ titles?: MPTitle[] }>;
+      AllTitlesGroup?: Array<{ titles?: MPTitle[] }>;
+    };
     titleDetailView?: MPTitleDetailView;
     mangaViewer?: { pages?: MPPage[] };
   };
@@ -142,7 +146,8 @@ async function getAllTitles(): Promise<MPTitle[]> {
     return allTitlesCache.titles;
   }
   const data = await fetchMP<MPResponse>('/title_list/allV2');
-  const groups = data.success?.allTitlesViewV2?.allTitlesGroup ?? [];
+  const view = data.success?.allTitlesViewV2;
+  const groups = view?.allTitlesGroup ?? view?.AllTitlesGroup ?? [];
   const titles = groups.flatMap(g => g.titles ?? []);
   allTitlesCache = { at: Date.now(), titles };
   return titles;

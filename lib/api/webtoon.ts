@@ -113,18 +113,21 @@ export async function searchManga(
     const items: Manga[] = [];
     const seen = new Set<string>();
 
-    // Each result card has an anchor pointing to the series list page:
-    // href="/en/{genre}/{slug}/list?title_no={N}"
-    const linkRe = /href="\/en\/([a-zA-Z0-9-]+)\/([a-zA-Z0-9-]+)\/list\?title_no=(\d+)"/g;
+    // Each result card has an anchor pointing to the series list page —
+    // relative or absolute depending on the page revision:
+    // href="[https://www.webtoons.com]/en/{genre}/{slug}/list?title_no={N}"
+    const linkRe =
+      /href="(?:https:\/\/www\.webtoons\.com)?\/en\/([a-zA-Z0-9-]+)\/([a-zA-Z0-9-]+)\/list\?title_no=(\d+)"/g;
     for (const m of html.matchAll(linkRe)) {
       const [, genre, slug, titleNo] = m;
       const id = makeId(titleNo, genre, slug);
       if (seen.has(id)) continue;
       seen.add(id);
 
-      // Narrow the search to the card surrounding this link
+      // Narrow the search to this card: title/author/thumbnail all come after
+      // the anchor — looking backwards would catch the previous card's title.
       const idx = m.index ?? 0;
-      const card = html.slice(Math.max(0, idx - 300), idx + 700);
+      const card = html.slice(idx, idx + 900);
 
       const title =
         pick(card, /<strong[^>]*>([^<]+)<\/strong>/) ||
@@ -179,7 +182,7 @@ export async function getTrackingChapters(id: string): Promise<MangaChapter[]> {
     return [];
   }
 
-  const pageNums = [...page1Html.matchAll(/&amp;page=(\d+)/g)].map(m =>
+  const pageNums = [...page1Html.matchAll(/title_no=\d+&(?:amp;)?page=(\d+)/g)].map(m =>
     parseInt(m[1]),
   );
   const maxPage = Math.min(pageNums.length > 0 ? Math.max(...pageNums) : 1, 50);
@@ -198,9 +201,9 @@ export async function getTrackingChapters(id: string): Promise<MangaChapter[]> {
   const seen = new Set<number>();
 
   for (const html of [page1Html, ...remainingHtmls]) {
-    // href="/en/{genre}/{slug}/{ep-slug}/viewer?title_no=N&amp;episode_no=E"
+    // href="[https://www.webtoons.com]/en/{genre}/{slug}/{ep-slug}/viewer?title_no=N&[amp;]episode_no=E"
     const epRe =
-      /href="(\/en\/[a-zA-Z0-9/_-]+\/viewer\?title_no=\d+&(?:amp;)?episode_no=(\d+))"/g;
+      /href="(?:https:\/\/www\.webtoons\.com)?(\/en\/[a-zA-Z0-9/_-]+\/viewer\?title_no=\d+&(?:amp;)?episode_no=(\d+))"/g;
     for (const m of html.matchAll(epRe)) {
       const epPath = decode(m[1]); // &amp; → &
       const episodeNo = parseInt(m[2]);

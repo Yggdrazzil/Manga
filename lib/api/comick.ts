@@ -1,6 +1,7 @@
 import type { Manga, MangaChapter, MediaType, OngoingStatus, PaginatedResult } from '../types';
 
-const BASE = 'https://api.comick.fun';
+// comick.fun's DNS is gone — the API now lives on comick.dev.
+const BASE = 'https://api.comick.dev';
 const CDN = 'https://meo.comick.pictures';
 
 // ── Raw Comick API types ──────────────────────────────────────────────────────
