@@ -98,6 +98,7 @@ export const useComicsStore = create<ComicsState>()(
                     subtitle: v.subtitle ?? old.subtitle,
                     description: v.description ?? old.description,
                     publisher: v.publisher ?? old.publisher,
+                    coverImage: v.coverImage ?? old.coverImage,
                   }
                 : v;
             });

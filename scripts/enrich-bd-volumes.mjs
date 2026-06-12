@@ -166,7 +166,11 @@ async function googleBooksDesc(seriesTitle, subtitle) {
   const hit = (data.items ?? []).find(
     it => (it.volumeInfo?.description ?? '').length > 40,
   );
-  return hit ? trim(hit.volumeInfo.description, 500) : null;
+  if (!hit) return null;
+  return {
+    desc: trim(hit.volumeInfo.description, 500),
+    cover: hit.volumeInfo.imageLinks?.thumbnail,
+  };
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
@@ -229,11 +233,12 @@ async function enrichVolume({ s, v }) {
     }
   }
 
-  // C. Google Books backcover text
+  // C. Google Books backcover text (+ thumbnail when offered)
   if (v.s) {
-    const desc = await googleBooksDesc(s.title, v.s);
-    if (desc) {
-      v.ds = desc;
+    const gb = await googleBooksDesc(s.title, v.s);
+    if (gb) {
+      v.ds = gb.desc;
+      if (gb.cover && !v.cv) v.cv = gb.cover;
       stats.gbooks++;
       return;
     }
@@ -253,6 +258,91 @@ for (let i = 0; i < todo.length; i += CONCURRENCY) {
 }
 
 writeFileSync(FILE, JSON.stringify(catalogue));
+console.log(`Synopses: direct=${stats.direct} search=${stats.searched} gbooks=${stats.gbooks} missed=${stats.missed}`);
+
+// ── Pass D: per-volume covers from Open Library ───────────────────────────────
+// fr.wikipedia almost never hosts album covers (copyright policy), but Open
+// Library does — under album titles ("Tintin en Amérique"), not "Tome N",
+// so we match docs to volumes by subtitle tokens, not volume numbers.
+
+const VOL_PATTERNS = [
+  /\btome\s+(\d+)/i,
+  /\bt\.\s*(\d+)/i,
+  /\bT0*(\d+)\b/,
+  /\bvol(?:ume)?\.?\s*(\d+)/i,
+  /#(\d+)/,
+];
+
+function extractVolNum(title) {
+  for (const p of VOL_PATTERNS) {
+    const m = title.match(p);
+    if (m?.[1]) {
+      const n = parseInt(m[1], 10);
+      if (n > 0 && n < 1000) return n;
+    }
+  }
+  return undefined;
+}
+
+// All subtitle tokens must appear in the doc title, with enough character
+// weight to be trustworthy (same rule as the app's subtitleMatchWeight).
+function subtitleWeight(subtitle, docTitle) {
+  const hay = new Set(tokens(docTitle));
+  const subToks = tokens(subtitle);
+  if (subToks.length === 0 || !subToks.every(t => hay.has(t))) return 0;
+  const weight = subToks.reduce((acc, t) => acc + t.length, 0);
+  return weight >= 10 ? weight : 0;
+}
+
+stats.covers = 0;
+
+async function coverPass(s) {
+  const missing = s.volumes.filter(v => !v.cv);
+  if (missing.length === 0) return;
+  const params = new URLSearchParams({
+    q: `${s.title} ${s.authors[0] ?? ''}`.trim(),
+    fields: 'key,title,cover_i',
+    limit: '100',
+  });
+  const data = await fetchJson(`https://openlibrary.org/search.json?${params}`);
+  const docs = (data?.docs ?? []).filter(d => d.cover_i && d.title);
+  if (docs.length === 0) return;
+
+  for (const v of missing) {
+    let best = null;
+    for (const doc of docs) {
+      if (extractVolNum(doc.title) === v.n) {
+        best = { doc, weight: 1000 };
+        break;
+      }
+      if (!v.s) continue;
+      const w = subtitleWeight(v.s, doc.title);
+      if (w > 0 && (!best || w > best.weight)) best = { doc, weight: w };
+    }
+    if (best) {
+      v.cv = `https://covers.openlibrary.org/b/id/${best.doc.cover_i}-L.jpg`;
+      stats.covers++;
+    }
+  }
+  // Series hero cover: tome 1 first, else any harvested cover
+  if (!s.cover) {
+    s.cover = (s.volumes.find(v => v.n === 1 && v.cv) ?? s.volumes.find(v => v.cv))?.cv;
+  }
+}
+
+const coverTodo = series.filter(s => s.volumes.some(v => !v.cv));
+console.log(`Cover pass: ${coverTodo.length} series…`);
+const COVER_CONCURRENCY = 6;
+for (let i = 0; i < coverTodo.length; i += COVER_CONCURRENCY) {
+  await Promise.all(coverTodo.slice(i, i + COVER_CONCURRENCY).map(coverPass));
+  if (i > 0 && i % 120 < COVER_CONCURRENCY) {
+    console.log(`  ${i}/${coverTodo.length}… (covers=${stats.covers})`);
+    writeFileSync(FILE, JSON.stringify(catalogue));
+  }
+  await sleep(150);
+}
+
+writeFileSync(FILE, JSON.stringify(catalogue));
 const size = (JSON.stringify(catalogue).length / 1024 / 1024).toFixed(1);
-console.log(`Done: direct=${stats.direct} search=${stats.searched} gbooks=${stats.gbooks} missed=${stats.missed}`);
+console.log(`Done: covers=${stats.covers}`);
 console.log(`Written ${FILE} (${size} MB)`);
