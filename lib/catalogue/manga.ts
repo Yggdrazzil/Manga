@@ -36,6 +36,7 @@ interface WebtoonCatEntry {
   a: string[];
   c: string;
   g: string;
+  d?: string;
 }
 
 interface MangaCatalogue { version: string; entries: MangaCatEntry[] }
@@ -117,6 +118,7 @@ function toWebtoonManga(e: WebtoonCatEntry): Manga {
     source: 'webtoon',
     title: { userPreferred: e.t, english: e.t },
     coverImage: e.c,
+    description: e.d,
     type: 'WEBTOON',
     genres: [e.g],
     tags: [],

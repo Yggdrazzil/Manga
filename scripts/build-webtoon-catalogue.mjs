@@ -116,13 +116,19 @@ async function enrich({ titleNo, genre, slug }, attempt = 0) {
     // author_area block nests markup and the plain "author" class also
     // appears in the recommendation rail (wrong series credits).
     const author = /property="com-linewebtoon:webtoon:author" content="([^"]+)"/.exec(html)?.[1];
-    return {
+    const desc = /property="og:description" content="([^"]+)"/.exec(html)?.[1];
+    const entry = {
       id,
       t: title ? decode(title) : slugToTitle(slug),
       a: author ? decode(author).split('/').map(s => s.trim()).filter(Boolean) : [],
       c: cover ?? '',
       g: genre,
     };
+    if (desc) {
+      const d = decode(desc);
+      entry.d = d.length > 400 ? `${d.slice(0, 400)}…` : d;
+    }
+    return entry;
   } catch (e) {
     if (attempt < 2) {
       await sleep((attempt + 1) * 3_000);

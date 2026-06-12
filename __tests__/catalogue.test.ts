@@ -51,6 +51,27 @@ describe('subtitleMatchWeight', () => {
   });
 });
 
+describe('per-volume enrichment', () => {
+  it('the Blake et Mortimer tome 12 compound subtitle has a harvested synopsis', () => {
+    // Regression for the "Résumé non disponible" report: the article is
+    // titled "Les Trois Formules…" while the subtitle says "Les 3 Formules…"
+    const bm = findCatalogueEntry('Blake et Mortimer');
+    const t12 = bm?.volumes.find(v => v.n === 12);
+    expect(t12?.ds).toBeTruthy();
+  });
+
+  it('a majority of catalogue volumes carry a pre-harvested synopsis', () => {
+    // Coverage floor — fails loudly if a CI refresh regresses enrichment
+    // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
+    const cat = require('../assets/bd-catalogue.json') as {
+      series: Array<{ volumes: Array<{ ds?: string }> }>;
+    };
+    const volumes = cat.series.flatMap(s => s.volumes);
+    const withDs = volumes.filter(v => v.ds).length;
+    expect(withDs / volumes.length).toBeGreaterThan(0.5);
+  });
+});
+
 describe('findParentSeriesInCatalogue', () => {
   it('resolves the long original Soviets title to the Tintin series', () => {
     expect(

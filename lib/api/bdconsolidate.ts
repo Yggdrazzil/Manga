@@ -174,6 +174,22 @@ export async function consolidateBDSeries(
     });
   }
 
+  // Layer 3b — bundled per-volume synopsis/cover (pre-harvested from
+  // Wikipedia FR & Google Books by scripts/enrich-bd-volumes.mjs)
+  if (catalogueEntry) {
+    for (const cv of catalogueEntry.volumes) {
+      const existing = map.get(cv.n);
+      if (!existing) continue;
+      if ((cv.ds && !existing.description) || (cv.cv && !existing.coverImage)) {
+        map.set(cv.n, {
+          ...existing,
+          description: existing.description || cv.ds,
+          coverImage: existing.coverImage || cv.cv,
+        });
+      }
+    }
+  }
+
   // Layer 4 — Google Books (FR descriptions + cover fallback)
   for (const [num, vol] of map) {
     const match = findGBMatch(gbItems, num, vol.subtitle);

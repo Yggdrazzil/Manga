@@ -15,6 +15,8 @@ export interface CatalogueVolume {
   s?: string;    // subtitle (French album title from Wikidata label)
   d?: string;    // ISO publication date
   w?: string;    // Wikipedia FR article title for per-volume synopsis
+  ds?: string;   // pre-harvested synopsis (Wikipedia FR / Google Books)
+  cv?: string;   // pre-harvested cover thumbnail URL
 }
 
 export interface CatalogueEntry {
@@ -145,6 +147,8 @@ export function catalogueToBDSeries(entry: CatalogueEntry): BDSeries {
     num: v.n,
     title: `${entry.title} tome ${v.n}`,
     subtitle: v.s,
+    description: v.ds,
+    coverImage: v.cv,
     publishedDate: v.d,
     authors: entry.authors,
     frwikiTitle: v.w,

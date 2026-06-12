@@ -26,6 +26,9 @@ jobs:
       - name: Build BD catalogue (Wikidata + Wikipedia FR)
         run: node scripts/build-bd-catalogue.mjs
 
+      - name: Enrich BD volumes (per-tome synopses + covers)
+        run: node scripts/enrich-bd-volumes.mjs
+
       - name: Build manga catalogue (AniList top 5000)
         run: node scripts/build-manga-catalogue.mjs
 

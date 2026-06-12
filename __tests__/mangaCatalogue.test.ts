@@ -75,6 +75,22 @@ describe('searchLocalWebtoons', () => {
   });
 });
 
+describe('webtoon synopses', () => {
+  it('Originals carry a harvested synopsis', () => {
+    const tog = searchLocalWebtoons('tower of god')[0];
+    expect(tog?.description).toBeTruthy();
+  });
+
+  it('nearly all entries have one (coverage floor for CI refreshes)', () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
+    const cat = require('../assets/webtoon-catalogue.json') as {
+      entries: Array<{ d?: string }>;
+    };
+    const withD = cat.entries.filter(e => e.d).length;
+    expect(withD / cat.entries.length).toBeGreaterThan(0.9);
+  });
+});
+
 describe('findLocalWebtoon', () => {
   it('resolves a compound id back to its entry', () => {
     const first = searchLocalWebtoons('tower of god')[0];
