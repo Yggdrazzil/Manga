@@ -167,6 +167,20 @@ LIMIT 6
   return { albums, authors };
 }
 
+export async function findParentSeriesTitle(albumTitle: string): Promise<string | undefined> {
+  const safe = albumTitle.replace(/"/g, '\\"');
+  const bindings = await runSparql(`
+SELECT ?seriesLabel WHERE {
+  ?album rdfs:label "${safe}"@fr ;
+         wdt:P179 ?series .
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "fr,en" . }
+}
+LIMIT 1
+`.trim());
+  const label = bindings[0]?.['seriesLabel']?.value;
+  return label && !/^Q\d+$/.test(label) ? label : undefined;
+}
+
 export async function searchWikidataAlbums(seriesTitle: string): Promise<WikidataAlbum[]> {
   const { albums } = await searchWikidataSeries(seriesTitle);
   return albums;

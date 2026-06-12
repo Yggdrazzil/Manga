@@ -20,7 +20,7 @@ import { searchBnFSeries } from './bnf';
 import { searchGoogleBooksSeries } from './googlebooks';
 import { searchSeriesVolumes, extractVolumeNumber, seriesKeyFromTitle } from './openlib';
 import { getWikipediaAlbumList, getWikipediaSeriesSummary } from './wikipedia';
-import { searchWikidataSeries } from './wikidata';
+import { findParentSeriesTitle, searchWikidataSeries } from './wikidata';
 
 // ── Google Books matcher ──────────────────────────────────────────────────────
 
@@ -62,6 +62,7 @@ function findGBMatch(
 export async function consolidateBDSeries(
   seriesTitle: string,
   authorHint?: string,
+  _resolved = false,
 ): Promise<BDSeries | null> {
   const seriesId = seriesKeyFromTitle(seriesTitle);
 
@@ -188,8 +189,19 @@ export async function consolidateBDSeries(
 
   const volumes = Array.from(map.values()).sort((a, b) => a.num - b.num);
 
-  // No source knows this series — don't fabricate an empty entry
-  if (volumes.length === 0) return null;
+  // No volumes found — the caller may have passed an individual album title
+  // (e.g. "Tintin en Amérique") instead of a series title. Ask Wikidata whether
+  // there is a P179 (part of the series) parent and retry once with that title.
+  // The _resolved guard prevents infinite recursion.
+  if (volumes.length === 0) {
+    if (!_resolved) {
+      const parent = await findParentSeriesTitle(seriesTitle);
+      if (parent && parent !== seriesTitle) {
+        return consolidateBDSeries(parent, authorHint, true);
+      }
+    }
+    return null;
+  }
 
   const totalVolumes = volumes[volumes.length - 1].num;
 
