@@ -251,10 +251,31 @@ console.log(`  ${enriched}/${withWiki.length} series enriched with synopsis/cove
 
 // Safety merge: never lose series the previous catalogue had just because a
 // flaky WDQS pass missed them this week. Old entries absent from this build
-// are carried over as-is.
+// are carried over as-is, and per-volume enrichment (ds/cv/w harvested by
+// enrich-bd-volumes.mjs, which accumulates Google Books results across weekly
+// runs) is preserved on rebuilt series.
 let finalSeries = series;
 try {
   const previous = JSON.parse(readFileSync(OUT, 'utf-8'));
+  const prevByQid = new Map((previous.series ?? []).map(s => [s.qid, s]));
+
+  let preserved = 0;
+  for (const s of series) {
+    const prev = prevByQid.get(s.qid);
+    if (!prev) continue;
+    const prevVols = new Map(prev.volumes.map(v => [v.n, v]));
+    for (const v of s.volumes) {
+      const pv = prevVols.get(v.n);
+      if (!pv) continue;
+      if (pv.ds && !v.ds) { v.ds = pv.ds; preserved++; }
+      if (pv.cv && !v.cv) v.cv = pv.cv;
+      if (pv.w && !v.w) v.w = pv.w;
+    }
+    if (prev.desc && !s.desc) s.desc = prev.desc;
+    if (prev.cover && !s.cover) s.cover = prev.cover;
+  }
+  if (preserved > 0) console.log(`Preserved ${preserved} previously harvested volume synopses.`);
+
   const currentQids = new Set(series.map(s => s.qid));
   const carried = (previous.series ?? []).filter(s => s.qid && !currentQids.has(s.qid));
   if (carried.length > 0) {

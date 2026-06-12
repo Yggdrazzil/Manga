@@ -108,21 +108,34 @@ async function wikiSummary(title) {
   };
 }
 
-// Homonym guard for search results: « Bone : La Forêt sans retour » is a
-// Telltale video game, not the album. Reject subjects that announce another
-// medium unless they also identify as bande dessinée.
+// Homonym guards. Sample audits caught real traps: « Bone : La Forêt sans
+// retour » (Telltale video game), « Blue Period » (the 1953 Miles Davis
+// album!). French BD album articles virtually always open with "est la Ne
+// histoire/tome/album de la série…" or "est une bande dessinée…".
 const WRONG_MEDIUM =
-  /jeu video|\bfilm\b|long metrage|serie televisee|telefilm|\broman\b|album studio|chanson|\bsingle\b|episode de|jeu de societe/;
+  /jeu video|\bfilm\b|long metrage|serie televisee|telefilm|\broman\b|album studio|chanson|\bsingle\b|episode de|jeu de societe|trompettiste|saxophoniste|pianiste|jazz|groupe de musique|discographie/;
 const IS_BD =
-  /bandes? dessinee|\bbd\b|\bbede\b|comic|manga|histoire de la serie|album de la serie|aventure de la serie/;
+  /bandes? dessinee|\bbd\b|\bbede\b|comic|manga|manhwa|histoire de la serie|tome de la serie|album de la serie|aventure de la serie|histoire des aventures|recit complet/;
 
 function stripAccents(s) {
   return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 }
 
+function probeOf(sum) {
+  return stripAccents(`${sum.shortDesc} ${(sum.desc ?? '').slice(0, 160)}`);
+}
+
+// Negative guard (Pass A — Wikidata sitelinks are usually right, only reject
+// when the subject announces another medium without any BD signal).
 function looksLikeWrongSubject(sum) {
-  const probe = stripAccents(`${sum.shortDesc} ${(sum.desc ?? '').slice(0, 140)}`);
+  const probe = probeOf(sum);
   return WRONG_MEDIUM.test(probe) && !IS_BD.test(probe);
+}
+
+// Positive guard (Pass B — search results must identify as BD; absence of a
+// wrong-medium marker is not enough, cf. the Miles Davis "Blue Period").
+function positivelyBD(sum) {
+  return IS_BD.test(probeOf(sum));
 }
 
 async function wikiSearch(query) {
@@ -175,15 +188,15 @@ const stats = { direct: 0, searched: 0, gbooks: 0, missed: 0 };
 
 async function enrichVolume({ s, v }) {
   // A. Known article (Wikidata sitelink). Even these can redirect to the
-  // series article (Pierre Tombal: "Tombe, la neige" → série) — a series
-  // extract is not a volume synopsis.
+  // series article (Pierre Tombal: "Tombe, la neige" → série) or point at a
+  // same-name adaptation (Bone T2 → the Telltale game).
   if (v.w) {
     const sum = await wikiSummary(v.w);
     const isSeriesRedirect =
       sum &&
       (sum.canonical === s.frwikiTitle ||
         tokens(sum.canonical).join(' ') === tokens(s.title).join(' '));
-    if (sum?.desc && !isSeriesRedirect) {
+    if (sum?.desc && !isSeriesRedirect && !looksLikeWrongSubject(sum)) {
       v.ds = sum.desc;
       if (sum.cover && !v.cv) v.cv = sum.cover;
       stats.direct++;
@@ -205,8 +218,9 @@ async function enrichVolume({ s, v }) {
         sum.canonical === s.frwikiTitle ||
         tokens(sum.canonical).join(' ') === tokens(s.title).join(' ')
       ) continue;
-      // Homonym about another medium (video game, novel, film…)
-      if (looksLikeWrongSubject(sum)) continue;
+      // Search hits must positively identify as BD — mere absence of a
+      // wrong-medium marker let the Miles Davis "Blue Period" through.
+      if (!positivelyBD(sum)) continue;
       v.ds = sum.desc;
       if (sum.cover && !v.cv) v.cv = sum.cover;
       if (!v.w) v.w = sum.canonical;
