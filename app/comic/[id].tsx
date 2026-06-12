@@ -16,6 +16,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { consolidateBDSeries } from '@/lib/api/bdconsolidate';
+import { catalogueToBDSeries, findCatalogueEntry, findParentSeriesInCatalogue, subtitleMatchWeight } from '@/lib/catalogue';
 import { getVolumeDescription } from '@/lib/api/googlebooks';
 import { getWikipediaSummaryByTitle } from '@/lib/api/wikipedia';
 import { useComicsStore } from '@/lib/store/comics';
@@ -220,26 +221,34 @@ export default function SeriesDetailScreen() {
     },
     enabled: !entry && !!seriesTitle,
     staleTime: 1000 * 60 * 10,
+    // Instant first paint from the bundled catalogue (tome list, dates,
+    // authors) while covers/synopses load from the live pipeline.
+    placeholderData: () => {
+      if (!seriesTitle) return undefined;
+      const direct = findCatalogueEntry(seriesTitle);
+      if (direct) return catalogueToBDSeries(direct);
+      const parent = findParentSeriesInCatalogue(seriesTitle);
+      const resolved = parent ? findCatalogueEntry(parent) : null;
+      return resolved ? catalogueToBDSeries(resolved) : undefined;
+    },
   });
 
   const series: BDSeries | undefined = entry?.series ?? fetchedSeries ?? undefined;
   const isLoading = !entry && loadingSeries;
 
   // Volume number to focus on (auto-scroll + auto-expand) when the user tapped
-  // a specific album in search results. Matches focusTitle against volume subtitles.
+  // a specific album in search results. Token matching handles long original
+  // titles whose volume subtitle isn't a contiguous substring.
   const focusTargetNum = useMemo(() => {
     if (!focusTitleParam || !series) return null;
-    const norm = (s: string) =>
-      s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '');
-    const needle = norm(focusTitleParam);
+    let best: { num: number; weight: number } | null = null;
     for (const vol of series.volumes) {
       if (!vol.subtitle) continue;
-      const hay = norm(vol.subtitle);
-      if (hay.length < 6) continue;
-      if (hay === needle) return vol.num;
-      if (needle.includes(hay) && hay.length >= 8) return vol.num;
+      const weight = subtitleMatchWeight(vol.subtitle, focusTitleParam);
+      if (weight === 0) continue;
+      if (!best || weight > best.weight) best = { num: vol.num, weight };
     }
-    return null;
+    return best?.num ?? null;
   }, [focusTitleParam, series]);
 
   const handleToggle = useCallback((volNum: number) => {

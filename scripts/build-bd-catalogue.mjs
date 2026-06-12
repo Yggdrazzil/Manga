@@ -64,10 +64,14 @@ function chunk(arr, size) {
 // ── Step 1: All French BD series ──────────────────────────────────────────────
 
 console.log('Step 1/3 — Fetching series list from Wikidata...');
+// Driven from the albums side: only series that actually have ordinal-numbered
+// albums (p:P179/pq:P1545) qualify. A naive "instance of comics" scan returns
+// mostly individual works and arbitrary truncation, not usable series.
 const seriesBindings = await runSparql(`
 SELECT DISTINCT ?series ?seriesLabel ?frwikiTitle WHERE {
+  ?album p:P179 ?st .
+  ?st ps:P179 ?series ; pq:P1545 ?ord .
   ?series wdt:P31/wdt:P279* wd:Q1004 .
-  FILTER(EXISTS { ?series rdfs:label ?l . FILTER(LANG(?l) = "fr") })
   OPTIONAL {
     ?article schema:about ?series ;
              schema:isPartOf <https://fr.wikipedia.org/> ;
@@ -75,7 +79,7 @@ SELECT DISTINCT ?series ?seriesLabel ?frwikiTitle WHERE {
   }
   SERVICE wikibase:label { bd:serviceParam wikibase:language "fr,en". }
 }
-LIMIT 3000
+LIMIT 5000
 `);
 
 /** @type {Map<string, {qid:string,title:string,frwikiTitle?:string,authors:string[],volumes:object[]}>} */

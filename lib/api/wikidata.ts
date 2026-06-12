@@ -168,6 +168,7 @@ LIMIT 6
 }
 
 export async function findParentSeriesTitle(albumTitle: string): Promise<string | undefined> {
+  // 1. Exact French label match (fast, single query)
   const safe = albumTitle.replace(/"/g, '\\"');
   const bindings = await runSparql(`
 SELECT ?seriesLabel WHERE {
@@ -177,8 +178,26 @@ SELECT ?seriesLabel WHERE {
 }
 LIMIT 1
 `.trim());
-  const label = bindings[0]?.['seriesLabel']?.value;
-  return label && !/^Q\d+$/.test(label) ? label : undefined;
+  const exact = bindings[0]?.['seriesLabel']?.value;
+  if (exact && !/^Q\d+$/.test(exact)) return exact;
+
+  // 2. Fuzzy fallback — wbsearchentities also matches aliases, catching
+  // original long titles like « Les Aventures de Tintin, reporter du "Petit
+  // Vingtième", au pays des Soviets » whose Wikidata label is just
+  // "Tintin au pays des Soviets".
+  const candidates = await findSeriesCandidates(albumTitle);
+  for (const qid of candidates.slice(0, 3)) {
+    const b = await runSparql(`
+SELECT ?seriesLabel WHERE {
+  wd:${qid} wdt:P179 ?series .
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "fr,en" . }
+}
+LIMIT 1
+`.trim());
+    const label = b[0]?.['seriesLabel']?.value;
+    if (label && !/^Q\d+$/.test(label)) return label;
+  }
+  return undefined;
 }
 
 export async function searchWikidataAlbums(seriesTitle: string): Promise<WikidataAlbum[]> {

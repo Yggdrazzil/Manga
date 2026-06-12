@@ -16,7 +16,7 @@
  */
 
 import type { BDSeries, BDVolume } from '../types';
-import { findCatalogueEntry, toCatalogueWikidataSeries } from '../catalogue';
+import { findCatalogueEntry, findParentSeriesInCatalogue, toCatalogueWikidataSeries } from '../catalogue';
 import { searchBnFSeries } from './bnf';
 import { searchGoogleBooksSeries } from './googlebooks';
 import { searchSeriesVolumes, extractVolumeNumber, seriesKeyFromTitle } from './openlib';
@@ -69,6 +69,18 @@ export async function consolidateBDSeries(
 
   // Local catalogue fast path: skip Wikidata SPARQL when we already have the data.
   const catalogueEntry = findCatalogueEntry(seriesTitle);
+
+  // The caller may have passed an individual album title (e.g. the long
+  // original « Les Aventures de Tintin, reporter du "Petit Vingtième", au pays
+  // des Soviets »). The catalogue resolves it to its parent series instantly —
+  // before wasting a full pipeline run that would come back empty.
+  if (!catalogueEntry && !_resolved) {
+    const parent = findParentSeriesInCatalogue(seriesTitle);
+    if (parent && parent !== seriesTitle) {
+      return consolidateBDSeries(parent, authorHint, true);
+    }
+  }
+
   const wdPromise = catalogueEntry
     ? Promise.resolve(toCatalogueWikidataSeries(catalogueEntry))
     : searchWikidataSeries(seriesTitle);
