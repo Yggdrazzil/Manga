@@ -4,7 +4,7 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { MotiView } from 'moti';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -37,14 +37,16 @@ function VolumeCard({
   isRead,
   onToggle,
   onEnrich,
+  defaultExpanded,
 }: {
   volume: BDVolume;
   seriesTitle: string;
   isRead: boolean;
   onToggle: () => void;
   onEnrich?: (description: string) => void;
+  defaultExpanded?: boolean;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(defaultExpanded ?? false);
   const [fetchingDesc, setFetchingDesc] = useState(false);
   const [localDesc, setLocalDesc] = useState<string | undefined>();
   const { subtitle, publisher } = volume;
@@ -163,7 +165,35 @@ function VolumeCard({
 export default function SeriesDetailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { id, title: titleParam } = useLocalSearchParams<{ id: string; title?: string }>();
+  const { id, title: titleParam, focusTitle: focusTitleParam } = useLocalSearchParams<{
+    id: string; title?: string; focusTitle?: string;
+  }>();
+
+  // Scroll-to-focused-album tracking
+  const scrollRef = useRef<ScrollView>(null);
+  const contentYRef = useRef(0);
+  const volumesSectionYRef = useRef(0);
+  const volumeGridYRef = useRef(0);
+  const focusCardYRef = useRef<number | null>(null);
+  const hasScrolledRef = useRef(false);
+  const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current); }, []);
+
+  const tryFocusScroll = useCallback(() => {
+    if (hasScrolledRef.current || focusCardYRef.current === null) return;
+    if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
+    scrollTimerRef.current = setTimeout(() => {
+      scrollTimerRef.current = null;
+      if (hasScrolledRef.current) return;
+      const y =
+        contentYRef.current +
+        volumesSectionYRef.current +
+        volumeGridYRef.current +
+        (focusCardYRef.current ?? 0);
+      scrollRef.current?.scrollTo({ y: Math.max(0, y - 100), animated: true });
+      hasScrolledRef.current = true;
+    }, 150);
+  }, []);
 
   const entry = useComicsStore(s => s.getEntry(id ?? ''));
   const addOrUpdateSeries = useComicsStore(s => s.addOrUpdateSeries);
@@ -194,6 +224,23 @@ export default function SeriesDetailScreen() {
 
   const series: BDSeries | undefined = entry?.series ?? fetchedSeries ?? undefined;
   const isLoading = !entry && loadingSeries;
+
+  // Volume number to focus on (auto-scroll + auto-expand) when the user tapped
+  // a specific album in search results. Matches focusTitle against volume subtitles.
+  const focusTargetNum = useMemo(() => {
+    if (!focusTitleParam || !series) return null;
+    const norm = (s: string) =>
+      s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '');
+    const needle = norm(focusTitleParam);
+    for (const vol of series.volumes) {
+      if (!vol.subtitle) continue;
+      const hay = norm(vol.subtitle);
+      if (hay.length < 6) continue;
+      if (hay === needle) return vol.num;
+      if (needle.includes(hay) && hay.length >= 8) return vol.num;
+    }
+    return null;
+  }, [focusTitleParam, series]);
 
   const handleToggle = useCallback((volNum: number) => {
     if (!series) return;
@@ -322,6 +369,7 @@ export default function SeriesDetailScreen() {
       )}
 
       <ScrollView
+        ref={scrollRef}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
       >
@@ -370,7 +418,7 @@ export default function SeriesDetailScreen() {
           </View>
         </View>
 
-        <View style={styles.content}>
+        <View style={styles.content} onLayout={e => { contentYRef.current = e.nativeEvent.layout.y; }}>
           {/* Tracking */}
           <MotiView
             from={{ opacity: 0, translateY: 16 }}
@@ -490,6 +538,7 @@ export default function SeriesDetailScreen() {
               from={{ opacity: 0, translateY: 12 }}
               animate={{ opacity: 1, translateY: 0 }}
               transition={{ type: 'spring', stiffness: 280, damping: 25, delay: 220 }}
+              onLayout={e => { volumesSectionYRef.current = e.nativeEvent.layout.y; }}
             >
               <View style={styles.sectionHeaderRow}>
                 <View style={styles.sectionMarker} />
@@ -498,18 +547,30 @@ export default function SeriesDetailScreen() {
                   Cochez pour marquer lu · tapez la carte pour le résumé
                 </Typography>
               </View>
-              <View style={styles.volumesGrid}>
+              <View
+                style={styles.volumesGrid}
+                onLayout={e => { volumeGridYRef.current = e.nativeEvent.layout.y; tryFocusScroll(); }}
+              >
                 {series.volumes.map(vol => {
                   const isRead = entry?.readVolumes.includes(vol.num) ?? false;
+                  const isTarget = focusTargetNum === vol.num;
                   return (
-                    <VolumeCard
+                    <View
                       key={vol.num}
-                      volume={vol}
-                      seriesTitle={series.title}
-                      isRead={isRead}
-                      onToggle={() => handleToggle(vol.num)}
-                      onEnrich={desc => updateVolumeDetail(series.id, vol.num, { description: desc })}
-                    />
+                      onLayout={isTarget ? e => {
+                        focusCardYRef.current = e.nativeEvent.layout.y;
+                        tryFocusScroll();
+                      } : undefined}
+                    >
+                      <VolumeCard
+                        volume={vol}
+                        seriesTitle={series.title}
+                        isRead={isRead}
+                        onToggle={() => handleToggle(vol.num)}
+                        onEnrich={desc => updateVolumeDetail(series.id, vol.num, { description: desc })}
+                        defaultExpanded={isTarget}
+                      />
+                    </View>
                   );
                 })}
               </View>

@@ -239,7 +239,8 @@ function ResultCard({
     } else {
       const sid = seriesKeyFromTitle(title);
       const seriesTitle = seriesTitleFromFull(title);
-      router.push(`/comic/${encodeURIComponent(sid)}?title=${encodeURIComponent(seriesTitle)}` as never);
+      const params = new URLSearchParams({ title: seriesTitle, focusTitle: title });
+      router.push(`/comic/${encodeURIComponent(sid)}?${params}` as never);
     }
   };
 
