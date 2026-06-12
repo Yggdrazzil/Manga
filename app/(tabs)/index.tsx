@@ -46,24 +46,32 @@ function isNew(dateStr: string): boolean {
   return diffH < 48;
 }
 
+// TV Time-style staleness: after a month without marking a chapter read, the
+// work drops from "À lire" to "Pas lu depuis un moment".
+const STALE_AFTER_MS = 1000 * 60 * 60 * 24 * 30;
+
+function lastReadTime(entry: LibraryEntry): number {
+  let max = 0;
+  for (const note of Object.values(entry.chapterData ?? {})) {
+    if (!note.readAt) continue;
+    const t = new Date(note.readAt).getTime();
+    if (t > max) max = t;
+  }
+  // Entries whose progress predates per-chapter readAt tracking fall back to
+  // the entry's last update.
+  return max > 0 ? max : new Date(entry.updatedAt).getTime();
+}
+
 // ── À LIRE card ───────────────────────────────────────────────────────────────
 
 function TrackerCard({ entry, index }: { entry: LibraryEntry; index: number }) {
   const router = useRouter();
-  const updateProgress = useLibraryStore(s => s.updateProgress);
   const progress = entry.progress;
   const total = entry.manga.chapters;
   // Single source of truth for display: the progress watermark
   const remaining = total != null ? Math.max(total - progress, 0) : null;
   const isNew0 = progress === 0;
   const isCaughtUp = total != null && progress >= total;
-
-  const handleQuickCheckIn = (e: { stopPropagation: () => void }) => {
-    e.stopPropagation();
-    if (isCaughtUp) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    updateProgress(entry.mangaId, entry.source, progress + 1);
-  };
 
   return (
     <MotiView
@@ -123,18 +131,8 @@ function TrackerCard({ entry, index }: { entry: LibraryEntry; index: number }) {
           </View>
         </View>
 
-        {isCaughtUp ? (
+        {isCaughtUp && (
           <Ionicons name="checkmark-circle" size={28} color={COLORS.statusCompleted} />
-        ) : (
-          <Pressable
-            onPress={handleQuickCheckIn}
-            hitSlop={10}
-            accessibilityRole="button"
-            accessibilityLabel={`Marquer le chapitre ${progress + 1} comme lu`}
-            style={({ pressed }) => [styles.quickCheckIn, pressed && { transform: [{ scale: 0.92 }] }]}
-          >
-            <Ionicons name="add-circle" size={30} color={COLORS.accentRed} />
-          </Pressable>
         )}
       </Pressable>
     </MotiView>
@@ -246,10 +244,29 @@ export default function MangaTrackerScreen() {
       : { opacity: 0, translateX: tab === 'voir' ? -16 : 16 };
 
   const entries = useLibraryStore(s => s.entries);
-  const readingEntries = useMemo(
-    () => entries.filter(e => e.status === 'READING').sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()),
-    [entries],
-  );
+  // TV Time grouping: active reads, stale reads (> 1 month), never started
+  const alireSections = useMemo(() => {
+    const active: LibraryEntry[] = [];
+    const stale: LibraryEntry[] = [];
+    const notStarted: LibraryEntry[] = [];
+    const now = Date.now();
+    for (const e of entries) {
+      if (e.status !== 'READING') continue;
+      const started = e.progress > 0 || (e.readChapterIds?.length ?? 0) > 0;
+      if (!started) notStarted.push(e);
+      else if (now - lastReadTime(e) > STALE_AFTER_MS) stale.push(e);
+      else active.push(e);
+    }
+    const byLastRead = (a: LibraryEntry, b: LibraryEntry) => lastReadTime(b) - lastReadTime(a);
+    active.sort(byLastRead);
+    stale.sort(byLastRead);
+    notStarted.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+    return [
+      { title: 'À LIRE', data: active },
+      { title: 'PAS LU DEPUIS UN MOMENT', data: stale },
+      { title: 'PAS COMMENCÉ', data: notStarted },
+    ].filter(s => s.data.length > 0);
+  }, [entries]);
 
   // Build MangaDex ID lookup for À venir
   const mangadexIdMap = useMemo(() => {
@@ -299,7 +316,7 @@ export default function MangaTrackerScreen() {
     setRefreshing(false);
   };
 
-  const isEmpty = readingEntries.length === 0;
+  const isEmpty = alireSections.length === 0;
   const avenirEmpty = avenir.length === 0 && !chaptersLoading;
 
   return (
@@ -365,15 +382,16 @@ export default function MangaTrackerScreen() {
             </Pressable>
           </ScrollView>
         ) : (
-          <ScrollView
+          <SectionList
+            sections={alireSections}
+            keyExtractor={item => `${item.mangaId}-${item.source}`}
+            renderSectionHeader={({ section }) => <SectionHeader title={section.title} />}
+            renderItem={({ item, index }) => <TrackerCard entry={item} index={index} />}
+            stickySectionHeadersEnabled={false}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={[styles.listContent, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom }]}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accentRed} colors={[COLORS.accentRed]} />}
-          >
-            {readingEntries.map((entry, i) => (
-              <TrackerCard key={`${entry.mangaId}-${entry.source}`} entry={entry} index={i} />
-            ))}
-          </ScrollView>
+          />
         )}
         </MotiView>
       )}
@@ -533,7 +551,6 @@ const styles = themedStyles(() => StyleSheet.create({
   tvBadgeReadable: { backgroundColor: COLORS.statusCompleted },
   tvBadgeText: { fontSize: 8, letterSpacing: 0.8, color: COLORS.onInk, fontFamily: FONTS.bodyBold },
   tvBadgeNewText: { color: COLORS.onInk },
-  quickCheckIn: { padding: SPACING.xs },
 
   // Section header
   sectionHeaderWrap: { alignItems: 'center', paddingVertical: SPACING.md },
