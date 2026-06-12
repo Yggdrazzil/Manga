@@ -188,10 +188,13 @@ function normalizeChapter(ch: CKChapter, mangaId: string): MangaChapter {
     chapter: ch.chap ?? '0',
     volume: ch.vol ?? undefined,
     title: ch.title ?? undefined,
-    pages: 0, // Comick doesn't return page count in feed; fetched lazily
+    pages: 0,
     publishAt: ch.created_at,
     translatedLanguage: ch.lang,
-    isReadable: true,
+    // Since the comick.dev migration the API serves metadata only — every
+    // image endpoint (/chapter/{hid}, /get_images, tachiyomi variant) returns
+    // empty arrays for all series. Chapters are trackable, not readable.
+    isReadable: false,
   };
 }
 
@@ -245,15 +248,20 @@ export async function getTrackingChapters(
 }
 
 export async function getChapterPages(hid: string): Promise<string[]> {
-  const data = await fetchCK<CKChapterDetail>(`/chapter/${hid}`);
+  const data = await fetchCK<CKChapterDetail>(`/chapter/${hid}`, { tachiyomi: 'true' });
   const images = data.chapter?.images ?? [];
 
-  return images.map(img => {
+  const urls = images.map(img => {
     // Prefer direct URL if present, fall back to CDN + b2key
     if (img.url && img.url.startsWith('http')) return img.url;
     if (img.b2key) return `${CDN}/${img.b2key}`;
     return img.url ?? '';
   }).filter(Boolean);
+
+  if (urls.length === 0) {
+    throw new Error('Comick ne fournit plus les pages de lecture (métadonnées uniquement).');
+  }
+  return urls;
 }
 
 export async function findComickId(title: string): Promise<string | null> {

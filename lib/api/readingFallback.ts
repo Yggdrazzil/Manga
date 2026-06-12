@@ -1,10 +1,11 @@
-import * as comick from './comick';
 import * as mangaplus from './mangaplus';
 import * as webtoon from './webtoon';
 import { logger } from '../utils/logger';
 import type { Manga, MangaChapter, MediaSource } from '../types';
 
-export type FallbackSource = Extract<MediaSource, 'mangaplus' | 'webtoon' | 'comick'>;
+// Comick is metadata-only since the comick.dev migration (no page images),
+// so it can't back a reading feed.
+export type FallbackSource = Extract<MediaSource, 'mangaplus' | 'webtoon'>;
 
 export interface FallbackFeed {
   source: FallbackSource;
@@ -50,12 +51,14 @@ const ADAPTERS: Record<
     chapters: id => mangaplus.getTrackingChapters(id),
   },
   webtoon: {
-    search: q => webtoon.searchManga(q, 1, 8),
+    // Canvas is user-generated: anyone can upload a comic named after a hit
+    // series (a fake "Solo leveling" with one episode of AoT pages exists).
+    // Only curated Originals are trustworthy as an identity match.
+    search: q =>
+      webtoon.searchManga(q, 1, 8).then(r => ({
+        items: r.items.filter(m => !m.id.includes(':canvas/')),
+      })),
     chapters: id => webtoon.getTrackingChapters(id),
-  },
-  comick: {
-    search: q => comick.searchManga(q, 1, 8),
-    chapters: (id, langParam) => comick.getTrackingChapters(id, langParam),
   },
 };
 
@@ -71,11 +74,9 @@ export async function resolveFallbackFeed(
   langParam?: string[],
 ): Promise<FallbackFeed | null> {
   const order: FallbackSource[] =
-    manga.countryOfOrigin === 'KR'
-      ? ['webtoon', 'comick', 'mangaplus']
-      : manga.countryOfOrigin === 'CN'
-        ? ['comick', 'webtoon', 'mangaplus']
-        : ['mangaplus', 'comick', 'webtoon'];
+    manga.countryOfOrigin === 'KR' || manga.countryOfOrigin === 'CN'
+      ? ['webtoon', 'mangaplus']
+      : ['mangaplus', 'webtoon'];
 
   const query = manga.title.english ?? manga.title.romaji ?? manga.title.userPreferred;
 
