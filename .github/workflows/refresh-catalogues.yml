@@ -1,0 +1,61 @@
+name: Refresh local catalogues
+
+on:
+  schedule:
+    - cron: '0 3 * * 1'   # Every Monday at 03:00 UTC
+  workflow_dispatch:        # Manual trigger via GitHub UI
+
+jobs:
+  refresh:
+    name: Rebuild bundled catalogues (BD, manga, webtoon)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build BD catalogue (Wikidata + Wikipedia FR)
+        run: node scripts/build-bd-catalogue.mjs
+
+      - name: Build manga catalogue (AniList top 5000)
+        run: node scripts/build-manga-catalogue.mjs
+
+      - name: Build Webtoon Originals catalogue
+        run: node scripts/build-webtoon-catalogue.mjs
+
+      - name: Sanity-check catalogues before committing
+        run: |
+          node -e "
+            const checks = [
+              ['assets/bd-catalogue.json',      c => c.series.length  >= 300],
+              ['assets/manga-catalogue.json',   c => c.entries.length >= 3000],
+              ['assets/webtoon-catalogue.json', c => c.entries.length >= 100],
+            ];
+            for (const [file, ok] of checks) {
+              const data = require('./' + file);
+              if (!ok(data)) { console.error('Sanity check failed: ' + file); process.exit(1); }
+              console.log(file + ' OK');
+            }
+          "
+
+      - name: Run catalogue tests against fresh data
+        run: npx jest __tests__/catalogue.test.ts __tests__/mangaCatalogue.test.ts
+
+      - name: Commit updated catalogues
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add assets/bd-catalogue.json assets/manga-catalogue.json assets/webtoon-catalogue.json
+          git diff --staged --quiet && echo "No changes" || (
+            git commit -m "chore: refresh local catalogues $(date +%Y-%m-%d) [skip ci]" &&
+            git push
+          )

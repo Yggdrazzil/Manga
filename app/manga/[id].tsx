@@ -26,6 +26,7 @@ import * as mangaplus from '@/lib/api/mangaplus';
 import * as webtoon from '@/lib/api/webtoon';
 import * as jikan from '@/lib/api/jikan';
 import { resolveFallbackFeed } from '@/lib/api/readingFallback';
+import { findLocalManga, findLocalWebtoon } from '@/lib/catalogue/manga';
 import { useLibraryStore } from '@/lib/store/library';
 import { useSettingsStore } from '@/lib/store/settings';
 import { confirmAction } from '@/lib/utils/confirm';
@@ -241,6 +242,14 @@ export default function MangaDetailScreen() {
       return anilist.getMangaById(id);
     },
     enabled: !!id,
+    // Instant first paint from the bundled catalogue (title, cover, synopsis)
+    // while the live API loads the authoritative record.
+    placeholderData: () => {
+      if (!id) return undefined;
+      if (source === 'webtoon') return findLocalWebtoon(id) ?? undefined;
+      if (!source || source === 'anilist') return findLocalManga(id) ?? undefined;
+      return undefined;
+    },
   });
 
   const searchTitle = manga

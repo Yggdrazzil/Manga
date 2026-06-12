@@ -22,6 +22,8 @@ export interface CatalogueEntry {
   title: string;
   authors: string[];
   frwikiTitle?: string;
+  desc?: string;   // Wikipedia FR series synopsis (trimmed)
+  cover?: string;  // Wikipedia FR page thumbnail URL
   volumes: CatalogueVolume[];
 }
 
@@ -151,6 +153,8 @@ export function catalogueToBDSeries(entry: CatalogueEntry): BDSeries {
     id: seriesKeyFromTitle(entry.title),
     title: entry.title,
     authors: entry.authors,
+    coverImage: entry.cover,
+    description: entry.desc,
     totalVolumes: volumes.length > 0 ? volumes[volumes.length - 1].num : 0,
     volumes,
     type: 'BD',

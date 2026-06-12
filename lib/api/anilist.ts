@@ -73,9 +73,12 @@ function mapStatus(status: string): OngoingStatus {
 }
 
 function normalize(media: AniListMedia): Manga {
-  const authors = media.staff.edges
-    .filter(e => ['Story', 'Story & Art', 'Original Story'].includes(e.role))
-    .map(e => e.node.name.full);
+  // Prefix match: roles carry volume annotations ("Story & Art (vols 1-41)")
+  const authors = [...new Set(
+    media.staff.edges
+      .filter(e => /^(story\b|original story)/i.test(e.role))
+      .map(e => e.node.name.full),
+  )];
 
   const mangadexLink = (media.externalLinks ?? []).find(
     l => l.site === 'MangaDex' || (l.url && l.url.includes('mangadex.org/title/'))

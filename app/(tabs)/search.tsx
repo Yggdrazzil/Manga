@@ -31,6 +31,7 @@ import {
 } from '@/lib/api/openlib';
 import { consolidateBDSeries } from '@/lib/api/bdconsolidate';
 import { searchCatalogue } from '@/lib/catalogue';
+import { searchLocalManga, searchLocalWebtoons } from '@/lib/catalogue/manga';
 import { useComicsStore } from '@/lib/store/comics';
 import { useSearchStore } from '@/lib/store/search';
 import { Typography } from '@/components/ui/Typography';
@@ -138,25 +139,71 @@ async function searchManga(query: string, filter: FilterType): Promise<Manga[]> 
   ]);
 }
 
-async function searchBD(query: string, filter: FilterType): Promise<OLBook[]> {
-  if (filter !== 'ALL' && filter !== 'BD') return [];
-
-  // Local catalogue results are instant (no network); shown first so the list
-  // populates before the Open Library response arrives.
-  const catalogueItems: OLBook[] = searchCatalogue(query, 15).map(entry => ({
+function localBDResults(query: string): OLBook[] {
+  return searchCatalogue(query, 15).map(entry => ({
     id: entry.qid,
     title: entry.title,
     authors: entry.authors,
+    coverImage: entry.cover,
+    description: entry.desc,
     categories: [],
   }));
+}
 
+async function searchBD(query: string, filter: FilterType): Promise<OLBook[]> {
+  if (filter !== 'ALL' && filter !== 'BD') return [];
+
+  // Local catalogue results lead: instant, and they carry the Wikipedia cover.
+  const catalogueItems = localBDResults(query);
   const olResult = await searchComics(query);
 
-  // OL results take precedence over catalogue duplicates (they may carry a cover image).
-  const olKeys = new Set(olResult.items.map(b => seriesKeyFromTitle(b.title)));
-  const catalogueOnly = catalogueItems.filter(c => !olKeys.has(seriesKeyFromTitle(c.title)));
+  const catKeys = new Set(catalogueItems.map(b => seriesKeyFromTitle(b.title)));
+  const olOnly = olResult.items.filter(b => !catKeys.has(seriesKeyFromTitle(b.title)));
 
-  return [...catalogueOnly, ...olResult.items];
+  return [...catalogueItems, ...olOnly];
+}
+
+// Synchronous, offline search across the bundled catalogues (AniList top 5000,
+// Webtoon Originals, BD/Wikidata). Rendered immediately while the network
+// search runs, then merged with API results.
+function searchLocal(query: string, filter: FilterType): UnifiedResult[] {
+  if (query.trim().length < 2) return [];
+
+  const manga: Manga[] = [];
+  if (filter === 'ALL') {
+    manga.push(...searchLocalWebtoons(query, 4), ...searchLocalManga(query, 10));
+  } else if (filter === 'MANGA') {
+    manga.push(...searchLocalManga(query, 12, { country: 'JP' }));
+  } else if (filter === 'MANHWA') {
+    manga.push(...searchLocalManga(query, 12, { country: 'KR' }));
+  } else if (filter === 'MANHUA') {
+    manga.push(...searchLocalManga(query, 12, { country: 'CN' }));
+  } else if (filter === 'WEBTOON') {
+    manga.push(...searchLocalWebtoons(query, 12));
+  }
+
+  const bd: UnifiedResult[] =
+    filter === 'ALL' || filter === 'BD'
+      ? localBDResults(query).map(b => ({
+          kind: 'bd' as const,
+          data: b,
+          year: parseYear(b.publishedDate),
+        }))
+      : [];
+
+  const all: UnifiedResult[] = [
+    ...manga.map(m => ({ kind: 'manga' as const, data: m, year: m.year })),
+    ...bd,
+  ];
+  // Same work can exist in two catalogues (Tower of God: Webtoon Original +
+  // AniList entry) — first occurrence wins, Originals lead in ALL.
+  const seen = new Set<string>();
+  return all.filter(r => {
+    const key = getTitle(r).toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function parseYear(value?: string | number): number | undefined {
@@ -522,6 +569,20 @@ export default function SearchScreen() {
     staleTime: 1000 * 60 * 2,
   });
 
+  // Bundled-catalogue hits render instantly while the network search runs;
+  // once API results land they lead (official readable sources win de-dup)
+  // and local-only leftovers stay appended.
+  const localResults = React.useMemo(
+    () => (debouncedQuery.length >= 2 ? searchLocal(debouncedQuery, filter) : []),
+    [debouncedQuery, filter],
+  );
+  const displayResults = React.useMemo(() => {
+    if (!results) return localResults;
+    const normKey = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const seen = new Set(results.map(r => normKey(getTitle(r))));
+    return [...results, ...localResults.filter(r => !seen.has(normKey(getTitle(r))))];
+  }, [results, localResults]);
+
   // Record searches that actually returned something
   const addRecentSearch = useSearchStore(s => s.addRecentSearch);
   useEffect(() => {
@@ -577,9 +638,12 @@ export default function SearchScreen() {
     );
   }, [comicsEntries, handleAddBD]);
 
-  const showNetworkError = debouncedQuery.length >= 2 && !isLoading && isError;
+  // Local results count as results: never blank the screen when offline
+  const showNetworkError =
+    debouncedQuery.length >= 2 && !isLoading && isError && displayResults.length === 0;
   const showEmpty =
-    debouncedQuery.length >= 2 && !isLoading && !isError && (!results || results.length === 0);
+    debouncedQuery.length >= 2 && !isLoading && !isError && displayResults.length === 0;
+  const showSpinner = isLoading && displayResults.length === 0;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -657,16 +721,16 @@ export default function SearchScreen() {
         />
       )}
 
-      {isLoading && (
+      {showSpinner && (
         <View style={styles.loadingWrap}>
           <ActivityIndicator color={COLORS.accentRed} size="large" />
           <Typography variant="body" color={COLORS.textInkMuted}>Recherche en cours…</Typography>
         </View>
       )}
 
-      {results && results.length > 0 && (
+      {displayResults.length > 0 && (
         <FlatList
-          data={results}
+          data={displayResults}
           renderItem={renderItem}
           keyExtractor={resultId}
           contentContainerStyle={[styles.list, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom }]}

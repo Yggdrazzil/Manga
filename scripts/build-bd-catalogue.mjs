@@ -10,7 +10,7 @@
  * Run this manually or let the GitHub Action handle it weekly.
  */
 
-import { writeFileSync } from 'fs';
+import { readFileSync, writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -67,7 +67,12 @@ console.log('Step 1/3 — Fetching series list from Wikidata...');
 // Driven from the albums side: only series that actually have ordinal-numbered
 // albums (p:P179/pq:P1545) qualify. A naive "instance of comics" scan returns
 // mostly individual works and arbitrary truncation, not usable series.
-const seriesBindings = await runSparql(`
+//
+// WDQS can silently return PARTIAL results with HTTP 200 when its internal
+// optimizer times out — one run yielded 423 series, the next 573. Run the
+// query several times and union the results until two consecutive passes stop
+// discovering new series.
+const SERIES_QUERY = `
 SELECT DISTINCT ?series ?seriesLabel ?frwikiTitle WHERE {
   ?album p:P179 ?st .
   ?st ps:P179 ?series ; pq:P1545 ?ord .
@@ -80,24 +85,31 @@ SELECT DISTINCT ?series ?seriesLabel ?frwikiTitle WHERE {
   SERVICE wikibase:label { bd:serviceParam wikibase:language "fr,en". }
 }
 LIMIT 5000
-`);
+`;
 
 /** @type {Map<string, {qid:string,title:string,frwikiTitle?:string,authors:string[],volumes:object[]}>} */
 const seriesMap = new Map();
 
-for (const b of seriesBindings) {
-  const qid = b.series?.value?.split('/').pop();
-  const title = b.seriesLabel?.value;
-  if (!qid || !title || /^Q\d+$/.test(title)) continue;
-  if (!seriesMap.has(qid)) {
-    seriesMap.set(qid, {
-      qid,
-      title,
-      frwikiTitle: b.frwikiTitle?.value || undefined,
-      authors: [],
-      volumes: [],
-    });
+for (let pass = 1; pass <= 4; pass++) {
+  const before = seriesMap.size;
+  const seriesBindings = await runSparql(SERIES_QUERY);
+  for (const b of seriesBindings) {
+    const qid = b.series?.value?.split('/').pop();
+    const title = b.seriesLabel?.value;
+    if (!qid || !title || /^Q\d+$/.test(title)) continue;
+    if (!seriesMap.has(qid)) {
+      seriesMap.set(qid, {
+        qid,
+        title,
+        frwikiTitle: b.frwikiTitle?.value || undefined,
+        authors: [],
+        volumes: [],
+      });
+    }
   }
+  console.log(`  Pass ${pass}: ${seriesMap.size} series (+${seriesMap.size - before})`);
+  if (pass > 1 && seriesMap.size === before) break; // converged
+  await sleep(DELAY_MS);
 }
 
 console.log(`  Found ${seriesMap.size} series.`);
@@ -192,7 +204,7 @@ SELECT ?series ?authorLabel WHERE {
   if (i < authorChunks.length - 1) await sleep(DELAY_MS);
 }
 
-// ── Write output ──────────────────────────────────────────────────────────────
+// ── Step 4: Wikipedia FR summaries (series synopsis + cover thumbnail) ───────
 
 for (const entry of seriesMap.values()) {
   entry.volumes.sort((a, b) => a.n - b.n);
@@ -201,11 +213,63 @@ for (const entry of seriesMap.values()) {
 const series = Array.from(seriesMap.values()).filter(s => s.volumes.length > 0);
 console.log(`\nSeries with at least 1 album: ${series.length}`);
 
+console.log('Step 4/4 — Fetching Wikipedia FR summaries...');
+const withWiki = series.filter(s => s.frwikiTitle);
+let enriched = 0;
+
+async function fetchSummary(entry, attempt = 0) {
+  try {
+    const res = await fetch(
+      `https://fr.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(entry.frwikiTitle)}`,
+      { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(15_000) },
+    );
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const extract = (data.extract ?? '').trim();
+    if (extract.length > 40) {
+      entry.desc = extract.length > 600 ? `${extract.slice(0, 600)}…` : extract;
+    }
+    if (data.thumbnail?.source) entry.cover = data.thumbnail.source;
+    enriched++;
+  } catch {
+    // Wikipedia REST throttles bursts — retry twice with backoff
+    if (attempt < 2) {
+      await sleep((attempt + 1) * 2_000);
+      return fetchSummary(entry, attempt + 1);
+    }
+  }
+}
+
+const CONCURRENCY = 4;
+for (let i = 0; i < withWiki.length; i += CONCURRENCY) {
+  await Promise.all(withWiki.slice(i, i + CONCURRENCY).map(fetchSummary));
+  if ((i / CONCURRENCY) % 10 === 0 && i > 0) {
+    console.log(`  ${i}/${withWiki.length} processed...`);
+  }
+}
+console.log(`  ${enriched}/${withWiki.length} series enriched with synopsis/cover.`);
+
+// Safety merge: never lose series the previous catalogue had just because a
+// flaky WDQS pass missed them this week. Old entries absent from this build
+// are carried over as-is.
+let finalSeries = series;
+try {
+  const previous = JSON.parse(readFileSync(OUT, 'utf-8'));
+  const currentQids = new Set(series.map(s => s.qid));
+  const carried = (previous.series ?? []).filter(s => s.qid && !currentQids.has(s.qid));
+  if (carried.length > 0) {
+    console.log(`Carrying over ${carried.length} series from the previous catalogue.`);
+    finalSeries = [...series, ...carried];
+  }
+} catch {
+  // no previous catalogue — first build
+}
+
 const catalogue = {
   version: new Date().toISOString().slice(0, 10),
-  series,
+  series: finalSeries,
 };
 
 const json = JSON.stringify(catalogue);
 writeFileSync(OUT, json);
-console.log(`Written to ${OUT} (${(json.length / 1024).toFixed(0)} KB)`);
+console.log(`${finalSeries.length} series written to ${OUT} (${(json.length / 1024).toFixed(0)} KB)`);

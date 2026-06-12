@@ -224,8 +224,11 @@ export async function consolidateBDSeries(
 
   const totalVolumes = volumes[volumes.length - 1].num;
 
-  // Best cover: tome 1 first, then any tome with a cover
-  const bestCover = (volumes.find(v => v.num === 1) ?? volumes.find(v => v.coverImage))?.coverImage;
+  // Best cover: tome 1 first, then any tome with a cover, then the bundled
+  // Wikipedia thumbnail from the catalogue
+  const bestCover =
+    (volumes.find(v => v.num === 1) ?? volumes.find(v => v.coverImage))?.coverImage ??
+    catalogueEntry?.cover;
 
   // Best authors: Wikidata labels are cleanest, then BnF, then OL
   const bnfAuthors = bnfTomes[0]?.authors.filter(Boolean).slice(0, 3);
@@ -240,7 +243,7 @@ export async function consolidateBDSeries(
     title: seriesTitle,
     authors: bestAuthors,
     coverImage: bestCover,
-    description: seriesDescription,
+    description: seriesDescription ?? catalogueEntry?.desc,
     totalVolumes,
     volumes,
     type: 'BD',
