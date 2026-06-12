@@ -16,6 +16,7 @@
  */
 
 import type { BDSeries, BDVolume } from '../types';
+import { findCatalogueEntry, toCatalogueWikidataSeries } from '../catalogue';
 import { searchBnFSeries } from './bnf';
 import { searchGoogleBooksSeries } from './googlebooks';
 import { searchSeriesVolumes, extractVolumeNumber, seriesKeyFromTitle } from './openlib';
@@ -66,9 +67,15 @@ export async function consolidateBDSeries(
 ): Promise<BDSeries | null> {
   const seriesId = seriesKeyFromTitle(seriesTitle);
 
+  // Local catalogue fast path: skip Wikidata SPARQL when we already have the data.
+  const catalogueEntry = findCatalogueEntry(seriesTitle);
+  const wdPromise = catalogueEntry
+    ? Promise.resolve(toCatalogueWikidataSeries(catalogueEntry))
+    : searchWikidataSeries(seriesTitle);
+
   // Fire all sources in parallel — failures are silenced via allSettled
   const [wdResult, bnfResult, gbResult, olResult, wikiResult, wpListResult] = await Promise.allSettled([
-    searchWikidataSeries(seriesTitle),
+    wdPromise,
     searchBnFSeries(seriesTitle),
     searchGoogleBooksSeries(seriesTitle),
     searchSeriesVolumes(seriesTitle),

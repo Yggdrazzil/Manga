@@ -30,6 +30,7 @@ import {
   type OLBook,
 } from '@/lib/api/openlib';
 import { consolidateBDSeries } from '@/lib/api/bdconsolidate';
+import { searchCatalogue } from '@/lib/catalogue';
 import { useComicsStore } from '@/lib/store/comics';
 import { useSearchStore } from '@/lib/store/search';
 import { Typography } from '@/components/ui/Typography';
@@ -139,8 +140,23 @@ async function searchManga(query: string, filter: FilterType): Promise<Manga[]> 
 
 async function searchBD(query: string, filter: FilterType): Promise<OLBook[]> {
   if (filter !== 'ALL' && filter !== 'BD') return [];
-  const result = await searchComics(query);
-  return result.items;
+
+  // Local catalogue results are instant (no network); shown first so the list
+  // populates before the Open Library response arrives.
+  const catalogueItems: OLBook[] = searchCatalogue(query, 15).map(entry => ({
+    id: entry.qid,
+    title: entry.title,
+    authors: entry.authors,
+    categories: [],
+  }));
+
+  const olResult = await searchComics(query);
+
+  // OL results take precedence over catalogue duplicates (they may carry a cover image).
+  const olKeys = new Set(olResult.items.map(b => seriesKeyFromTitle(b.title)));
+  const catalogueOnly = catalogueItems.filter(c => !olKeys.has(seriesKeyFromTitle(c.title)));
+
+  return [...catalogueOnly, ...olResult.items];
 }
 
 function parseYear(value?: string | number): number | undefined {
