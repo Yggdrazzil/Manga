@@ -27,9 +27,10 @@ import type { BDSeries, BDVolume, ReadingStatus } from '@/lib/types';
 
 const STATUSES: ReadingStatus[] = ['READING', 'PLAN_TO_READ', 'COMPLETED', 'PAUSED', 'DROPPED'];
 
-// ── Volume row — data pre-loaded at add-time, synopsis lazy via Wikipedia FR ──
+// ── Volume card — data pre-loaded at add-time, synopsis lazy via Wikipedia FR ──
+// Tap the card to expand the synopsis; tap the checkbox to mark read.
 
-function VolumeRow({
+function VolumeCard({
   volume,
   isRead,
   onToggle,
@@ -62,51 +63,65 @@ function VolumeRow({
   }, [expanded]);
 
   return (
-    <View style={[styles.volumeRow, isRead && styles.volumeRowRead]}>
+    <View style={[styles.volumeCard, isRead && styles.volumeCardRead]}>
       <Pressable
-        style={styles.volumeMain}
+        style={({ pressed }) => [styles.volumeMain, pressed && styles.volumeMainPressed]}
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           setExpanded(e => !e);
         }}
-        accessibilityLabel={`Tome ${volume.num}${subtitle ? ` — ${subtitle}` : ''}`}
+        accessibilityRole="button"
+        accessibilityLabel={`Tome ${volume.num}${subtitle ? ` — ${subtitle}` : ''}, ${expanded ? 'masquer' : 'voir'} le résumé`}
       >
-        <Pressable
-          style={[styles.volumeChip, isRead && styles.volumeChipRead]}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            onToggle();
-          }}
-          hitSlop={4}
-          accessibilityRole="checkbox"
-          accessibilityState={{ checked: isRead }}
-          accessibilityLabel={`Tome ${volume.num} — ${isRead ? 'lu' : 'non lu'}`}
-        >
-          <Typography style={[styles.volumeChipText, isRead && styles.volumeChipTextRead]}>
-            {volume.num}
-          </Typography>
-        </Pressable>
+        {volume.coverImage ? (
+          <View style={styles.volumeCoverWrap}>
+            <Image
+              source={{ uri: volume.coverImage }}
+              style={styles.volumeCover}
+              contentFit="cover"
+              cachePolicy="memory-disk"
+            />
+          </View>
+        ) : (
+          <View style={[styles.volumeChip, isRead && styles.volumeChipRead]}>
+            <Typography style={[styles.volumeChipText, isRead && styles.volumeChipTextRead]}>
+              {volume.num}
+            </Typography>
+          </View>
+        )}
 
         <View style={styles.volumeInfo}>
+          <Typography variant="caption" color={isRead ? COLORS.accentRed : COLORS.textInkFaint} style={styles.volumeKicker}>
+            TOME {volume.num}{isRead ? ' · LU' : ''}
+          </Typography>
           {subtitle ? (
-            <Typography variant="subheading" color={COLORS.textInk} style={styles.volumeSubtitle} numberOfLines={expanded ? undefined : 1}>
+            <Typography variant="subheading" color={COLORS.textInk} style={styles.volumeSubtitle} numberOfLines={expanded ? undefined : 2}>
               {subtitle}
             </Typography>
-          ) : (
-            <Typography variant="label" color={COLORS.textInkMuted}>
-              Tome {volume.num}
-            </Typography>
-          )}
+          ) : null}
           {publisher && (
             <Typography variant="caption" color={COLORS.textInkFaint}>{publisher.toUpperCase()}</Typography>
           )}
         </View>
 
-        <Ionicons
-          name={expanded ? 'chevron-up' : 'chevron-down'}
-          size={14}
-          color={COLORS.textInkFaint}
-        />
+        <Pressable
+          style={({ pressed }) => [styles.volumeCheck, pressed && { opacity: 0.6 }]}
+          onPress={e => {
+            e.stopPropagation();
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            onToggle();
+          }}
+          hitSlop={10}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: isRead }}
+          accessibilityLabel={`Tome ${volume.num} — ${isRead ? 'lu' : 'non lu'}`}
+        >
+          <Ionicons
+            name={isRead ? 'checkmark-circle' : 'ellipse-outline'}
+            size={28}
+            color={isRead ? COLORS.accentRed : COLORS.textInkFaint}
+          />
+        </Pressable>
       </Pressable>
 
       {expanded && (
@@ -186,24 +201,19 @@ export default function SeriesDetailScreen() {
     }
   }, [entry, series, id, updateStatus, addOrUpdateSeries]);
 
+  // Stored series data is frozen at add-time; sources (Wikidata, Wikipedia)
+  // keep improving. Re-consolidate silently on open and merge — no manual
+  // refresh needed, the stored data stays usable until fresh data lands.
   const refreshSeries = useComicsStore(s => s.refreshSeries);
-  const [refreshing, setRefreshing] = useState(false);
-  const handleRefreshSeries = useCallback(async () => {
-    if (!entry || refreshing) return;
-    setRefreshing(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    try {
-      const fresh = await consolidateBDSeries(entry.series.title);
-      if (fresh) {
-        refreshSeries(fresh);
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      }
-    } catch {
-      // silent — stored data stays usable
-    } finally {
-      setRefreshing(false);
-    }
-  }, [entry, refreshing, refreshSeries]);
+  const { data: freshSeries } = useQuery({
+    queryKey: ['series-refresh', entry?.seriesId],
+    queryFn: () => consolidateBDSeries(entry!.series.title),
+    enabled: !!entry,
+    staleTime: 1000 * 60 * 30,
+  });
+  useEffect(() => {
+    if (freshSeries) refreshSeries(freshSeries);
+  }, [freshSeries, refreshSeries]);
 
   const handleRemove = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -359,22 +369,6 @@ export default function SeriesDetailScreen() {
                   <Typography variant="heading" color={COLORS.textInk}>
                     {entry ? 'Votre suivi' : 'Ajouter à la bibliothèque'}
                   </Typography>
-                  {entry && (
-                    <Pressable
-                      onPress={handleRefreshSeries}
-                      hitSlop={10}
-                      style={styles.refreshBtn}
-                      accessibilityRole="button"
-                      accessibilityLabel="Actualiser les données de la série"
-                      accessibilityState={{ busy: refreshing }}
-                    >
-                      {refreshing ? (
-                        <ActivityIndicator size="small" color={COLORS.cyan} />
-                      ) : (
-                        <Ionicons name="refresh" size={16} color={COLORS.cyan} />
-                      )}
-                    </Pressable>
-                  )}
                 </View>
 
                 {/* Status picker */}
@@ -486,25 +480,23 @@ export default function SeriesDetailScreen() {
                 <View style={styles.sectionMarker} />
                 <Typography variant="title" color={COLORS.textInk}>Tomes</Typography>
                 <Typography variant="caption" color={COLORS.textInkFaint} style={styles.tomeHint}>
-                  Tapez le numéro pour cocher / décocher · tapez le titre pour le résumé
+                  Cochez pour marquer lu · tapez la carte pour le résumé
                 </Typography>
               </View>
-              <Panel variant="paper" bordered style={styles.volumesList}>
-                {series.volumes.map((vol, i) => {
+              <View style={styles.volumesGrid}>
+                {series.volumes.map(vol => {
                   const isRead = entry?.readVolumes.includes(vol.num) ?? false;
                   return (
-                    <React.Fragment key={vol.num}>
-                      {i > 0 && <View style={styles.divider} />}
-                      <VolumeRow
-                        volume={vol}
-                        isRead={isRead}
-                        onToggle={() => handleToggle(vol.num)}
-                        onEnrich={desc => updateVolumeDetail(series.id, vol.num, { description: desc })}
-                      />
-                    </React.Fragment>
+                    <VolumeCard
+                      key={vol.num}
+                      volume={vol}
+                      isRead={isRead}
+                      onToggle={() => handleToggle(vol.num)}
+                      onEnrich={desc => updateVolumeDetail(series.id, vol.num, { description: desc })}
+                    />
                   );
                 })}
-              </Panel>
+              </View>
             </MotiView>
           )}
         </View>
@@ -533,7 +525,6 @@ const styles = themedStyles(() => StyleSheet.create({
     borderColor: COLORS.accentRed,
     borderRadius: RADIUS.sm,
   },
-  refreshBtn: { marginLeft: 'auto', padding: SPACING.xs },
   hero: { height: 320, backgroundColor: COLORS.ink, justifyContent: 'flex-end' },
   heroBottom: { padding: SPACING.base, gap: SPACING.sm },
   heroMeta: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginBottom: SPACING.xs },
@@ -588,30 +579,47 @@ const styles = themedStyles(() => StyleSheet.create({
     textAlignVertical: 'top',
   },
 
-  volumesList: { borderRadius: RADIUS.lg, overflow: 'hidden' },
-  divider: { height: BORDERS.hair, backgroundColor: COLORS.line, marginHorizontal: SPACING.md },
+  volumesGrid: { gap: SPACING.sm },
 
-  volumeRow: { backgroundColor: COLORS.paperRaised },
-  volumeRowRead: { backgroundColor: COLORS.paper },
+  volumeCard: {
+    borderRadius: RADIUS.lg,
+    backgroundColor: COLORS.paperRaised,
+    shadowColor: COLORS.ink,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.07,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  volumeCardRead: { backgroundColor: COLORS.paper },
   volumeMain: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
+    padding: SPACING.md,
     gap: SPACING.md,
   },
+  volumeMainPressed: { opacity: 0.85 },
+  volumeCoverWrap: {
+    borderRadius: RADIUS.sm,
+    borderWidth: BORDERS.bold,
+    borderColor: COLORS.ink,
+    overflow: 'hidden',
+    flexShrink: 0,
+  },
+  volumeCover: { width: 44, height: 62 },
   volumeChip: {
-    width: 36, height: 36, borderRadius: RADIUS.sm,
+    width: 44, height: 44, borderRadius: RADIUS.md,
     backgroundColor: COLORS.paperSunken,
     borderWidth: BORDERS.bold, borderColor: COLORS.ink,
     alignItems: 'center', justifyContent: 'center',
     flexShrink: 0,
   },
   volumeChipRead: { backgroundColor: COLORS.accentRed, borderColor: COLORS.accentDeep },
-  volumeChipText: { fontFamily: FONTS.bodyBold, fontSize: 13, color: COLORS.textInkMuted },
+  volumeChipText: { fontFamily: FONTS.display, fontSize: 18, color: COLORS.textInkMuted },
   volumeChipTextRead: { color: COLORS.onInk },
   volumeInfo: { flex: 1, gap: 2 },
-  volumeSubtitle: { fontSize: 13, lineHeight: 17 },
+  volumeKicker: { letterSpacing: 1 },
+  volumeSubtitle: { fontSize: 14, lineHeight: 18 },
+  volumeCheck: { padding: SPACING.xs },
   volumeDetail: {
     paddingHorizontal: SPACING.md,
     paddingBottom: SPACING.md,

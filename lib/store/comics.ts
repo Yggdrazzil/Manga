@@ -89,9 +89,23 @@ export const useComicsStore = create<ComicsState>()(
         set(state => ({
           entries: state.entries.map(e => {
             if (e.seriesId !== series.id) return e;
-            // Keep user progress; recompute status against the fresh totalVolumes
+            // Keep lazily-enriched volume details the fresh payload lacks
+            const volumes: BDVolume[] = series.volumes.map(v => {
+              const old = e.series.volumes.find(o => o.num === v.num);
+              return old
+                ? {
+                    ...v,
+                    subtitle: v.subtitle ?? old.subtitle,
+                    description: v.description ?? old.description,
+                    publisher: v.publisher ?? old.publisher,
+                  }
+                : v;
+            });
+            // Keep user progress; recompute status against the fresh totalVolumes.
             const status = nextStatus(e.status, e.readVolumes, series.totalVolumes);
-            return { ...e, series, status, updatedAt: new Date().toISOString() };
+            // A metadata refresh is not user activity: updatedAt stays untouched
+            // so the library's staleness grouping remains meaningful.
+            return { ...e, series: { ...series, volumes }, status };
           }),
         }));
       },
