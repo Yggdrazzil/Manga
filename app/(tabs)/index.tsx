@@ -16,11 +16,11 @@ import {
 import { useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
-import { getChaptersForLibrary } from '@/lib/api/mangadex';
+import { getDailyReleases, type MangaPlusRelease } from '@/lib/api/mangaplus';
 import { useLibraryStore } from '@/lib/store/library';
 import { Typography } from '@/components/ui/Typography';
 import { BORDERS, COLORS, FONTS, RADIUS, SPACING, themedStyles } from '@/constants/theme';
-import type { LibraryEntry, MangaChapter } from '@/lib/types';
+import type { LibraryEntry } from '@/lib/types';
 import { coverSource } from '@/lib/utils/images';
 
 const TAB_BAR_HEIGHT = 88;
@@ -39,12 +39,6 @@ function relativeGroup(dateStr: string): string {
   const d = date.getDate().toString().padStart(2, '0');
   const months = ['JAN', 'FÉV', 'MAR', 'AVR', 'MAI', 'JUN', 'JUL', 'AOÛ', 'SEP', 'OCT', 'NOV', 'DÉC'];
   return `${d} ${months[date.getMonth()]} ${date.getFullYear()}`;
-}
-
-function isNew(dateStr: string): boolean {
-  if (!dateStr) return false;
-  const diffH = (Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60);
-  return diffH < 48;
 }
 
 // TV Time-style staleness: after a month without marking a chapter read, the
@@ -140,19 +134,23 @@ function TrackerCard({ entry, index }: { entry: LibraryEntry; index: number }) {
   );
 }
 
-// ── À VENIR card ──────────────────────────────────────────────────────────────
+// ── SORTIES card (global MangaPlus daily releases) ────────────────────────────
 
-function ChapterCard({
-  chapter,
-  entry,
-  index,
-}: {
-  chapter: MangaChapter;
-  entry: LibraryEntry;
-  index: number;
-}) {
+function formatViews(n?: number): string | null {
+  if (!n || n <= 0) return null;
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return String(n);
+}
+
+function ReleaseCard({ release, index }: { release: MangaPlusRelease; index: number }) {
   const router = useRouter();
-  const nouveau = isNew(chapter.publishAt);
+  const { manga } = release;
+  const views = formatViews(release.viewCount);
+  const open = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push(`/manga/${encodeURIComponent(manga.id)}?source=mangaplus` as never);
+  };
 
   return (
     <MotiView
@@ -162,14 +160,13 @@ function ChapterCard({
     >
       <Pressable
         style={({ pressed }) => [styles.tvCard, pressed && styles.tvCardPressed]}
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          router.push(`/manga/${encodeURIComponent(entry.mangaId)}?source=${encodeURIComponent(entry.source)}` as never);
-        }}
+        onPress={open}
+        accessibilityRole="button"
+        accessibilityLabel={`${manga.title.userPreferred}${release.chapterLabel ? `, chapitre ${release.chapterLabel}` : ''}`}
       >
         <View style={styles.tvCoverWrap}>
-          {entry.manga.coverImage ? (
-            <Image source={coverSource(entry.manga.coverImage)} style={styles.tvCover} contentFit="cover" cachePolicy="memory-disk" />
+          {manga.coverImage ? (
+            <Image source={coverSource(manga.coverImage)} style={styles.tvCover} contentFit="cover" cachePolicy="memory-disk" />
           ) : (
             <View style={[styles.tvCover, styles.tvCoverEmpty]}>
               <Ionicons name="book" size={22} color={COLORS.textInkMuted} />
@@ -178,37 +175,36 @@ function ChapterCard({
         </View>
 
         <View style={styles.tvBody}>
-          <Pressable
-            style={styles.tvTitlePill}
-            onPress={() => router.push(`/manga/${encodeURIComponent(entry.mangaId)}?source=${encodeURIComponent(entry.source)}` as never)}
-            hitSlop={4}
-          >
+          <Pressable style={styles.tvTitlePill} onPress={open} hitSlop={4}>
             <Typography variant="caption" style={styles.tvTitlePillText} numberOfLines={1}>
-              {entry.manga.title.userPreferred.toUpperCase()}
+              {manga.title.userPreferred.toUpperCase()}
             </Typography>
             <Ionicons name="chevron-forward" size={10} color={COLORS.textInk} />
           </Pressable>
 
           <Typography style={styles.tvChapter}>
-            Ch. {chapter.chapter}
+            {release.chapterLabel ? `Ch. ${release.chapterLabel}` : 'Nouveau chapitre'}
           </Typography>
 
-          {chapter.title && (
+          {release.chapterSubtitle && (
             <Typography variant="label" color={COLORS.textInkMuted} numberOfLines={1} style={styles.tvChapterTitle}>
-              {chapter.title}
+              {release.chapterSubtitle}
             </Typography>
           )}
 
           <View style={styles.tvMeta}>
-            {nouveau && (
-              <View style={[styles.tvBadge, styles.tvBadgeNew]}>
-                <Typography variant="caption" style={[styles.tvBadgeText, styles.tvBadgeNewText]}>NOUVEAU</Typography>
-              </View>
-            )}
-            {chapter.isReadable && (
-              <View style={[styles.tvBadge, styles.tvBadgeReadable]}>
-                <Typography variant="caption" style={[styles.tvBadgeText, { color: COLORS.onInk }]}>LISIBLE</Typography>
-              </View>
+            <View style={[styles.tvBadge, styles.tvBadgeNew]}>
+              <Typography variant="caption" style={[styles.tvBadgeText, styles.tvBadgeNewText]}>
+                {release.isNew ? 'NOUVELLE SÉRIE' : 'NOUVEAU'}
+              </Typography>
+            </View>
+            <View style={[styles.tvBadge, styles.tvBadgeReadable]}>
+              <Typography variant="caption" style={[styles.tvBadgeText, { color: COLORS.onInk }]}>MANGA PLUS</Typography>
+            </View>
+            {views && (
+              <Typography variant="caption" color={COLORS.textInkMuted}>
+                {views} vues
+              </Typography>
             )}
           </View>
         </View>
@@ -274,47 +270,34 @@ export default function MangaTrackerScreen() {
     ].filter(s => s.data.length > 0);
   }, [entries]);
 
-  // Build MangaDex ID lookup for À venir
-  const mangadexIdMap = useMemo(() => {
-    const map = new Map<string, LibraryEntry>();
-    for (const e of entries) {
-      if (e.source === 'mangadex') map.set(e.mangaId, e);
-      else if (e.manga.mangadexId) map.set(e.manga.mangadexId, e);
-    }
-    return map;
-  }, [entries]);
-
-  const mangadexIds = useMemo(() => Array.from(mangadexIdMap.keys()), [mangadexIdMap]);
-
+  // Global MangaPlus daily releases ("Nouveautés"): every series that updated,
+  // not just the library. Published daily ~17:00 Paris time.
   const {
-    data: recentChapters,
-    isLoading: chaptersLoading,
+    data: releases,
+    isLoading: releasesLoading,
+    isError: releasesError,
     refetch,
   } = useQuery({
-    queryKey: ['library-chapters', mangadexIds.join(',')],
-    queryFn: () => getChaptersForLibrary(mangadexIds),
-    enabled: mangadexIds.length > 0,
-    staleTime: 1000 * 60 * 15,
+    queryKey: ['mangaplus-daily-releases'],
+    queryFn: getDailyReleases,
+    staleTime: 1000 * 60 * 30,
   });
 
-  // Build section list data for À venir
-  const avenir = useMemo(() => {
-    if (!recentChapters) return [];
-    const readIds = new Set(entries.flatMap(e => e.readChapterIds ?? []));
-
-    const unread = recentChapters
-      .filter(ch => !readIds.has(ch.id) && mangadexIdMap.has(ch.mangaId))
-      .sort((a, b) => new Date(b.publishAt).getTime() - new Date(a.publishAt).getTime());
-
-    const groups = new Map<string, MangaChapter[]>();
-    for (const ch of unread) {
-      const grp = relativeGroup(ch.publishAt);
+  // Group releases by relative date. The feed is "today's" by default, so an
+  // unknown timestamp falls back to AUJOURD'HUI rather than the generic bucket.
+  const sorties = useMemo(() => {
+    if (!releases || releases.length === 0) return [];
+    const ordered = [...releases].sort(
+      (a, b) => new Date(b.publishAt || Date.now()).getTime() - new Date(a.publishAt || Date.now()).getTime(),
+    );
+    const groups = new Map<string, MangaPlusRelease[]>();
+    for (const r of ordered) {
+      const grp = r.publishAt ? relativeGroup(r.publishAt) : "AUJOURD'HUI";
       if (!groups.has(grp)) groups.set(grp, []);
-      groups.get(grp)!.push(ch);
+      groups.get(grp)!.push(r);
     }
-
     return Array.from(groups.entries()).map(([title, data]) => ({ title, data }));
-  }, [recentChapters, entries, mangadexIdMap]);
+  }, [releases]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -323,7 +306,7 @@ export default function MangaTrackerScreen() {
   };
 
   const isEmpty = alireSections.length === 0;
-  const avenirEmpty = avenir.length === 0 && !chaptersLoading;
+  const sortiesEmpty = sorties.length === 0 && !releasesLoading;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -356,7 +339,7 @@ export default function MangaTrackerScreen() {
                 variant="subheading"
                 style={[styles.subTabLabel, activeTab === tab && styles.subTabLabelActive]}
               >
-                {tab === 'voir' ? 'À LIRE' : 'À VENIR'}
+                {tab === 'voir' ? 'À LIRE' : 'SORTIES'}
               </Typography>
               {activeTab === tab && <View style={styles.subTabLine} />}
             </Pressable>
@@ -402,7 +385,7 @@ export default function MangaTrackerScreen() {
         </MotiView>
       )}
 
-      {/* À VENIR */}
+      {/* SORTIES — global MangaPlus daily releases */}
       {activeTab === 'venir' && (
         <MotiView
           key="venir"
@@ -411,38 +394,39 @@ export default function MangaTrackerScreen() {
           transition={{ type: 'spring', stiffness: 400, damping: 32 }}
           style={styles.tabPane}
         >
-        {chaptersLoading ? (
+        {releasesLoading ? (
           <View style={styles.loadingWrap}>
             <ActivityIndicator color={COLORS.accentRed} size="large" />
-            <Typography variant="body" color={COLORS.textInkMuted}>Chargement du fil de chapitres…</Typography>
+            <Typography variant="body" color={COLORS.textInkMuted}>Chargement des sorties du jour…</Typography>
           </View>
-        ) : avenirEmpty ? (
+        ) : sortiesEmpty ? (
           <ScrollView
             contentContainerStyle={[styles.emptyWrap, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom }]}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accentRed} colors={[COLORS.accentRed]} />}
           >
-            <Ionicons name="calendar-outline" size={56} color={COLORS.textInkMuted} />
+            <Ionicons name={releasesError ? 'cloud-offline-outline' : 'calendar-outline'} size={56} color={COLORS.textInkMuted} />
             <Typography variant="heading" color={COLORS.textInk} style={styles.emptyTitle}>
-              {mangadexIds.length === 0 ? 'Aucune série liée à MangaDex' : 'Pas de nouveaux chapitres'}
+              {releasesError ? 'Sorties indisponibles' : 'Pas encore de sorties'}
             </Typography>
             <Typography variant="body" color={COLORS.textInkMuted} style={styles.emptyText}>
-              {mangadexIds.length === 0
-                ? 'Ajoutez des mangas disponibles sur MangaDex pour voir leurs nouveaux chapitres ici.'
-                : 'Aucun nouveau chapitre sur MangaDex dans les 14 derniers jours pour vos mangas.'}
+              {releasesError
+                ? 'Impossible de contacter MANGA Plus. Tirez vers le bas pour réessayer.'
+                : 'Les nouveaux chapitres MANGA Plus paraissent chaque jour vers 17h00. Revenez plus tard ou tirez pour actualiser.'}
             </Typography>
           </ScrollView>
         ) : (
           <SectionList
-            sections={avenir}
-            keyExtractor={item => item.id}
+            sections={sorties}
+            keyExtractor={item => `mp-${item.manga.id}`}
             renderSectionHeader={({ section }) => <SectionHeader title={section.title} />}
-            renderItem={({ item, index }) => {
-              const entry = mangadexIdMap.get(item.mangaId);
-              if (!entry) return null;
-              return <ChapterCard chapter={item} entry={entry} index={index} />;
-            }}
+            renderItem={({ item, index }) => <ReleaseCard release={item} index={index} />}
             stickySectionHeadersEnabled
             showsVerticalScrollIndicator={false}
+            ListHeaderComponent={
+              <Typography variant="caption" color={COLORS.textInkMuted} style={styles.sortiesHint}>
+                Sorties MANGA Plus · mises à jour quotidiennes vers 17h00
+              </Typography>
+            }
             contentContainerStyle={[styles.listContent, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom }]}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accentRed} colors={[COLORS.accentRed]} />}
           />
@@ -495,6 +479,13 @@ const styles = themedStyles(() => StyleSheet.create({
   },
 
   listContent: { paddingTop: SPACING.md },
+  sortiesHint: {
+    textAlign: 'center',
+    fontSize: 10,
+    letterSpacing: 0.5,
+    paddingHorizontal: SPACING.base,
+    paddingBottom: SPACING.xs,
+  },
   // TV Time-style contrast: raised cards float on a sunken pane
   tabPane: { flex: 1, backgroundColor: COLORS.paperSunken },
 

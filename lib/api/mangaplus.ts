@@ -72,6 +72,37 @@ interface MPPage {
   mangaPage?: MPMangaPage;
 }
 
+// ── Web home / daily updates (powers MangaPlus' "Nouveautés" screen) ──────────
+// One title that updated, as surfaced by the web home feed. The home view nests
+// these under dated/themed groups. Field names drift across API revisions and
+// some are only present on actual updates (not on featured/ranked tiles), which
+// we use to keep the feed to genuine releases.
+interface MPUpdatedTitle {
+  title?: MPTitle;
+  // Update marker: "NEW" (brand-new series) or "UPDATED" (new chapter).
+  titleUpdateStatus?: string;
+  updateStatus?: string;
+  // Latest chapter info when the home view carries it.
+  chapter?: MPChapter;
+  latestChapter?: MPChapter;
+  updatedTimeStamp?: number;
+}
+
+interface MPWebHomeGroup {
+  // Heading shown in the app (a date or a theme like "Today's update").
+  title?: string;
+  groupName?: string;
+  theTitle?: string;
+  // Updated titles live either directly or one nesting level down.
+  titles?: MPUpdatedTitle[];
+  titleGroups?: Array<{ titleGroupName?: string; titles?: MPUpdatedTitle[] }>;
+}
+
+interface MPWebHomeView {
+  groups?: MPWebHomeGroup[];
+  updatedTitleGroups?: MPWebHomeGroup[];
+}
+
 interface MPResponse {
   success?: {
     // The JSON casing of this key has flipped between API revisions.
@@ -81,6 +112,10 @@ interface MPResponse {
     };
     titleDetailView?: MPTitleDetailView;
     mangaViewer?: { pages?: MPPage[] };
+    // Web home feed — key has carried a version suffix across revisions.
+    webHomeViewV4?: MPWebHomeView;
+    webHomeViewV3?: MPWebHomeView;
+    webHomeView?: MPWebHomeView;
   };
   error?: { popups?: Array<{ subject?: string; body?: string }> };
 }
@@ -261,6 +296,91 @@ export async function getTrackingChapters(titleId: string): Promise<MangaChapter
   for (const ch of locked) push(ch, false);
 
   return out.sort((a, b) => parseFloat(a.chapter) - parseFloat(b.chapter));
+}
+
+// ── Daily releases (global MangaPlus "Nouveautés" feed) ────────────────────────
+
+export interface MangaPlusRelease {
+  manga: Manga;
+  // Chapter number label without the leading '#', e.g. "1052". Absent when the
+  // home view didn't carry chapter detail.
+  chapterLabel?: string;
+  chapterSubtitle?: string;
+  // ISO timestamp of the release, or '' when unknown (grouped under "today").
+  publishAt: string;
+  // True for brand-new series or freshly-released chapters.
+  isNew: boolean;
+  viewCount?: number;
+}
+
+function isUpdateStatus(status?: string): boolean {
+  const s = (status ?? '').toUpperCase();
+  return s === 'NEW' || s === 'UPDATED' || s === 'UPDATE' || s === 'RE_EDITION';
+}
+
+/**
+ * Flatten the web home view into a de-duplicated release list.
+ *
+ * Pure (no I/O) so it can be unit-tested against a recorded fixture: the live
+ * endpoint can't be reached from CI, only from a residential IP. We keep only
+ * entries that carry an explicit update marker — the home view also returns
+ * featured/ranked tiles, and without a marker they'd masquerade as releases.
+ */
+export function parseDailyReleases(data: MPResponse): MangaPlusRelease[] {
+  const view =
+    data.success?.webHomeViewV4 ??
+    data.success?.webHomeViewV3 ??
+    data.success?.webHomeView;
+  if (!view) return [];
+
+  const groups = view.groups ?? view.updatedTitleGroups ?? [];
+  const out: MangaPlusRelease[] = [];
+  const seen = new Set<number>();
+
+  for (const g of groups) {
+    const updated: MPUpdatedTitle[] = [
+      ...(g.titles ?? []),
+      ...(g.titleGroups ?? []).flatMap(tg => tg.titles ?? []),
+    ];
+
+    for (const u of updated) {
+      const t = u.title;
+      if (!t || t.titleId == null || !t.name) continue;
+      if (!isUpdateStatus(u.titleUpdateStatus ?? u.updateStatus)) continue;
+      if (langToCode(t.language) == null) continue; // en/fr only
+      if (seen.has(t.titleId)) continue;
+      seen.add(t.titleId);
+
+      const ch = u.chapter ?? u.latestChapter;
+      const ts = ch?.startTimeStamp ?? u.updatedTimeStamp;
+
+      out.push({
+        manga: normalizeTitle(t),
+        chapterLabel: ch?.name ? chapterLabel(ch.name) : undefined,
+        chapterSubtitle: ch?.subTitle ?? undefined,
+        publishAt: ts ? new Date(ts * 1000).toISOString() : '',
+        isNew: (u.titleUpdateStatus ?? u.updateStatus ?? '').toUpperCase() === 'NEW',
+        viewCount: t.viewCount,
+      });
+    }
+  }
+
+  return out;
+}
+
+/**
+ * Today's MangaPlus chapter releases (published daily ~17:00 Paris time).
+ * Global feed — every updated series, not just the user's library.
+ */
+export async function getDailyReleases(): Promise<MangaPlusRelease[]> {
+  let data: MPResponse;
+  try {
+    data = await fetchMP<MPResponse>('/web/web_homeV4', { lang: 'eng' });
+  } catch (e) {
+    logger.warn('MangaPlus daily releases failed', { error: String(e) });
+    return [];
+  }
+  return parseDailyReleases(data);
 }
 
 // ── Chapter pages: download + XOR-decrypt to a local cache ─────────────────────
