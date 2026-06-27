@@ -1,0 +1,86 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: theme("colors.paper");
+  /* Ink-on-paper atmosphere: subtle halftone + warm paper grain. */
+  background-image: radial-gradient(
+      theme("colors.line") 0.5px,
+      transparent 0.5px
+    ),
+    radial-gradient(hsl(8 74% 48% / 0.04) 0.5px, transparent 0.5px);
+  background-size: 22px 22px, 22px 22px;
+  background-position: 0 0, 11px 11px;
+  color: theme("colors.ink");
+  font-family: theme("fontFamily.sans");
+  -webkit-font-smoothing: antialiased;
+}
+
+@layer components {
+  .panel {
+    @apply border-2 border-ink bg-surface shadow-panel;
+  }
+  .panel-sm {
+    @apply border-2 border-ink bg-surface shadow-panel-sm;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 border-2 border-ink bg-surface px-4 py-2 font-bold tracking-wide transition-transform duration-100;
+  }
+  .btn:active {
+    @apply scale-[0.97];
+  }
+  .btn-primary {
+    @apply bg-vermilion text-paper;
+  }
+  .btn:disabled {
+    @apply cursor-not-allowed opacity-40;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 border border-ink/70 px-2 py-0.5 text-xs font-bold uppercase tracking-wider;
+  }
+  .field {
+    @apply w-full border-2 border-ink bg-surface px-3 py-2 text-ink outline-none focus:ring-2 focus:ring-vermilion;
+  }
+  .label {
+    @apply mb-1 block text-xs font-bold uppercase tracking-widest text-ink-soft;
+  }
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Keyboard focus ring everywhere, never removed. */
+:focus-visible {
+  outline: 2px solid theme("colors.vermilion");
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* Leaflet should sit under our 2px ink frames cleanly. */
+.leaflet-container {
+  font-family: theme("fontFamily.sans");
+  background: theme("colors.paper-2");
+}

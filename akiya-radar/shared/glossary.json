@@ -1,0 +1,52 @@
+{
+  "description": "Shared Japanese real-estate glossary used for red-flag detection and UI explanations.",
+  "critical": {
+    "再建築不可": "Reconstruction impossible",
+    "借地権": "Terrain en bail (pas pleine propriété)",
+    "市街化調整区域": "Zone d'urbanisation contrôlée",
+    "農地": "Terrain agricole",
+    "未登記": "Non enregistré",
+    "越境": "Empiètement",
+    "共有持分": "Quote-part / indivision",
+    "土砂災害警戒区域": "Zone de risque glissement / éboulement",
+    "津波浸水想定区域": "Zone inondable tsunami",
+    "洪水浸水想定区域": "Zone inondable (crue)"
+  },
+  "works": {
+    "雨漏り": "Fuite de toiture",
+    "シロアリ": "Termites",
+    "傾き": "Maison qui penche",
+    "腐食": "Corrosion / pourriture",
+    "老朽化": "Vétusté",
+    "要修繕": "Réparations nécessaires",
+    "大規模修繕": "Gros travaux",
+    "残置物": "Objets laissés sur place",
+    "解体費": "Coût de démolition",
+    "汲み取り": "Toilettes à vidange",
+    "浄化槽": "Fosse septique",
+    "下水道なし": "Pas de tout-à-l'égout",
+    "上水道なし": "Pas d'eau courante",
+    "駐車場なし": "Pas de parking"
+  },
+  "status": {
+    "商談中": "En négociation",
+    "成約済み": "Vendu / conclu",
+    "受付停止": "Demandes suspendues",
+    "売買": "Vente",
+    "賃貸": "Location",
+    "譲渡": "Cession"
+  },
+  "personal_status": {
+    "new": "Nouveau",
+    "to_review": "À examiner",
+    "interesting": "Intéressant",
+    "very_interesting": "Très intéressant",
+    "needs_verification": "À vérifier",
+    "contact_to_make": "Contact à faire",
+    "contacted": "Contacté",
+    "visit_to_plan": "Visite à planifier",
+    "visited": "Visité",
+    "offer_considered": "Offre envisagée",
+    "abandoned": "Abandonné"
+  }
+}

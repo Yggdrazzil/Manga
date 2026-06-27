@@ -1,0 +1,52 @@
+import type { ListingSummary } from "@/lib/types";
+
+export function makeListing(overrides: Partial<ListingSummary> = {}): ListingSummary {
+  return {
+    id: "test-id",
+    source_url: "https://example.jp/1",
+    title_original: "敦賀 古民家",
+    title_fr: "Kominka à Tsuruga",
+    summary_fr: "Belle maison ancienne.",
+    price_yen: 3800000,
+    price_eur: 22800,
+    prefecture: "福井県",
+    city: "敦賀市",
+    lat: 35.65,
+    lon: 136.07,
+    geocode_accuracy: "exact",
+    land_area_m2: 220,
+    building_area_m2: 98,
+    build_year: 1973,
+    property_type: "kominka",
+    listing_status: "active",
+    personal_status: "interesting",
+    favorite: false,
+    rating: null,
+    flags: [
+      {
+        id: "f1",
+        flag_code: "rebuild_forbidden",
+        label_fr: "Reconstruction impossible",
+        severity: "critical",
+        explanation_fr: "Pas de reconstruction.",
+        recommended_action_fr: "Vérifier l'accès.",
+      },
+    ],
+    scores: [
+      {
+        id: "s1",
+        total_score: 72,
+        price_score: 16,
+        location_score: 14,
+        natural_risk_score: 14,
+        legal_risk_score: 7,
+        renovation_score: 11,
+        personal_fit_score: 6,
+        confidence_score: 60,
+        explanation_fr: "Score : 72/100",
+        created_at: new Date().toISOString(),
+      },
+    ],
+    ...overrides,
+  };
+}
