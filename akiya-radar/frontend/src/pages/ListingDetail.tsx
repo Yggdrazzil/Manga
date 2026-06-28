@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { api } from "@/api/client";
+import { DuplicateBanner } from "@/components/DuplicateBanner";
 import { ErrorState, Spinner } from "@/components/feedback";
 import { FlagBadge } from "@/components/FlagBadge";
 import { ListingMap } from "@/components/ListingMap";
@@ -28,6 +29,11 @@ export function ListingDetailPage() {
   const { data: listing, isLoading, error, refetch } = useQuery({
     queryKey: ["listing", id],
     queryFn: () => api.listing(id),
+  });
+  const { data: duplicates } = useQuery({
+    queryKey: ["listing-duplicates", id],
+    queryFn: () => api.duplicates(id),
+    enabled: !!id,
   });
 
   const [noteDraft, setNoteDraft] = useState("");
@@ -99,6 +105,12 @@ export function ListingDetailPage() {
       <Link to="/listings" className="text-sm font-bold text-ink-soft hover:text-vermilion">
         ← Toutes les annonces
       </Link>
+
+      {duplicates && duplicates.length > 0 && (
+        <section className="panel border-vermilion p-5">
+          <DuplicateBanner duplicates={duplicates} />
+        </section>
+      )}
 
       {/* Header */}
       <header className="panel p-5">

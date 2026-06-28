@@ -144,6 +144,22 @@ class ImportUrlRequest(BaseModel):
     source_id: uuid.UUID | None = None
 
 
+class DuplicateOut(BaseModel):
+    listing_id: str
+    reason: str
+    confidence: str
+    title: str | None = None
+    city: str | None = None
+    price_yen: Decimal | None = None
+
+
+class ImportResult(BaseModel):
+    listing: ListingDetail
+    fetched: bool
+    fields_filled: list[str] = []
+    possible_duplicates: list[DuplicateOut] = []
+
+
 class FavoriteRequest(BaseModel):
     favorite: bool
 

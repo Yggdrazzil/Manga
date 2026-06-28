@@ -3,21 +3,23 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { api } from "@/api/client";
+import { DuplicateBanner } from "@/components/DuplicateBanner";
 import { FlagBadge } from "@/components/FlagBadge";
 import { fmtArea, fmtYen } from "@/lib/format";
-import type { ListingDetail } from "@/lib/types";
+import type { ImportResult } from "@/lib/types";
 
 export function ImportUrl() {
   const [url, setUrl] = useState("");
-  const [imported, setImported] = useState<ListingDetail | null>(null);
+  const [result, setResult] = useState<ImportResult | null>(null);
   const [form, setForm] = useState<Record<string, string>>({});
   const navigate = useNavigate();
   const qc = useQueryClient();
 
   const importMut = useMutation({
     mutationFn: () => api.importUrl(url.trim()),
-    onSuccess: (data) => {
-      setImported(data);
+    onSuccess: (res) => {
+      setResult(res);
+      const data = res.listing;
       setForm({
         title_original: data.title_original ?? "",
         description_original: data.description_original ?? "",
@@ -40,7 +42,7 @@ export function ImportUrl() {
           ? Number(v)
           : v;
       });
-      return api.updateListing(imported!.id, body);
+      return api.updateListing(result!.listing.id, body);
     },
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["listings"] });
@@ -105,16 +107,33 @@ export function ImportUrl() {
         </p>
       )}
 
-      {imported && (
+      {result && result.possible_duplicates.length > 0 && (
+        <section className="panel animate-reveal-up border-vermilion p-5">
+          <DuplicateBanner duplicates={result.possible_duplicates} />
+        </section>
+      )}
+
+      {result && (
         <section className="panel animate-reveal-up p-5">
           <h2 className="font-display text-xl font-bold">Correction manuelle</h2>
           <p className="text-sm text-ink-soft">
             Complétez ou corrigez les champs, puis enregistrez. Les red flags et le score seront
             recalculés.
           </p>
-          {imported.flags.length > 0 && (
+          <p className="mt-2 text-sm">
+            {result.fetched ? (
+              <span className="chip bg-moss/20 text-moss">
+                ✓ Page récupérée — {result.fields_filled.length} champ(s) extrait(s)
+              </span>
+            ) : (
+              <span className="chip bg-paper-2 text-ink-soft">
+                ◌ Page non récupérée (robots.txt, hors ligne ou bloquée) — saisie manuelle
+              </span>
+            )}
+          </p>
+          {result.listing.flags.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-1.5">
-              {imported.flags.map((f) => (
+              {result.listing.flags.map((f) => (
                 <FlagBadge key={f.id} flag={f} />
               ))}
             </div>
@@ -154,7 +173,7 @@ export function ImportUrl() {
             <button className="btn btn-primary" onClick={() => saveMut.mutate()} disabled={saveMut.isPending}>
               {saveMut.isPending ? "Enregistrement…" : "Enregistrer & ouvrir la fiche"}
             </button>
-            <button className="btn" onClick={() => navigate(`/listings/${imported.id}`)}>
+            <button className="btn" onClick={() => navigate(`/listings/${result.listing.id}`)}>
               Ouvrir sans modifier
             </button>
           </div>

@@ -91,8 +91,14 @@ python -m worker     # mode idle MVP (pas de crawl réel)
 - **Carte** : marqueurs colorés par score, distinction
   exact / approximatif / ville seulement (jamais une position fausse comme
   exacte).
-- **Import d'URL** : crée toujours une fiche éditable, même si le parsing
-  échoue ; correction manuelle, red flags + score recalculés.
+- **Import d'URL** : récupération réelle de la page si joignable (robots.txt
+  respecté, timeout borné, user-agent clair) et extraction automatique
+  (titre, prix, surfaces, plan, année, adresse → préfecture/ville) ; retombe
+  toujours sur une fiche éditable si l'extraction échoue ; correction manuelle,
+  red flags + score recalculés.
+- **Détection de doublons** : à l'import et sur la fiche, « doublon possible »
+  est signalé (URL, contenu, géo) avec lien vers le bien existant — **jamais**
+  de fusion automatique.
 - **Sources**, **Recherches sauvegardées**, **Réglages**.
 
 ## Détection de red flags (extrait)
@@ -130,7 +136,8 @@ cat backup.sql | docker compose exec -T postgres psql -U akiya akiya_radar
 ## Roadmap
 
 1. ✅ Squelette : API, base, frontend, données mock, red flags, scoring, carte.
-2. Import/correction enrichis, filtres avancés, checklist.
-3. Worker d'ingestion réel (adapters municipaux), dédup, historique prix.
+2. ✅ Import réel (fetch + extraction, robots.txt), détection de doublons
+   exposée, correction manuelle, filtres, notes/favoris/statuts, checklist.
+3. Worker d'ingestion réel (adapters municipaux), historique prix, crawl admin.
 4. Enrichissement public : MLIT (prix de transaction), hazard maps, OSM (gare),
    J-SHIS (sismique), recherches sauvegardées + alertes SMTP, export CSV.

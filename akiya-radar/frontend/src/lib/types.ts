@@ -98,6 +98,22 @@ export interface ListingListResponse {
   offset: number;
 }
 
+export interface Duplicate {
+  listing_id: string;
+  reason: string;
+  confidence: "exact" | "high" | "possible";
+  title: string | null;
+  city: string | null;
+  price_yen: number | null;
+}
+
+export interface ImportResult {
+  listing: ListingDetail;
+  fetched: boolean;
+  fields_filled: string[];
+  possible_duplicates: Duplicate[];
+}
+
 export interface DashboardResponse {
   stats: {
     total: number;

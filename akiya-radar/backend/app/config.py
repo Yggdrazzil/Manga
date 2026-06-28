@@ -27,6 +27,13 @@ class Settings(BaseSettings):
     # Static fallback rate used by the mock exchange provider (EUR per 1 JPY).
     jpy_to_eur_rate: float = 0.0060
 
+    # Manual-import URL fetching (robots-respecting, best-effort, never fatal).
+    import_fetch_enabled: bool = True
+    import_fetch_timeout: float = 8.0
+    user_agent: str = (
+        "AkiyaRadarBot/0.1 (+personal akiya research; respects robots.txt)"
+    )
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

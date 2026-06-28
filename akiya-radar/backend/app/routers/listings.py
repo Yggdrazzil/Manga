@@ -8,7 +8,9 @@ from sqlalchemy.orm import Session, selectinload
 from app.database import get_db
 from app.models import Listing, ListingFlag, ListingScore
 from app.schemas.listing import (
+    DuplicateOut,
     FavoriteRequest,
+    ImportResult,
     ImportUrlRequest,
     ListingCreate,
     ListingDetail,
@@ -16,7 +18,7 @@ from app.schemas.listing import (
     ListingSummary,
     ListingUpdate,
 )
-from app.services import listing_ops
+from app.services import extraction, fetcher, listing_ops
 
 router = APIRouter(prefix="/listings", tags=["listings"])
 
@@ -194,13 +196,14 @@ def delete_listing(listing_id: uuid.UUID, db: Session = Depends(get_db)) -> None
     db.commit()
 
 
-@router.post("/import-url", response_model=ListingDetail, status_code=status.HTTP_201_CREATED)
-def import_url(payload: ImportUrlRequest, db: Session = Depends(get_db)) -> Listing:
-    """Create a minimal, always-editable listing from a URL.
+@router.post("/import-url", response_model=ImportResult, status_code=status.HTTP_201_CREATED)
+def import_url(payload: ImportUrlRequest, db: Session = Depends(get_db)) -> ImportResult:
+    """Create an always-editable listing from a URL.
 
-    Import never fails on parse errors: at minimum a record with the source URL
-    and editable fields is created. Real fetching/parsing is delegated to the
-    worker; the MVP stores the URL and runs enrichment on whatever is present.
+    Best-effort: if the page is reachable and robots.txt allows it, fields are
+    extracted automatically. Import never fails on fetch/parse errors — at
+    minimum a record with the source URL and editable fields is created.
+    Possible duplicates are surfaced (never auto-merged).
     """
     url = payload.url.strip()
     if not url:
@@ -210,7 +213,12 @@ def import_url(payload: ImportUrlRequest, db: Session = Depends(get_db)) -> List
         select(Listing).where(Listing.source_url == url)
     ).scalar_one_or_none()
     if existing is not None:
-        return _get_or_404(db, existing.id, detail=True)
+        return ImportResult(
+            listing=ListingDetail.model_validate(_get_or_404(db, existing.id, detail=True)),
+            fetched=False,
+            fields_filled=[],
+            possible_duplicates=listing_ops.find_possible_duplicates(db, existing),
+        )
 
     now = datetime.now(UTC)
     listing = Listing(
@@ -220,13 +228,38 @@ def import_url(payload: ImportUrlRequest, db: Session = Depends(get_db)) -> List
         listing_status="unknown",
         first_seen_at=now,
         last_seen_at=now,
-        raw_json={"import": "manual", "parsed": False},
     )
     db.add(listing)
     db.flush()
+
+    fetched = False
+    fields_filled: list[str] = []
+    html = fetcher.fetch_html(url)
+    if html:
+        fetched = True
+        try:
+            extracted = extraction.extract_listing_fields(html)
+        except Exception:  # noqa: BLE001 — extraction must never break import
+            extracted = {}
+        fields_filled = listing_ops.apply_extracted(listing, extracted)
+    listing.raw_json = {"import": "manual", "fetched": fetched, "fields_filled": fields_filled}
+
     listing_ops.enrich_listing(db, listing)
+    duplicates = listing_ops.find_possible_duplicates(db, listing)
     db.commit()
-    return _get_or_404(db, listing.id, detail=True)
+
+    return ImportResult(
+        listing=ListingDetail.model_validate(_get_or_404(db, listing.id, detail=True)),
+        fetched=fetched,
+        fields_filled=fields_filled,
+        possible_duplicates=duplicates,
+    )
+
+
+@router.get("/{listing_id}/duplicates", response_model=list[DuplicateOut])
+def listing_duplicates(listing_id: uuid.UUID, db: Session = Depends(get_db)) -> list[dict]:
+    listing = _get_or_404(db, listing_id)
+    return listing_ops.find_possible_duplicates(db, listing)
 
 
 @router.post("/{listing_id}/enrich", response_model=ListingDetail)

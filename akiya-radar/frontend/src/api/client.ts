@@ -1,5 +1,7 @@
 import type {
   DashboardResponse,
+  Duplicate,
+  ImportResult,
   ListingDetail,
   ListingFilters,
   ListingListResponse,
@@ -66,10 +68,11 @@ export const api = {
   deleteListing: (id: string) =>
     request<void>(`/listings/${id}`, { method: "DELETE" }),
   importUrl: (url: string) =>
-    request<ListingDetail>("/listings/import-url", {
+    request<ImportResult>("/listings/import-url", {
       method: "POST",
       body: JSON.stringify({ url }),
     }),
+  duplicates: (id: string) => request<Duplicate[]>(`/listings/${id}/duplicates`),
   setFavorite: (id: string, favorite: boolean) =>
     request<ListingDetail>(`/listings/${id}/favorite`, {
       method: "POST",

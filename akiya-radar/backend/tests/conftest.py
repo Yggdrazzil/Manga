@@ -27,9 +27,15 @@ def engine():
 
 
 @pytest.fixture()
-def client(engine):
+def client(engine, monkeypatch):
     from fastapi.testclient import TestClient
     from sqlalchemy.orm import sessionmaker
+
+    # Disable real HTTP fetching for API tests by default; tests that exercise
+    # the fetch path re-patch fetch_html via their own monkeypatch.
+    import app.services.fetcher as fetcher
+
+    monkeypatch.setattr(fetcher, "fetch_html", lambda url: None)
 
     from app.database import Base, get_db
     from app.main import app
