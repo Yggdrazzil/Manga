@@ -25,6 +25,9 @@ akiya-radar/
   tasks, saved_searches, dashboard, auth, health).
 - **worker/worker/adapters/** : `SourceAdapter` + adapters (generic municipal,
   manual fallback, placeholders par source).
+- **worker/worker/ingest.py** : job d'ingestion quotidien (découverte de liens
+  depuis les pages index, robots.txt respecté, puis `POST /listings/import-url`).
+  Lancé par GitHub Actions (`.github/workflows/akiya-daily-ingest.yml`).
 
 ## Commandes
 - Tout lancer : `docker compose up --build`

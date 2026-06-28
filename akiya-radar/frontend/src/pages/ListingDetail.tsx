@@ -309,9 +309,9 @@ export function ListingDetailPage() {
                             {val}/{p.max}
                           </span>
                         </div>
-                        <div className="mt-0.5 h-2 border border-ink/30 bg-paper-2">
+                        <div className="mt-1 h-2 overflow-hidden rounded-full bg-paper-2">
                           <div
-                            className="h-full bg-ink"
+                            className="h-full rounded-full bg-gradient-to-r from-vermilion to-gold transition-[width] duration-500 ease-out-expo"
                             style={{ width: `${(val / p.max) * 100}%` }}
                           />
                         </div>

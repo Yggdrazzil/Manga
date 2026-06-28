@@ -87,7 +87,7 @@ export function Sources() {
       ) : (
         <div className="panel overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="border-b-2 border-ink bg-paper-2">
+            <thead className="border-b border-line-strong bg-paper-2">
               <tr>
                 {["Nom", "Type", "Crawl", "Dernier crawl", "Dernière erreur"].map((h) => (
                   <th key={h} className="px-4 py-2 font-bold uppercase tracking-wider">

@@ -1,0 +1,50 @@
+name: Akiya — ingestion quotidienne
+
+# Récupère automatiquement les nouvelles annonces chaque jour.
+# Le job appelle l'API du backend déployé (/listings/import-url), qui télécharge,
+# extrait, déduplique, score et stocke chaque annonce. Sans le secret
+# AKIYA_API_BASE, le job se termine proprement sans rien faire.
+
+on:
+  schedule:
+    # 21:00 UTC = 06:00 JST (heure du Japon). GitHub cron est toujours en UTC.
+    - cron: "0 21 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: akiya-daily-ingest
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install worker
+        working-directory: akiya-radar/worker
+        run: |
+          python -m pip install --upgrade pip
+          pip install .
+
+      - name: Run daily ingest
+        env:
+          # Configure these in repo Settings → Secrets and variables → Actions.
+          AKIYA_API_BASE: ${{ secrets.AKIYA_API_BASE }}
+          AKIYA_ADMIN_TOKEN: ${{ secrets.AKIYA_ADMIN_TOKEN }}
+          # Optional explicit lists (newline- or comma-separated). If omitted,
+          # the job uses the base_url of crawl-enabled sources from the backend.
+          AKIYA_SOURCE_INDEX_URLS: ${{ secrets.AKIYA_SOURCE_INDEX_URLS }}
+          AKIYA_WATCH_URLS: ${{ secrets.AKIYA_WATCH_URLS }}
+          LOG_LEVEL: INFO
+        run: python -m worker.ingest

@@ -118,6 +118,31 @@ Travaux 15 · Fit personnel 10, plus un **score de confiance** distinct (un bien
 *incertain faute de données* ≠ un *mauvais* bien). Chaque score est expliqué
 (points positifs / négatifs).
 
+## Ingestion quotidienne (GitHub Actions)
+
+Le workflow [`.github/workflows/akiya-daily-ingest.yml`](../.github/workflows/akiya-daily-ingest.yml)
+(racine du dépôt) s'exécute chaque jour (06:00 JST) et peut être lancé à la
+main (`workflow_dispatch`). Il installe le worker et exécute
+`python -m worker.ingest`, qui :
+
+1. récupère les pages *index* des sources `crawl_enabled` (via l'API backend)
+   ou les listes fournies par secret ;
+2. découvre les liens de fiches (robots.txt respecté) ;
+3. appelle `POST /listings/import-url` pour chaque fiche — le backend
+   télécharge, extrait, déduplique, score et stocke.
+
+Secrets à définir (Settings → Secrets and variables → Actions) :
+
+| Secret | Rôle |
+|--------|------|
+| `AKIYA_API_BASE` | URL du backend déployé (ex. `https://akiya.mondomaine.fr`). **Sans lui, le job ne fait rien.** |
+| `AKIYA_ADMIN_TOKEN` | (option) JWT si `AUTH_ENABLED=true`. |
+| `AKIYA_SOURCE_INDEX_URLS` | (option) pages index à crawler, séparées par virgules/sauts de ligne. |
+| `AKIYA_WATCH_URLS` | (option) fiches précises à surveiller. |
+
+En local : `cd worker && AKIYA_API_BASE=http://localhost:8000 \
+AKIYA_SOURCE_INDEX_URLS=… python -m worker.ingest`.
+
 ## Sécurité
 
 CORS strict, validation Pydantic, ORM (pas d'injection SQL), aucun secret côté

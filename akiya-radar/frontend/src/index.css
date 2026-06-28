@@ -15,46 +15,62 @@ body,
 body {
   margin: 0;
   background-color: theme("colors.paper");
-  /* Ink-on-paper atmosphere: subtle halftone + warm paper grain. */
+  /* Soft, premium paper atmosphere: a warm vertical wash + a whisper of grain. */
   background-image: radial-gradient(
-      theme("colors.line") 0.5px,
-      transparent 0.5px
+      120% 80% at 50% -10%,
+      hsl(8 76% 50% / 0.05) 0%,
+      transparent 55%
     ),
-    radial-gradient(hsl(8 74% 48% / 0.04) 0.5px, transparent 0.5px);
-  background-size: 22px 22px, 22px 22px;
-  background-position: 0 0, 11px 11px;
+    radial-gradient(theme("colors.line") 0.5px, transparent 0.5px);
+  background-size: 100% 100%, 26px 26px;
+  background-attachment: fixed, fixed;
   color: theme("colors.ink");
   font-family: theme("fontFamily.sans");
+  font-feature-settings: "palt" 1;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+@layer base {
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.01em;
+  }
 }
 
 @layer components {
   .panel {
-    @apply border-2 border-ink bg-surface shadow-panel;
+    @apply rounded-xl2 border border-line bg-surface shadow-soft;
   }
   .panel-sm {
-    @apply border-2 border-ink bg-surface shadow-panel-sm;
+    @apply rounded-lg border border-line bg-surface shadow-soft;
   }
   .btn {
-    @apply inline-flex items-center justify-center gap-2 border-2 border-ink bg-surface px-4 py-2 font-bold tracking-wide transition-transform duration-100;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-line-strong
+      bg-surface px-4 py-2 text-sm font-bold tracking-tight text-ink
+      shadow-soft transition-all duration-150 ease-out-expo hover:-translate-y-0.5 hover:shadow-lift;
   }
   .btn:active {
-    @apply scale-[0.97];
+    @apply translate-y-0 scale-[0.98] shadow-soft;
   }
   .btn-primary {
-    @apply bg-vermilion text-paper;
+    @apply border-transparent bg-vermilion text-paper hover:brightness-105;
   }
   .btn:disabled {
-    @apply cursor-not-allowed opacity-40;
+    @apply cursor-not-allowed opacity-40 hover:translate-y-0 hover:shadow-soft;
   }
   .chip {
-    @apply inline-flex items-center gap-1 border border-ink/70 px-2 py-0.5 text-xs font-bold uppercase tracking-wider;
+    @apply inline-flex items-center gap-1 rounded-full border border-line px-2.5 py-0.5
+      text-[11px] font-bold uppercase tracking-wider;
   }
   .field {
-    @apply w-full border-2 border-ink bg-surface px-3 py-2 text-ink outline-none focus:ring-2 focus:ring-vermilion;
+    @apply w-full rounded-xl border border-line-strong bg-surface px-3.5 py-2.5 text-ink
+      shadow-sm outline-none transition-shadow duration-150
+      placeholder:text-ink-mute/70 focus:border-vermilion focus:ring-4 focus:ring-vermilion/15;
   }
   .label {
-    @apply mb-1 block text-xs font-bold uppercase tracking-widest text-ink-soft;
+    @apply mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-ink-mute;
   }
 }
 
@@ -69,6 +85,17 @@ a {
   outline-offset: 2px;
 }
 
+::selection {
+  background: theme("colors.vermilion");
+  color: theme("colors.paper");
+}
+
+/* Slim, modern scrollbars. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: theme("colors.line-strong") transparent;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -79,7 +106,7 @@ a {
   }
 }
 
-/* Leaflet should sit under our 2px ink frames cleanly. */
+/* Leaflet should sit under our rounded frames cleanly. */
 .leaflet-container {
   font-family: theme("fontFamily.sans");
   background: theme("colors.paper-2");

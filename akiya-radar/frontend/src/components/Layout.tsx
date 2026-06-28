@@ -12,46 +12,48 @@ const NAV = [
 
 export function Layout() {
   return (
-    <div className="mx-auto flex min-h-full max-w-7xl flex-col px-4 pb-16 pt-4 sm:px-6">
-      <header className="mb-6 flex flex-col gap-4 border-b-2 border-ink pb-4 sm:flex-row sm:items-end sm:justify-between">
-        <NavLink to="/dashboard" className="group flex items-baseline gap-3">
-          <span className="font-display text-4xl font-extrabold tracking-tight">
-            空き家
-          </span>
-          <span className="flex flex-col leading-none">
-            <span className="font-display text-2xl font-extrabold text-vermilion">
-              Akiya Radar
+    <div className="min-h-full">
+      <header className="sticky top-0 z-30 border-b border-line bg-paper/80 backdrop-blur-md">
+        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
+          <NavLink to="/dashboard" className="group flex items-center gap-3">
+            <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-line-strong bg-surface font-display text-xl font-extrabold shadow-soft transition-transform duration-200 ease-out-expo group-hover:-translate-y-0.5">
+              空
             </span>
-            <span className="text-[11px] uppercase tracking-[0.3em] text-ink-mute">
-              cockpit immobilier · japon
+            <span className="flex flex-col leading-none">
+              <span className="font-display text-xl font-extrabold tracking-tight text-vermilion">
+                Akiya Radar
+              </span>
+              <span className="mt-0.5 text-[10px] uppercase tracking-[0.3em] text-ink-mute">
+                cockpit immobilier · japon
+              </span>
             </span>
-          </span>
-        </NavLink>
-        <nav aria-label="Navigation principale">
-          <ul className="flex flex-wrap gap-1.5">
-            {NAV.map((item) => (
-              <li key={item.to}>
-                <NavLink
-                  to={item.to}
-                  className={({ isActive }) =>
-                    `flex items-center gap-1.5 border-2 px-3 py-1.5 text-sm font-bold transition-colors duration-150 ${
-                      isActive
-                        ? "border-ink bg-ink text-paper"
-                        : "border-ink/20 text-ink-soft hover:border-ink hover:bg-paper-2"
-                    }`
-                  }
-                >
-                  <span className="font-display text-base" aria-hidden>
-                    {item.jp}
-                  </span>
-                  {item.label}
-                </NavLink>
-              </li>
-            ))}
-          </ul>
-        </nav>
+          </NavLink>
+          <nav aria-label="Navigation principale">
+            <ul className="flex flex-wrap gap-1">
+              {NAV.map((item) => (
+                <li key={item.to}>
+                  <NavLink
+                    to={item.to}
+                    className={({ isActive }) =>
+                      `flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-bold transition-all duration-150 ease-out-expo ${
+                        isActive
+                          ? "bg-ink text-paper shadow-soft"
+                          : "text-ink-soft hover:bg-paper-2 hover:text-ink"
+                      }`
+                    }
+                  >
+                    <span className="font-display text-base opacity-80" aria-hidden>
+                      {item.jp}
+                    </span>
+                    <span className="hidden sm:inline">{item.label}</span>
+                  </NavLink>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        </div>
       </header>
-      <main className="flex-1">
+      <main className="mx-auto max-w-7xl px-4 pb-20 pt-6 sm:px-6">
         <Outlet />
       </main>
     </div>

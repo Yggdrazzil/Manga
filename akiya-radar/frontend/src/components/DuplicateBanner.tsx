@@ -10,9 +10,9 @@ const confidenceLabel: Record<string, string> = {
 };
 
 const confidenceTone: Record<string, string> = {
-  exact: "border-vermilion bg-vermilion-soft",
-  high: "border-gold bg-gold/10",
-  possible: "border-ink/40 bg-paper-2",
+  exact: "border-vermilion/40 bg-vermilion-soft",
+  high: "border-gold/40 bg-gold/10",
+  possible: "border-line-strong bg-paper-2",
 };
 
 export function DuplicateBanner({ duplicates }: { duplicates: Duplicate[] }) {
@@ -29,12 +29,12 @@ export function DuplicateBanner({ duplicates }: { duplicates: Duplicate[] }) {
         {duplicates.map((d) => (
           <li
             key={d.listing_id}
-            className={`flex flex-wrap items-center justify-between gap-2 border-2 p-3 ${
+            className={`flex flex-wrap items-center justify-between gap-2 rounded-xl border p-3 ${
               confidenceTone[d.confidence] ?? confidenceTone.possible
             }`}
           >
             <div className="min-w-0">
-              <span className="chip border-ink/50">{confidenceLabel[d.confidence]}</span>
+              <span className="chip border-line-strong">{confidenceLabel[d.confidence]}</span>
               <p className="mt-1 truncate font-bold">{d.title ?? "Annonce existante"}</p>
               <p className="text-xs text-ink-soft">
                 {[d.city, fmtYen(d.price_yen)].filter(Boolean).join(" · ")} — {d.reason}
