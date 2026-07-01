@@ -11,6 +11,8 @@ import type {
   Task,
 } from "@/lib/types";
 
+import { createMockApi } from "./mock";
+
 const BASE = import.meta.env.VITE_API_BASE_URL ?? "/api";
 
 class ApiError extends Error {
@@ -52,7 +54,7 @@ function toQuery(filters: ListingFilters): string {
   return qs ? `?${qs}` : "";
 }
 
-export const api = {
+const realApi = {
   dashboard: () => request<DashboardResponse>("/dashboard"),
 
   listings: (filters: ListingFilters = {}) =>
@@ -122,5 +124,11 @@ export const api = {
   deleteSavedSearch: (id: string) =>
     request<void>(`/saved-searches/${id}`, { method: "DELETE" }),
 };
+
+// In preview builds (VITE_MOCK=1) the app runs fully client-side on mock data.
+export const api: typeof realApi =
+  import.meta.env.VITE_MOCK === "1"
+    ? (createMockApi() as unknown as typeof realApi)
+    : realApi;
 
 export { ApiError };

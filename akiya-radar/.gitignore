@@ -20,3 +20,4 @@ dist/
 
 # TS build cache
 *.tsbuildinfo
+dist-preview/
