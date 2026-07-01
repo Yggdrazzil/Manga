@@ -9,6 +9,7 @@ import { FlagBadge } from "@/components/FlagBadge";
 import { ListingMap } from "@/components/ListingMap";
 import { ScoreBadge } from "@/components/ScoreBadge";
 import { StatusPill } from "@/components/StatusPill";
+import { TranslatableText } from "@/components/TranslatableText";
 import { DUE_DILIGENCE, loadChecklist, saveChecklist } from "@/lib/checklist";
 import { accuracyLabel, fmtArea, fmtEur, fmtYen, severityRank } from "@/lib/format";
 import { latestScore, PERSONAL_STATUSES, PERSONAL_STATUS_LABELS } from "@/lib/types";
@@ -122,12 +123,13 @@ export function ListingDetailPage() {
                 <span className="chip border-ink/30 text-ink-mute">{listing.listing_status}</span>
               )}
             </div>
-            <h1 className="mt-2 font-display text-2xl font-extrabold leading-tight sm:text-3xl">
-              {listing.title_original ?? listing.title_fr ?? "Annonce"}
-            </h1>
-            {listing.title_fr && listing.title_fr !== listing.title_original && (
-              <p className="mt-1 text-ink-soft">{listing.title_fr}</p>
-            )}
+            <div className="mt-2">
+              <TranslatableText
+                text={listing.title_original ?? listing.title_fr ?? "Annonce"}
+                as="heading"
+                className="text-2xl font-extrabold leading-tight sm:text-3xl"
+              />
+            </div>
             <p className="mt-2 text-ink-soft">
               {[listing.address_text, listing.city, listing.prefecture]
                 .filter(Boolean)
@@ -259,14 +261,10 @@ export function ListingDetailPage() {
 
           {/* Texts */}
           <section className="panel p-5">
-            <h2 className="font-display text-xl font-bold">Texte original (日本語)</h2>
-            <p className="mt-2 whitespace-pre-wrap text-ink-soft" lang="ja">
-              {listing.description_original ?? "—"}
-            </p>
-            <h2 className="mt-5 font-display text-xl font-bold">Traduction française</h2>
-            <p className="mt-2 whitespace-pre-wrap text-ink-soft">
-              {listing.description_fr ?? "—"}
-            </p>
+            <h2 className="font-display text-xl font-bold">Description (日本語)</h2>
+            <div className="mt-2">
+              <TranslatableText text={listing.description_original} className="text-ink-soft" />
+            </div>
             {listing.summary_fr && (
               <>
                 <h3 className="mt-5 font-bold uppercase tracking-wider text-ink-mute">Résumé</h3>

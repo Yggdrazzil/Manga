@@ -75,6 +75,11 @@ const realApi = {
       body: JSON.stringify({ url }),
     }),
   duplicates: (id: string) => request<Duplicate[]>(`/listings/${id}/duplicates`),
+  translateText: (text: string) =>
+    request<{ translated: string; provider: string }>("/translate", {
+      method: "POST",
+      body: JSON.stringify({ text }),
+    }),
   setFavorite: (id: string, favorite: boolean) =>
     request<ListingDetail>(`/listings/${id}/favorite`, {
       method: "POST",

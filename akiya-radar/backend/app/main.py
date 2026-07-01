@@ -11,6 +11,7 @@ from app.routers import (
     saved_searches,
     sources,
     tasks,
+    translate,
 )
 
 settings = get_settings()
@@ -37,6 +38,7 @@ app.include_router(sources.router)
 app.include_router(notes.router)
 app.include_router(tasks.router)
 app.include_router(saved_searches.router)
+app.include_router(translate.router)
 
 
 @app.get("/", tags=["health"])

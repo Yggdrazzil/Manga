@@ -386,6 +386,34 @@ function filterListings(f: ListingFilters) {
   return items;
 }
 
+// Authored French translations so the on-demand "Traduire" action shows real
+// output in the server-less preview (the live app uses the backend provider).
+const FR_MAP: Record<string, string> = {
+  "隠岐の島町 海辺の一軒家 4LDK": "Oki-no-shima — maison individuelle en bord de mer, 4LDK",
+  "海辺の一軒家。4LDK。広い庭。リフォーム済みで即入居可能。駐車場3台。眺望良好。":
+    "Maison individuelle en bord de mer. 4LDK. Grand jardin. Rénovée, emménagement immédiat possible. 3 places de parking. Belle vue.",
+  "敦賀市 古民家 平屋 5DK 海まで徒歩10分":
+    "Tsuruga — kominka de plain-pied, 5DK, à 10 min à pied de la mer",
+  "築昭和48年の古民家です。5DK、広い庭付き。老朽化が進んでおり要修繕。雨漏りの跡があります。浄化槽。駐車場2台。":
+    "Kominka construite en 1973 (ère Shōwa 48). 5DK avec grand jardin. Vétusté avancée, réparations nécessaires. Traces de fuites de toiture. Fosse septique. 2 places de parking.",
+  "大分県 由布市 温泉付き 戸建て 3LDK":
+    "Préfecture d'Ōita, Yufu — maison avec source chaude (onsen), 3LDK",
+  "由布院近くの戸建て。3LDK。温泉引き込み可能。状態良好でリフォーム不要。駐車場あり。観光地に近い好立地。":
+    "Maison proche de Yufuin. 3LDK. Raccordement à une source chaude (onsen) possible. Bon état, aucune rénovation nécessaire. Parking. Bien située, proche des sites touristiques.",
+  "隠岐の島町 一戸建て 3LDK 再建築不可":
+    "Oki-no-shima — maison individuelle 3LDK, reconstruction impossible",
+  "海が見える高台の一戸建て。3LDK。再建築不可のため現況のままご利用ください。シロアリの被害が一部あり。残置物あり。":
+    "Maison sur les hauteurs avec vue sur la mer. 3LDK. Reconstruction impossible : à utiliser en l'état. Dégâts de termites par endroits. Objets laissés sur place par l'ancien occupant.",
+  "南房総市 別荘向き 2LDK 海近":
+    "Minamibōsō — idéale résidence secondaire, 2LDK, proche de la mer",
+  "南房総の別荘向き物件。2LDK。津波浸水想定区域に含まれます。上水道なし、井戸利用。リフォーム済みで状態良好。":
+    "Bien de type résidence secondaire à Minamibōsō. 2LDK. Situé en zone de submersion prévue par tsunami. Pas d'eau courante (utilisation d'un puits). Rénové, en bon état.",
+  "敦賀市中心部 町家 4DK 商談中":
+    "Centre de Tsuruga — machiya (maison de ville) 4DK, en cours de négociation",
+  "敦賀駅徒歩8分の町家。4DK。商談中。借地権物件のためご注意ください。リノベーション向き。":
+    "Machiya à 8 min à pied de la gare de Tsuruga. 4DK. En cours de négociation. Attention : terrain en bail (pas la pleine propriété). Idéale pour une rénovation.",
+};
+
 export function createMockApi() {
   return {
     dashboard: (): Promise<DashboardResponse> =>
@@ -439,6 +467,12 @@ export function createMockApi() {
       }),
 
     duplicates: (): Promise<Duplicate[]> => delay([]),
+
+    translateText: (text: string): Promise<{ translated: string; provider: string }> =>
+      delay({
+        translated: FR_MAP[text] ?? `(traduction de démonstration) ${text}`,
+        provider: "demo",
+      }),
 
     notes: (id: string): Promise<Note[]> => delay(byId(id)?.notes ?? []),
     addNote: (id: string, note: string): Promise<Note> => {

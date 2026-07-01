@@ -190,6 +190,16 @@ def test_saved_search_matching(client):
     assert results.json()[0]["prefecture"] == "島根県"
 
 
+def test_translate_endpoint(client):
+    resp = client.post("/translate", json={"text": "再建築不可の物件"})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert "provider" in body
+    # Mock provider echoes the source text so nothing is ever lost.
+    assert "再建築不可の物件" in body["translated"]
+    assert client.post("/translate", json={"text": ""}).json()["translated"] == ""
+
+
 def test_dashboard(client):
     client.post("/listings", json={"source_url": "https://a.jp/d1", "title_original": "再建築不可"})
     resp = client.get("/dashboard")
