@@ -11,8 +11,8 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import Listing, ListingFlag, ListingScore
-from app.services import dedupe, red_flags, scoring
+from app.models import HazardScore, Listing, ListingFlag, ListingScore
+from app.services import dedupe, geocoding, hazard, red_flags, scoring
 from app.services.providers import (
     get_exchange_rate_provider,
     get_summary_provider,
@@ -81,16 +81,76 @@ def detect_and_store_flags(db: Session, listing: Listing) -> list[ListingFlag]:
     return list(listing.flags)
 
 
+def latest_hazard_dict(db: Session, listing: Listing) -> dict | None:
+    row = db.execute(
+        select(HazardScore)
+        .where(HazardScore.listing_id == listing.id)
+        .order_by(HazardScore.created_at.desc())
+        .limit(1)
+    ).scalar_one_or_none()
+    if row is None:
+        return None
+    return {"earthquake_risk": row.earthquake_risk, "source_name": row.source_name}
+
+
 def compute_and_store_score(
     db: Session, listing: Listing, prefs: dict | None = None
 ) -> ListingScore:
     flags = [
         {"flag_code": f.flag_code, "severity": f.severity} for f in listing.flags
     ]
-    result = scoring.score_listing(listing_to_dict(listing), flags=flags, prefs=prefs)
+    result = scoring.score_listing(
+        listing_to_dict(listing),
+        flags=flags,
+        hazard=latest_hazard_dict(db, listing),
+        prefs=prefs,
+    )
     row = ListingScore(**result.to_dict())
     listing.scores.append(row)
     db.flush()
+    return row
+
+
+def geocode_listing(db: Session, listing: Listing, force: bool = False) -> bool:
+    """Fill coordinates from the address via GSI. Returns True when updated.
+
+    Never overwrites existing coordinates unless ``force`` — and never claims
+    better accuracy than the geocoder inferred.
+    """
+    if not force and listing.lat is not None and listing.lon is not None:
+        return False
+    address = listing.address_text or " ".join(
+        p for p in (listing.prefecture, listing.city) if p
+    )
+    result = geocoding.geocode(address)
+    if result is None:
+        return False
+    listing.lat = result.lat
+    listing.lon = result.lon
+    listing.geocode_accuracy = result.accuracy
+    set_geom_from_latlon(listing)
+    db.flush()
+    return True
+
+
+def enrich_hazard(db: Session, listing: Listing) -> HazardScore | None:
+    """Fetch real J-SHIS seismic hazard for the listing's coordinates."""
+    result = hazard.fetch_seismic_hazard(listing.lat, listing.lon)
+    if result is None:
+        return None
+    row = HazardScore(
+        earthquake_risk=result.risk_label,
+        source_name=result.source_name,
+        raw_json={
+            "T30_I50_PS": result.prob_shindo5_upper_30y,
+            "T30_I60_PS": result.prob_shindo6_lower_30y,
+            **result.raw,
+        },
+    )
+    # Append through the relationship so the in-memory collection stays in sync.
+    listing.hazard_scores.append(row)
+    db.flush()
+    compute_and_store_score(db, listing)
     return row
 
 
@@ -159,7 +219,9 @@ def find_possible_duplicates(db: Session, listing: Listing) -> list[dict]:
 
 
 def enrich_listing(db: Session, listing: Listing, prefs: dict | None = None) -> Listing:
-    """Full enrichment pass: translation, summary, FX, flags, score."""
+    """Full enrichment pass: geocode, translation, summary, FX, flags, score."""
+    if listing.lat is None and (listing.address_text or listing.city):
+        geocode_listing(db, listing)
     set_geom_from_latlon(listing)
     update_price_eur(listing)
 

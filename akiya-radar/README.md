@@ -101,6 +101,18 @@ python -m worker     # mode idle MVP (pas de crawl réel)
   de fusion automatique.
 - **Sources**, **Recherches sauvegardées**, **Réglages**.
 
+## Données publiques réelles (enrichissement)
+
+| Source | Accès | Ce qu'elle apporte |
+|--------|-------|--------------------|
+| [GSI 国土地理院](https://msearch.gsi.go.jp/address-search/AddressSearch) | Gratuit, sans clé | Géocodage des adresses japonaises (automatique à l'import, bouton sur la fiche). La précision est toujours affichée honnêtement (approximatif / ville). |
+| [J-SHIS 防災科研](https://www.j-shis.bosai.go.jp/api-pshm-meshinfo) | Gratuit, sans clé | **Risque sismique officiel vérifié** par coordonnées (probabilité de secousse ≥ shindo 5強 sous 30 ans). Alimente le score « risques naturels ». |
+| [MLIT 不動産情報ライブラリ](https://www.reinfolib.mlit.go.jp/help/apiManual/) | Clé gratuite ([demande](https://www.reinfolib.mlit.go.jp/api/request/)) | Prix de transaction réels (XIT001) → tableau de comparables + prix médian au m² sur la fiche. Sans clé, l'app explique comment l'obtenir. |
+
+Distinction importante : un **red flag** signifie « l'annonce *mentionne* ce
+terme » (analyse du texte source) ; le bloc « risques vérifiés » de la fiche
+provient de **données officielles** interrogées par coordonnées.
+
 ## Détection de red flags (extrait)
 
 Critiques : `再建築不可` (reconstruction impossible), `借地権` (bail foncier),

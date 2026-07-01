@@ -60,6 +60,17 @@ def test_unknown_hazard_flagged_as_unverified():
     assert any("non vérifié" in n for n in result.negatives)
 
 
+def test_verified_seismic_hazard_affects_score():
+    base = {"price_yen": Decimal(3_000_000), "prefecture": "福井県"}
+    low = scoring.score_listing(base, hazard={"earthquake_risk": "low"})
+    high = scoring.score_listing(base, hazard={"earthquake_risk": "high"})
+    assert low.natural_risk_score > high.natural_risk_score
+    assert any("faible (vérifié J-SHIS)" in p for p in low.positives)
+    assert any("élevé" in n for n in high.negatives)
+    # Verified data also stops the "non vérifié" caveat.
+    assert not any("non vérifié" in n for n in low.negatives)
+
+
 def test_target_region_boosts_location():
     base = scoring.score_listing({"prefecture": "福井県", "city": "敦賀市"})
     targeted = scoring.score_listing(

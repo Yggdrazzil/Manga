@@ -3,6 +3,7 @@
  * Activated at build time with VITE_MOCK=1. Never used in production.
  */
 import type {
+  CompsResult,
   DashboardResponse,
   Duplicate,
   Flag,
@@ -148,6 +149,7 @@ function base(
     notes: [],
     tasks: [],
     price_history: [],
+    hazard_scores: [],
     ...over,
   };
 }
@@ -434,6 +436,10 @@ export function createMockApi() {
 
     listings: (f: ListingFilters = {}): Promise<ListingListResponse> => {
       const items = filterListings(f);
+      const scoreOf = (l: ListingDetail) => l.scores.at(-1)?.total_score ?? -1;
+      if (f.sort === "price_asc") items.sort((a, b) => (a.price_yen ?? Infinity) - (b.price_yen ?? Infinity));
+      else if (f.sort === "price_desc") items.sort((a, b) => (b.price_yen ?? -1) - (a.price_yen ?? -1));
+      else if (f.sort === "score_desc") items.sort((a, b) => scoreOf(b) - scoreOf(a));
       const offset = f.offset ?? 0;
       const limit = f.limit ?? 12;
       return delay({ items: items.slice(offset, offset + limit), total: items.length, limit, offset });
@@ -473,6 +479,86 @@ export function createMockApi() {
         translated: FR_MAP[text] ?? `(traduction de démonstration) ${text}`,
         provider: "demo",
       }),
+
+    geocodeListing: (id: string): Promise<ListingDetail> => {
+      const l = byId(id);
+      if (l && l.lat == null) {
+        l.lat = 35.7;
+        l.lon = 136.1;
+        l.geocode_accuracy = "approximate";
+      }
+      return delay(l ?? LISTINGS[0]);
+    },
+
+    checkHazard: (id: string): Promise<ListingDetail> => {
+      const l = byId(id);
+      if (l) {
+        const prob = l.prefecture === "千葉県" ? 0.62 : l.prefecture === "島根県" ? 0.04 : 0.14;
+        l.hazard_scores = [
+          {
+            id: uid(),
+            flood_risk: null,
+            tsunami_risk: null,
+            landslide_risk: null,
+            earthquake_risk: prob >= 0.26 ? "high" : prob >= 0.06 ? "medium" : "low",
+            source_name: "J-SHIS Y2024 (防災科研) — démo",
+            raw_json: { T30_I50_PS: prob },
+            created_at: new Date().toISOString(),
+          },
+        ];
+      }
+      return delay(l ?? LISTINGS[0]);
+    },
+
+    comps: (id: string): Promise<CompsResult> => {
+      const l = byId(id);
+      return delay({
+        available: true,
+        reason: `MLIT XIT001 — 2026Q1, préfecture ${l?.prefecture ?? ""} (démo)`,
+        comps: [
+          {
+            trade_price_yen: 5200000,
+            area_m2: 195,
+            unit_price_yen_m2: 26667,
+            build_year: "昭和52年",
+            municipality: l?.city ?? "敦賀市",
+            district: "中央町",
+            property_type: "宅地(土地と建物)",
+          },
+          {
+            trade_price_yen: 3100000,
+            area_m2: 240,
+            unit_price_yen_m2: 12917,
+            build_year: "昭和48年",
+            municipality: l?.city ?? "敦賀市",
+            district: "櫛川",
+            property_type: "宅地(土地と建物)",
+          },
+          {
+            trade_price_yen: 7800000,
+            area_m2: 165,
+            unit_price_yen_m2: 47273,
+            build_year: "平成8年",
+            municipality: l?.city ?? "敦賀市",
+            district: "相生町",
+            property_type: "宅地(土地と建物)",
+          },
+        ],
+        median_unit_price: 26667,
+        sample_size: 3,
+      });
+    },
+
+    exportCsv: (): Promise<Blob> => {
+      const header = "titre,prefecture,ville,prix_yen,score\n";
+      const rows = LISTINGS.map(
+        (l) =>
+          `"${l.title_original ?? ""}",${l.prefecture ?? ""},${l.city ?? ""},${l.price_yen ?? ""},${
+            l.scores.at(-1)?.total_score ?? ""
+          }`,
+      ).join("\n");
+      return delay(new Blob([header + rows], { type: "text/csv" }));
+    },
 
     notes: (id: string): Promise<Note[]> => delay(byId(id)?.notes ?? []),
     addNote: (id: string, note: string): Promise<Note> => {

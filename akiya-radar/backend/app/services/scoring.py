@@ -151,8 +151,18 @@ def _natural_risk_score(
     if not have_data:
         negatives.append("Risque naturel encore non vérifié.")
         score = min(score, 14)
-    elif not hit:
-        positives.append("Aucun risque naturel critique détecté.")
+    else:
+        quake = hazard.get("earthquake_risk")
+        if quake == "high":
+            score -= 5
+            negatives.append("Risque sismique élevé (J-SHIS : prob. ≥26% sur 30 ans).")
+        elif quake == "medium":
+            score -= 2
+            negatives.append("Risque sismique modéré (J-SHIS).")
+        elif quake == "low":
+            positives.append("Risque sismique faible (vérifié J-SHIS).")
+        if not hit and quake in ("low", "medium", None):
+            positives.append("Aucun risque naturel critique détecté.")
     return max(0, min(20, score)), have_data
 
 

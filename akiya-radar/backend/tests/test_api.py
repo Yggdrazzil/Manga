@@ -190,6 +190,105 @@ def test_saved_search_matching(client):
     assert results.json()[0]["prefecture"] == "島根県"
 
 
+def test_sort_param(client):
+    client.post("/listings", json={"source_url": "https://s.jp/1", "price_yen": 9000000})
+    client.post("/listings", json={"source_url": "https://s.jp/2", "price_yen": 1000000})
+    client.post("/listings", json={"source_url": "https://s.jp/3"})  # null price
+
+    asc = client.get("/listings", params={"sort": "price_asc"}).json()["items"]
+    prices = [i["price_yen"] for i in asc]
+    assert float(prices[0]) == 1000000 and float(prices[1]) == 9000000
+    assert prices[2] is None  # nulls last
+
+    desc = client.get("/listings", params={"sort": "price_desc"}).json()["items"]
+    assert float(desc[0]["price_yen"]) == 9000000
+
+    scored = client.get("/listings", params={"sort": "score_desc"}).json()["items"]
+    assert len(scored) == 3
+
+    assert client.get("/listings", params={"sort": "bogus"}).status_code == 422
+
+
+def test_export_csv(client):
+    client.post(
+        "/listings",
+        json={"source_url": "https://c.jp/1", "title_original": "テスト物件", "price_yen": 1500000},
+    )
+    resp = client.get("/listings/export.csv")
+    assert resp.status_code == 200
+    assert "text/csv" in resp.headers["content-type"]
+    body = resp.text
+    assert "titre" in body.splitlines()[0]
+    assert "テスト物件" in body
+
+
+def test_geocode_endpoint(client, monkeypatch):
+    from decimal import Decimal
+
+    import app.services.geocoding as geocoding
+    from app.services.geocoding import GeocodeResult
+
+    resp = client.post(
+        "/listings", json={"source_url": "https://g.jp/1", "address_text": "福井県敦賀市櫛川"}
+    )
+    listing_id = resp.json()["id"]
+    assert resp.json()["lat"] is None  # network disabled by conftest
+
+    monkeypatch.setattr(
+        geocoding,
+        "geocode",
+        lambda a: GeocodeResult(
+            lat=Decimal("35.65"),
+            lon=Decimal("136.07"),
+            matched_title="敦賀市櫛川",
+            accuracy="approximate",
+        ),
+    )
+    out = client.post(f"/listings/{listing_id}/geocode")
+    assert out.status_code == 200
+    assert float(out.json()["lat"]) == 35.65
+    assert out.json()["geocode_accuracy"] == "approximate"
+
+
+def test_hazard_endpoint(client, monkeypatch):
+    import app.services.hazard as hazard
+    from app.services.hazard import SeismicHazard
+
+    resp = client.post(
+        "/listings",
+        json={"source_url": "https://h.jp/1", "lat": 35.65, "lon": 136.07, "price_yen": 3000000},
+    )
+    listing_id = resp.json()["id"]
+
+    monkeypatch.setattr(
+        hazard,
+        "fetch_seismic_hazard",
+        lambda lat, lon: SeismicHazard(0.42, 0.08, "high", "J-SHIS Y2024 (test)", {}),
+    )
+    out = client.post(f"/listings/{listing_id}/hazard")
+    assert out.status_code == 200
+    hazards = out.json()["hazard_scores"]
+    assert hazards and hazards[-1]["earthquake_risk"] == "high"
+    # Rescore happened and the explanation now mentions the verified risk.
+    latest_score = out.json()["scores"][-1]
+    assert "J-SHIS" in latest_score["explanation_fr"]
+
+    # Missing coordinates → explicit 422.
+    resp2 = client.post("/listings", json={"source_url": "https://h.jp/2"})
+    assert client.post(f"/listings/{resp2.json()['id']}/hazard").status_code == 422
+
+
+def test_comps_endpoint_unconfigured(client):
+    resp = client.post(
+        "/listings", json={"source_url": "https://m.jp/1", "prefecture": "福井県"}
+    )
+    out = client.get(f"/listings/{resp.json()['id']}/comps")
+    assert out.status_code == 200
+    body = out.json()
+    assert body["available"] is False
+    assert "MLIT_API_KEY" in body["reason"]
+
+
 def test_translate_endpoint(client):
     resp = client.post("/translate", json={"text": "再建築不可の物件"})
     assert resp.status_code == 200

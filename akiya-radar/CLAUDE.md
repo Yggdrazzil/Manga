@@ -21,6 +21,10 @@ akiya-radar/
 
 - **backend/app/services/** : `red_flags.py`, `scoring.py`, `parsing.py`,
   `dedupe.py`, `providers.py`, `listing_ops.py` — logique pure, testée.
+- **Données publiques réelles** : `geocoding.py` (GSI, gratuit sans clé),
+  `hazard.py` (J-SHIS sismique, gratuit sans clé), `mlit.py` (prix de
+  transaction XIT001, clé gratuite via MLIT_API_KEY). Tous best-effort :
+  jamais d'exception propagée, l'app fonctionne sans réseau.
 - **backend/app/routers/** : un router par domaine (listings, sources, notes,
   tasks, saved_searches, dashboard, auth, health).
 - **worker/worker/adapters/** : `SourceAdapter` + adapters (generic municipal,

@@ -1,13 +1,18 @@
+import csv
+import io
 import uuid
+from dataclasses import asdict
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.database import get_db
 from app.models import Listing, ListingFlag, ListingScore
 from app.schemas.listing import (
+    CompsOut,
     DuplicateOut,
     FavoriteRequest,
     ImportResult,
@@ -18,7 +23,7 @@ from app.schemas.listing import (
     ListingSummary,
     ListingUpdate,
 )
-from app.services import extraction, fetcher, listing_ops
+from app.services import extraction, fetcher, listing_ops, mlit
 
 router = APIRouter(prefix="/listings", tags=["listings"])
 
@@ -31,6 +36,7 @@ _DETAIL_LOADERS = (
     selectinload(Listing.notes),
     selectinload(Listing.tasks),
     selectinload(Listing.price_history),
+    selectinload(Listing.hazard_scores),
 )
 
 
@@ -44,24 +50,53 @@ def _get_or_404(db: Session, listing_id: uuid.UUID, detail: bool = False) -> Lis
     return listing
 
 
-@router.get("", response_model=ListingListResponse)
-def list_listings(
-    db: Session = Depends(get_db),
-    prefecture: str | None = None,
-    city: str | None = None,
-    max_price_yen: float | None = None,
-    min_land_area_m2: float | None = None,
-    min_building_area_m2: float | None = None,
-    property_type: str | None = None,
-    transaction_type: str | None = None,
-    personal_status: str | None = None,
-    favorite: bool | None = None,
-    min_score: int | None = None,
-    exclude_critical_flags: bool = False,
-    query: str | None = None,
-    limit: int = Query(50, ge=1, le=200),
-    offset: int = Query(0, ge=0),
-) -> ListingListResponse:
+def _latest_score_subq():
+    latest = (
+        select(
+            ListingScore.listing_id,
+            func.max(ListingScore.created_at).label("latest"),
+        )
+        .group_by(ListingScore.listing_id)
+        .subquery()
+    )
+    return (
+        select(ListingScore.listing_id, ListingScore.total_score)
+        .join(
+            latest,
+            (ListingScore.listing_id == latest.c.listing_id)
+            & (ListingScore.created_at == latest.c.latest),
+        )
+        .subquery()
+    )
+
+
+def _apply_sort(stmt, sort: str):
+    if sort == "price_asc":
+        return stmt.order_by(Listing.price_yen.asc().nulls_last())
+    if sort == "price_desc":
+        return stmt.order_by(Listing.price_yen.desc().nulls_last())
+    if sort == "score_desc":
+        score_subq = _latest_score_subq()
+        return stmt.outerjoin(score_subq, Listing.id == score_subq.c.listing_id).order_by(
+            score_subq.c.total_score.desc().nulls_last()
+        )
+    return stmt.order_by(Listing.created_at.desc())
+
+
+def _filtered_stmt(
+    prefecture: str | None,
+    city: str | None,
+    max_price_yen: float | None,
+    min_land_area_m2: float | None,
+    min_building_area_m2: float | None,
+    property_type: str | None,
+    transaction_type: str | None,
+    personal_status: str | None,
+    favorite: bool | None,
+    min_score: int | None,
+    exclude_critical_flags: bool,
+    query: str | None,
+):
     stmt = select(Listing).options(*_LOADERS)
 
     if prefecture:
@@ -119,14 +154,48 @@ def list_listings(
         critical = select(ListingFlag.listing_id).where(ListingFlag.severity == "critical")
         stmt = stmt.where(Listing.id.not_in(critical))
 
+    return stmt
+
+
+@router.get("", response_model=ListingListResponse)
+def list_listings(
+    db: Session = Depends(get_db),
+    prefecture: str | None = None,
+    city: str | None = None,
+    max_price_yen: float | None = None,
+    min_land_area_m2: float | None = None,
+    min_building_area_m2: float | None = None,
+    property_type: str | None = None,
+    transaction_type: str | None = None,
+    personal_status: str | None = None,
+    favorite: bool | None = None,
+    min_score: int | None = None,
+    exclude_critical_flags: bool = False,
+    query: str | None = None,
+    sort: str = Query("newest", pattern="^(newest|price_asc|price_desc|score_desc)$"),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+) -> ListingListResponse:
+    stmt = _filtered_stmt(
+        prefecture,
+        city,
+        max_price_yen,
+        min_land_area_m2,
+        min_building_area_m2,
+        property_type,
+        transaction_type,
+        personal_status,
+        favorite,
+        min_score,
+        exclude_critical_flags,
+        query,
+    )
     total = db.execute(
         select(func.count()).select_from(stmt.order_by(None).subquery())
     ).scalar_one()
 
     rows = (
-        db.execute(
-            stmt.order_by(Listing.created_at.desc()).limit(limit).offset(offset)
-        )
+        db.execute(_apply_sort(stmt, sort).limit(limit).offset(offset))
         .scalars()
         .unique()
         .all()
@@ -136,6 +205,61 @@ def list_listings(
         total=total,
         limit=limit,
         offset=offset,
+    )
+
+
+@router.get("/export.csv")
+def export_csv(
+    db: Session = Depends(get_db),
+    prefecture: str | None = None,
+    city: str | None = None,
+    max_price_yen: float | None = None,
+    favorite: bool | None = None,
+    exclude_critical_flags: bool = False,
+) -> StreamingResponse:
+    """Export the (optionally filtered) listings as CSV for spreadsheets."""
+    stmt = _filtered_stmt(
+        prefecture, city, max_price_yen, None, None, None, None, None,
+        favorite, None, exclude_critical_flags, None,
+    )
+    rows = db.execute(_apply_sort(stmt, "newest")).scalars().unique().all()
+
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow(
+        [
+            "id", "titre", "prefecture", "ville", "prix_yen", "prix_eur",
+            "terrain_m2", "bati_m2", "annee", "plan", "score", "confiance",
+            "red_flags", "statut_personnel", "favori", "url_source",
+        ]
+    )
+    for listing in rows:
+        score = listing.scores[-1] if listing.scores else None
+        writer.writerow(
+            [
+                listing.id,
+                listing.title_original or listing.title_fr or "",
+                listing.prefecture or "",
+                listing.city or "",
+                listing.price_yen or "",
+                listing.price_eur or "",
+                listing.land_area_m2 or "",
+                listing.building_area_m2 or "",
+                listing.build_year or "",
+                listing.floor_plan or "",
+                score.total_score if score else "",
+                score.confidence_score if score else "",
+                "|".join(f.flag_code for f in listing.flags),
+                listing.personal_status,
+                "oui" if listing.favorite else "non",
+                listing.source_url,
+            ]
+        )
+    buffer.seek(0)
+    return StreamingResponse(
+        iter([buffer.getvalue()]),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": "attachment; filename=akiya-radar-export.csv"},
     )
 
 
@@ -295,3 +419,48 @@ def detect_flags(listing_id: uuid.UUID, db: Session = Depends(get_db)) -> Listin
     listing_ops.compute_and_store_score(db, listing)
     db.commit()
     return _get_or_404(db, listing.id, detail=True)
+
+
+@router.post("/{listing_id}/geocode", response_model=ListingDetail)
+def geocode_listing(listing_id: uuid.UUID, db: Session = Depends(get_db)) -> Listing:
+    """Resolve the listing's address to coordinates via the free GSI API."""
+    listing = _get_or_404(db, listing_id, detail=True)
+    updated = listing_ops.geocode_listing(db, listing, force=True)
+    if not updated:
+        raise HTTPException(
+            status_code=422,
+            detail="Géocodage impossible : adresse absente ou API GSI sans résultat.",
+        )
+    listing_ops.compute_and_store_score(db, listing)
+    db.commit()
+    return _get_or_404(db, listing.id, detail=True)
+
+
+@router.post("/{listing_id}/hazard", response_model=ListingDetail)
+def check_hazard(listing_id: uuid.UUID, db: Session = Depends(get_db)) -> Listing:
+    """Fetch real seismic hazard (J-SHIS) for the listing's coordinates."""
+    listing = _get_or_404(db, listing_id, detail=True)
+    if listing.lat is None or listing.lon is None:
+        raise HTTPException(
+            status_code=422,
+            detail="Coordonnées requises : géocodez d'abord l'annonce.",
+        )
+    row = listing_ops.enrich_hazard(db, listing)
+    if row is None:
+        raise HTTPException(status_code=502, detail="API J-SHIS injoignable.")
+    db.commit()
+    return _get_or_404(db, listing.id, detail=True)
+
+
+@router.get("/{listing_id}/comps", response_model=CompsOut)
+def listing_comps(listing_id: uuid.UUID, db: Session = Depends(get_db)) -> CompsOut:
+    """Real MLIT transaction comparables for the listing's prefecture/city."""
+    listing = _get_or_404(db, listing_id)
+    result = mlit.fetch_comps(listing.prefecture, listing.city)
+    return CompsOut(
+        available=result.available,
+        reason=result.reason,
+        comps=[asdict(c) for c in result.comps],
+        median_unit_price=result.median_unit_price,
+        sample_size=result.sample_size,
+    )

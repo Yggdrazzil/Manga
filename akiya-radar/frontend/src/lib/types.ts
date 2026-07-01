@@ -72,6 +72,37 @@ export interface ListingSummary {
   scores: Score[];
 }
 
+export interface HazardScore {
+  id: string;
+  flood_risk: string | null;
+  tsunami_risk: string | null;
+  landslide_risk: string | null;
+  earthquake_risk: string | null;
+  source_name: string | null;
+  raw_json: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export interface Comp {
+  trade_price_yen: number | null;
+  area_m2: number | null;
+  unit_price_yen_m2: number | null;
+  build_year: string | null;
+  municipality: string | null;
+  district: string | null;
+  property_type: string | null;
+}
+
+export interface CompsResult {
+  available: boolean;
+  reason: string;
+  comps: Comp[];
+  median_unit_price: number | null;
+  sample_size: number;
+}
+
+export type ListingSort = "newest" | "price_asc" | "price_desc" | "score_desc";
+
 export interface ListingDetail extends ListingSummary {
   source_id: string | null;
   external_id: string | null;
@@ -89,6 +120,7 @@ export interface ListingDetail extends ListingSummary {
   notes: Note[];
   tasks: Task[];
   price_history: PriceHistoryEntry[];
+  hazard_scores: HazardScore[];
 }
 
 export interface ListingListResponse {
@@ -166,6 +198,7 @@ export interface ListingFilters {
   min_score?: number;
   exclude_critical_flags?: boolean;
   query?: string;
+  sort?: ListingSort;
   limit?: number;
   offset?: number;
 }

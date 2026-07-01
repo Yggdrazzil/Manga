@@ -1,4 +1,5 @@
 import type {
+  CompsResult,
   DashboardResponse,
   Duplicate,
   ImportResult,
@@ -75,6 +76,16 @@ const realApi = {
       body: JSON.stringify({ url }),
     }),
   duplicates: (id: string) => request<Duplicate[]>(`/listings/${id}/duplicates`),
+  geocodeListing: (id: string) =>
+    request<ListingDetail>(`/listings/${id}/geocode`, { method: "POST" }),
+  checkHazard: (id: string) =>
+    request<ListingDetail>(`/listings/${id}/hazard`, { method: "POST" }),
+  comps: (id: string) => request<CompsResult>(`/listings/${id}/comps`),
+  exportCsv: async (): Promise<Blob> => {
+    const resp = await fetch(`${BASE}/listings/export.csv`);
+    if (!resp.ok) throw new ApiError(resp.status, resp.statusText);
+    return resp.blob();
+  },
   translateText: (text: string) =>
     request<{ translated: string; provider: string }>("/translate", {
       method: "POST",

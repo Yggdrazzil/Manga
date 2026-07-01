@@ -1,23 +1,34 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { api } from "@/api/client";
 import { EmptyState, ErrorState, Spinner } from "@/components/feedback";
 import { ListingCard } from "@/components/ListingCard";
-import { latestScore, type ListingFilters, type ListingSummary } from "@/lib/types";
+import type { ListingFilters, ListingSort, ListingSummary } from "@/lib/types";
 
 const PAGE_SIZE = 12;
+const DEBOUNCE_MS = 350;
+
+// Map the legacy ?sort= values kept in URLs to the server-side vocabulary.
+const SORT_ALIASES: Record<string, ListingSort> = {
+  recent: "newest",
+  score: "score_desc",
+  price: "price_asc",
+};
 
 export function Listings() {
   const [params, setParams] = useSearchParams();
-  const sort = params.get("sort") ?? "recent";
+  const rawSort = params.get("sort") ?? "newest";
+  const sort: ListingSort = (SORT_ALIASES[rawSort] ?? rawSort) as ListingSort;
   const [filters, setFilters] = useState<ListingFilters>({});
   const [page, setPage] = useState(0);
   const queryClient = useQueryClient();
+  const debounceTimer = useRef<ReturnType<typeof setTimeout>>();
 
   const queryFilters: ListingFilters = {
     ...filters,
+    sort,
     limit: PAGE_SIZE,
     offset: page * PAGE_SIZE,
   };
@@ -25,6 +36,7 @@ export function Listings() {
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["listings", queryFilters],
     queryFn: () => api.listings(queryFilters),
+    placeholderData: (prev) => prev,
   });
 
   const favorite = useMutation({
@@ -32,20 +44,21 @@ export function Listings() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["listings"] }),
   });
 
-  const items = useMemo(() => {
-    const list = data?.items ?? [];
-    if (sort === "score") {
-      return [...list].sort(
-        (a, b) => (latestScore(b)?.total_score ?? -1) - (latestScore(a)?.total_score ?? -1),
-      );
-    }
-    if (sort === "price") {
-      return [...list].sort((a, b) => (a.price_yen ?? Infinity) - (b.price_yen ?? Infinity));
-    }
-    return list;
-  }, [data, sort]);
+  const exporting = useMutation({
+    mutationFn: async () => {
+      const blob = await api.exportCsv();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "akiya-radar-export.csv";
+      a.click();
+      URL.revokeObjectURL(url);
+    },
+  });
 
-  const update = (patch: Partial<ListingFilters>) => {
+  const items = data?.items ?? [];
+
+  const applyPatch = (patch: Partial<ListingFilters>) => {
     setPage(0);
     setFilters((f) => {
       const next = { ...f, ...patch };
@@ -55,6 +68,16 @@ export function Listings() {
       });
       return next;
     });
+  };
+
+  // Text inputs are debounced so we don't fire one API request per keystroke.
+  const update = (patch: Partial<ListingFilters>, debounce = false) => {
+    if (!debounce) {
+      applyPatch(patch);
+      return;
+    }
+    clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => applyPatch(patch), DEBOUNCE_MS);
   };
 
   const totalPages = data ? Math.ceil(data.total / PAGE_SIZE) : 0;
@@ -71,7 +94,7 @@ export function Listings() {
               className="field"
               placeholder="ville, mot-clé…"
               defaultValue={filters.query ?? ""}
-              onChange={(e) => update({ query: e.target.value })}
+              onChange={(e) => update({ query: e.target.value }, true)}
             />
           </div>
           <div>
@@ -80,7 +103,7 @@ export function Listings() {
               id="pref"
               className="field"
               placeholder="例: 福井県"
-              onChange={(e) => update({ prefecture: e.target.value })}
+              onChange={(e) => update({ prefecture: e.target.value }, true)}
             />
           </div>
           <div>
@@ -91,7 +114,7 @@ export function Listings() {
               className="field"
               placeholder="5000000"
               onChange={(e) =>
-                update({ max_price_yen: e.target.value ? Number(e.target.value) : undefined })
+                update({ max_price_yen: e.target.value ? Number(e.target.value) : undefined }, true)
               }
             />
           </div>
@@ -102,9 +125,10 @@ export function Listings() {
               type="number"
               className="field"
               onChange={(e) =>
-                update({
-                  min_land_area_m2: e.target.value ? Number(e.target.value) : undefined,
-                })
+                update(
+                  { min_land_area_m2: e.target.value ? Number(e.target.value) : undefined },
+                  true,
+                )
               }
             />
           </div>
@@ -117,7 +141,7 @@ export function Listings() {
               min={0}
               max={100}
               onChange={(e) =>
-                update({ min_score: e.target.value ? Number(e.target.value) : undefined })
+                update({ min_score: e.target.value ? Number(e.target.value) : undefined }, true)
               }
             />
           </div>
@@ -148,18 +172,29 @@ export function Listings() {
               {data ? `(${data.total})` : ""}
             </span>
           </h1>
-          <label className="flex items-center gap-2 text-sm font-bold">
-            Trier
-            <select
-              className="field w-auto py-1"
-              value={sort}
-              onChange={(e) => setParams({ sort: e.target.value })}
+          <div className="flex items-center gap-2">
+            <label className="flex items-center gap-2 text-sm font-bold">
+              Trier
+              <select
+                className="field w-auto py-1"
+                value={sort}
+                onChange={(e) => setParams({ sort: e.target.value })}
+              >
+                <option value="newest">Récent</option>
+                <option value="score_desc">Score ↓</option>
+                <option value="price_asc">Prix ↑</option>
+                <option value="price_desc">Prix ↓</option>
+              </select>
+            </label>
+            <button
+              className="btn text-sm"
+              onClick={() => exporting.mutate()}
+              disabled={exporting.isPending}
+              title="Exporter toutes les annonces en CSV"
             >
-              <option value="recent">Récent</option>
-              <option value="score">Score ↓</option>
-              <option value="price">Prix ↑</option>
-            </select>
-          </label>
+              {exporting.isPending ? "Export…" : "⬇ CSV"}
+            </button>
+          </div>
         </div>
 
         {isLoading ? (

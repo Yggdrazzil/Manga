@@ -31,11 +31,15 @@ def client(engine, monkeypatch):
     from fastapi.testclient import TestClient
     from sqlalchemy.orm import sessionmaker
 
-    # Disable real HTTP fetching for API tests by default; tests that exercise
-    # the fetch path re-patch fetch_html via their own monkeypatch.
+    # Disable real HTTP calls for API tests by default; tests that exercise
+    # these paths re-patch the functions via their own monkeypatch.
     import app.services.fetcher as fetcher
+    import app.services.geocoding as geocoding
+    import app.services.hazard as hazard
 
     monkeypatch.setattr(fetcher, "fetch_html", lambda url: None)
+    monkeypatch.setattr(geocoding, "geocode", lambda address: None)
+    monkeypatch.setattr(hazard, "fetch_seismic_hazard", lambda lat, lon: None)
 
     from app.database import Base, get_db
     from app.main import app

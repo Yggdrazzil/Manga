@@ -31,6 +31,36 @@ class ScoreOut(BaseModel):
     created_at: datetime
 
 
+class HazardOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    flood_risk: str | None = None
+    tsunami_risk: str | None = None
+    landslide_risk: str | None = None
+    earthquake_risk: str | None = None
+    source_name: str | None = None
+    raw_json: dict | None = None
+    created_at: datetime
+
+
+class CompOut(BaseModel):
+    trade_price_yen: Decimal | None = None
+    area_m2: Decimal | None = None
+    unit_price_yen_m2: Decimal | None = None
+    build_year: str | None = None
+    municipality: str | None = None
+    district: str | None = None
+    property_type: str | None = None
+
+
+class CompsOut(BaseModel):
+    available: bool
+    reason: str
+    comps: list[CompOut] = []
+    median_unit_price: Decimal | None = None
+    sample_size: int = 0
+
+
 class NoteOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
@@ -137,6 +167,7 @@ class ListingDetail(ListingSummary):
     notes: list[NoteOut] = []
     tasks: list[TaskOut] = []
     price_history: list[PriceHistoryOut] = []
+    hazard_scores: list[HazardOut] = []
 
 
 class ImportUrlRequest(BaseModel):

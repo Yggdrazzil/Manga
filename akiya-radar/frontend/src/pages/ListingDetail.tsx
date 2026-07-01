@@ -14,6 +14,20 @@ import { DUE_DILIGENCE, loadChecklist, saveChecklist } from "@/lib/checklist";
 import { accuracyLabel, fmtArea, fmtEur, fmtYen, severityRank } from "@/lib/format";
 import { latestScore, PERSONAL_STATUSES, PERSONAL_STATUS_LABELS } from "@/lib/types";
 
+const hazardLabel: Record<string, string> = {
+  low: "faible",
+  medium: "modéré",
+  high: "élevé",
+  unknown: "inconnu",
+};
+
+const hazardTone: Record<string, string> = {
+  low: "text-moss",
+  medium: "text-gold",
+  high: "text-vermilion",
+  unknown: "text-ink-mute",
+};
+
 const SCORE_PARTS: { key: string; label: string; max: number }[] = [
   { key: "price_score", label: "Prix / valeur", max: 20 },
   { key: "location_score", label: "Localisation", max: 20 },
@@ -56,6 +70,20 @@ export function ListingDetailPage() {
     onSuccess: invalidate,
   });
   const enrich = useMutation({ mutationFn: () => api.enrich(id), onSuccess: invalidate });
+  const geocode = useMutation({
+    mutationFn: () => api.geocodeListing(id),
+    onSuccess: invalidate,
+  });
+  const hazardCheck = useMutation({
+    mutationFn: () => api.checkHazard(id),
+    onSuccess: invalidate,
+  });
+  const { data: comps } = useQuery({
+    queryKey: ["comps", id],
+    queryFn: () => api.comps(id),
+    enabled: !!id,
+    staleTime: 10 * 60_000,
+  });
   const addNote = useMutation({
     mutationFn: (note: string) => api.addNote(id, note),
     onSuccess: () => {
@@ -89,6 +117,10 @@ export function ListingDetailPage() {
   if (!listing) return null;
 
   const score = latestScore(listing);
+  const latestHazard =
+    listing.hazard_scores && listing.hazard_scores.length > 0
+      ? listing.hazard_scores[listing.hazard_scores.length - 1]
+      : null;
   const flags = [...listing.flags].sort(
     (a, b) => severityRank(a.severity) - severityRank(b.severity),
   );
@@ -287,6 +319,61 @@ export function ListingDetailPage() {
               </ul>
             </section>
           )}
+
+          {/* MLIT transaction comparables */}
+          <section className="panel p-5">
+            <h2 className="font-display text-xl font-bold">
+              Prix de transaction comparables{" "}
+              <span className="text-sm font-normal text-ink-mute">(données officielles MLIT)</span>
+            </h2>
+            {!comps ? (
+              <p className="mt-2 text-sm text-ink-soft">Chargement…</p>
+            ) : !comps.available ? (
+              <p className="mt-2 text-sm text-ink-soft">{comps.reason}</p>
+            ) : comps.comps.length === 0 ? (
+              <p className="mt-2 text-sm text-ink-soft">
+                Aucune transaction récente trouvée pour cette zone. ({comps.reason})
+              </p>
+            ) : (
+              <>
+                {comps.median_unit_price != null && (
+                  <p className="mt-2 text-sm">
+                    Prix médian observé :{" "}
+                    <span className="font-mono font-bold">
+                      {fmtYen(comps.median_unit_price)}/m²
+                    </span>{" "}
+                    <span className="text-ink-mute">
+                      ({comps.sample_size} transaction(s) — {comps.reason})
+                    </span>
+                  </p>
+                )}
+                <div className="mt-3 overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead className="border-b border-line-strong text-[11px] uppercase tracking-wider text-ink-mute">
+                      <tr>
+                        <th className="py-1.5 pr-3">Commune</th>
+                        <th className="py-1.5 pr-3">Quartier</th>
+                        <th className="py-1.5 pr-3">Prix</th>
+                        <th className="py-1.5 pr-3">Surface</th>
+                        <th className="py-1.5">Année</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {comps.comps.map((c, i) => (
+                        <tr key={i} className="border-b border-line">
+                          <td className="py-1.5 pr-3">{c.municipality ?? "—"}</td>
+                          <td className="py-1.5 pr-3">{c.district ?? "—"}</td>
+                          <td className="py-1.5 pr-3 font-mono">{fmtYen(c.trade_price_yen)}</td>
+                          <td className="py-1.5 pr-3">{c.area_m2 ? `${c.area_m2} m²` : "—"}</td>
+                          <td className="py-1.5">{c.build_year ?? "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+          </section>
         </div>
 
         {/* Sidebar */}
@@ -328,9 +415,9 @@ export function ListingDetailPage() {
             )}
           </section>
 
-          {/* Location / map */}
+          {/* Location / map / verified hazard */}
           <section className="panel p-5">
-            <h2 className="font-display text-xl font-bold">Localisation</h2>
+            <h2 className="font-display text-xl font-bold">Localisation & risques vérifiés</h2>
             <p
               className={`mt-1 text-sm font-bold ${accurate ? "text-moss" : "text-vermilion"}`}
             >
@@ -342,8 +429,69 @@ export function ListingDetailPage() {
                 <ListingMap listings={[listing]} height="240px" zoom={accurate ? 13 : 9} />
               </div>
             ) : (
-              <p className="mt-2 text-ink-soft">Coordonnées non disponibles.</p>
+              <div className="mt-2">
+                <p className="text-ink-soft">Coordonnées non disponibles.</p>
+                <button
+                  className="btn mt-2 text-sm"
+                  onClick={() => geocode.mutate()}
+                  disabled={geocode.isPending}
+                >
+                  {geocode.isPending ? "Géocodage…" : "📍 Géocoder l'adresse (GSI)"}
+                </button>
+                {geocode.isError && (
+                  <p className="mt-1 text-xs text-vermilion" role="alert">
+                    {(geocode.error as Error).message}
+                  </p>
+                )}
+              </div>
             )}
+
+            <div className="mt-4 border-t border-line pt-3">
+              {latestHazard ? (
+                <div>
+                  <p className="text-sm font-bold">
+                    Risque sismique :{" "}
+                    <span className={hazardTone[latestHazard.earthquake_risk ?? "unknown"]}>
+                      {hazardLabel[latestHazard.earthquake_risk ?? "unknown"]}
+                    </span>
+                  </p>
+                  {latestHazard.raw_json?.T30_I50_PS != null && (
+                    <p className="mt-0.5 text-xs text-ink-soft">
+                      Probabilité de secousse ≥ shindo 5強 sous 30 ans :{" "}
+                      {Math.round(Number(latestHazard.raw_json.T30_I50_PS) * 100)}%
+                    </p>
+                  )}
+                  <p className="mt-0.5 text-[11px] uppercase tracking-wider text-ink-mute">
+                    Source : {latestHazard.source_name}
+                  </p>
+                </div>
+              ) : (
+                <p className="text-sm text-ink-soft">
+                  Risque sismique non vérifié — donnée officielle disponible gratuitement.
+                </p>
+              )}
+              <button
+                className="btn mt-2 text-sm"
+                onClick={() => hazardCheck.mutate()}
+                disabled={hazardCheck.isPending || listing.lat == null}
+                title={
+                  listing.lat == null
+                    ? "Géocodez d'abord l'annonce"
+                    : "Interroger J-SHIS (防災科研)"
+                }
+              >
+                {hazardCheck.isPending
+                  ? "Vérification…"
+                  : latestHazard
+                    ? "↻ Re-vérifier le risque sismique"
+                    : "⚡ Vérifier le risque sismique (J-SHIS)"}
+              </button>
+              {hazardCheck.isError && (
+                <p className="mt-1 text-xs text-vermilion" role="alert">
+                  {(hazardCheck.error as Error).message}
+                </p>
+              )}
+            </div>
           </section>
 
           {/* Notes */}

@@ -30,6 +30,13 @@ class Settings(BaseSettings):
     # Manual-import URL fetching (robots-respecting, best-effort, never fatal).
     import_fetch_enabled: bool = True
     import_fetch_timeout: float = 8.0
+
+    # Public-data enrichment. GSI geocoding and J-SHIS seismic hazard are free,
+    # key-less government APIs; MLIT transaction prices need a free API key
+    # (https://www.reinfolib.mlit.go.jp/api/request/). All are best-effort.
+    geocoding_enabled: bool = True
+    hazard_enabled: bool = True
+    mlit_api_key: str = ""
     user_agent: str = (
         "AkiyaRadarBot/0.1 (+personal akiya research; respects robots.txt)"
     )
