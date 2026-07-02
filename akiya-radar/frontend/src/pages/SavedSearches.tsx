@@ -79,10 +79,10 @@ export function SavedSearches() {
       ) : (
         <ul className="grid gap-3 sm:grid-cols-2">
           {data.map((s) => (
-            <li key={s.id} className="panel flex items-center justify-between p-4">
-              <div>
+            <li key={s.id} className="panel flex flex-wrap items-center justify-between gap-3 p-4">
+              <div className="min-w-0">
                 <p className="font-display text-lg font-bold">{s.name}</p>
-                <p className="font-mono text-xs text-ink-mute">{JSON.stringify(s.criteria_json)}</p>
+                <p className="break-all font-mono text-xs text-ink-mute">{JSON.stringify(s.criteria_json)}</p>
               </div>
               <div className="flex gap-2">
                 <button className="btn" onClick={() => run.mutate(s.id)}>

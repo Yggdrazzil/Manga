@@ -84,6 +84,7 @@ export function ListingDetailPage() {
     enabled: !!id,
     staleTime: 10 * 60_000,
   });
+  const station = useMutation({ mutationFn: () => api.nearestStation(id) });
   const addNote = useMutation({
     mutationFn: (note: string) => api.addNote(id, note),
     onSuccess: () => {
@@ -229,12 +230,12 @@ export function ListingDetailPage() {
         </div>
       </header>
 
-      <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
-        <div className="space-y-6">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+        <div className="min-w-0 space-y-6">
           {/* Price + facts */}
           <section className="panel p-5">
-            <div className="flex items-baseline gap-3">
-              <span className="font-mono text-3xl font-bold">{fmtYen(listing.price_yen)}</span>
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <span className="font-mono text-2xl font-bold sm:text-3xl">{fmtYen(listing.price_yen)}</span>
               <span className="text-ink-mute">{fmtEur(listing.price_eur)}</span>
             </div>
             {listing.price_text_original && (
@@ -377,7 +378,7 @@ export function ListingDetailPage() {
         </div>
 
         {/* Sidebar */}
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           {/* Score breakdown */}
           <section className="panel p-5">
             <h2 className="font-display text-xl font-bold">Score détaillé</h2>
@@ -492,6 +493,43 @@ export function ListingDetailPage() {
                 </p>
               )}
             </div>
+
+            <div className="mt-4 border-t border-line pt-3">
+              {station.data ? (
+                station.data.found ? (
+                  <p className="text-sm">
+                    🚉 Gare la plus proche :{" "}
+                    <span className="font-bold">{station.data.name}</span>{" "}
+                    <span className="font-mono">({station.data.distance_km} km)</span>
+                    {station.data.operator && (
+                      <span className="text-ink-mute"> · {station.data.operator}</span>
+                    )}
+                  </p>
+                ) : (
+                  <p className="text-sm text-ink-soft">
+                    🚉 Aucune gare ferroviaire à moins de 15 km.
+                  </p>
+                )
+              ) : (
+                <button
+                  className="btn text-sm"
+                  onClick={() => station.mutate()}
+                  disabled={station.isPending || listing.lat == null}
+                  title={
+                    listing.lat == null
+                      ? "Géocodez d'abord l'annonce"
+                      : "Interroger OpenStreetMap (Overpass)"
+                  }
+                >
+                  {station.isPending ? "Recherche…" : "🚉 Gare la plus proche (OSM)"}
+                </button>
+              )}
+              {station.isError && (
+                <p className="mt-1 text-xs text-vermilion" role="alert">
+                  {(station.error as Error).message}
+                </p>
+              )}
+            </div>
           </section>
 
           {/* Notes */}
@@ -510,7 +548,7 @@ export function ListingDetailPage() {
                 value={noteDraft}
                 onChange={(e) => setNoteDraft(e.target.value)}
               />
-              <button className="btn btn-primary" type="submit">
+              <button className="btn btn-primary shrink-0" type="submit">
                 +
               </button>
             </form>
@@ -546,7 +584,7 @@ export function ListingDetailPage() {
                 value={taskDraft}
                 onChange={(e) => setTaskDraft(e.target.value)}
               />
-              <button className="btn btn-primary" type="submit">
+              <button className="btn btn-primary shrink-0" type="submit">
                 +
               </button>
             </form>

@@ -108,6 +108,27 @@ python -m worker     # mode idle MVP (pas de crawl réel)
 | [GSI 国土地理院](https://msearch.gsi.go.jp/address-search/AddressSearch) | Gratuit, sans clé | Géocodage des adresses japonaises (automatique à l'import, bouton sur la fiche). La précision est toujours affichée honnêtement (approximatif / ville). |
 | [J-SHIS 防災科研](https://www.j-shis.bosai.go.jp/api-pshm-meshinfo) | Gratuit, sans clé | **Risque sismique officiel vérifié** par coordonnées (probabilité de secousse ≥ shindo 5強 sous 30 ans). Alimente le score « risques naturels ». |
 | [MLIT 不動産情報ライブラリ](https://www.reinfolib.mlit.go.jp/help/apiManual/) | Clé gratuite ([demande](https://www.reinfolib.mlit.go.jp/api/request/)) | Prix de transaction réels (XIT001) → tableau de comparables + prix médian au m² sur la fiche. Sans clé, l'app explique comment l'obtenir. |
+| [OpenStreetMap Overpass](https://overpass-api.de/) | Gratuit, sans clé | Gare ferroviaire la plus proche (nom, distance, opérateur) — à la demande sur la fiche, jamais en masse. |
+| [Frankfurter (BCE)](https://api.frankfurter.dev/) | Gratuit, sans clé | Taux JPY→EUR réel (cache 12 h, repli statique hors ligne). |
+
+**Garde-fou géographique** : chaque géocodage est validé par le géocodeur
+*inverse* GSI — un point qui ne résout pas vers une adresse japonaise (mer,
+hors Japon) est rejeté. Plus de marqueurs dans l'eau.
+
+## Où trouver des annonces (sources à nourrir)
+
+Pré-enregistrées dans l'app (page Sources) :
+
+- **[LIFULL HOME'S 空き家バンク](https://www.homes.co.jp/akiyabank/)** et
+  **[アットホーム 空き家バンク](https://www.akiya-athome.jp/)** — les deux
+  plateformes nationales désignées par le MLIT (annonces municipales
+  agrégées). Import via URL ; vérifier CGU/robots.txt avant tout crawl.
+- **[Portail MLIT 空き家・空き地バンク](https://www.mlit.go.jp/totikensangyo/const/sosei_const_tk3_000131.html)** —
+  liste officielle des banques municipales participantes : la meilleure façon
+  de découvrir les banques d'akiya de vos régions cibles, souvent crawlables
+  simplement (worker/adapters).
+- Les **banques municipales** directes (ex. Tsuruga, Okinoshima) restent la
+  source la plus riche et la plus respectueuse à automatiser.
 
 Distinction importante : un **red flag** signifie « l'annonce *mentionne* ce
 terme » (analyse du texte source) ; le bloc « risques vérifiés » de la fiche

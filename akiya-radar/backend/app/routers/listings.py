@@ -22,8 +22,9 @@ from app.schemas.listing import (
     ListingListResponse,
     ListingSummary,
     ListingUpdate,
+    StationOut,
 )
-from app.services import extraction, fetcher, listing_ops, mlit
+from app.services import extraction, fetcher, listing_ops, mlit, osm
 
 router = APIRouter(prefix="/listings", tags=["listings"])
 
@@ -464,3 +465,18 @@ def listing_comps(listing_id: uuid.UUID, db: Session = Depends(get_db)) -> Comps
         median_unit_price=result.median_unit_price,
         sample_size=result.sample_size,
     )
+
+
+@router.get("/{listing_id}/nearest-station", response_model=StationOut)
+def nearest_station(listing_id: uuid.UUID, db: Session = Depends(get_db)) -> StationOut:
+    """Closest railway station (OpenStreetMap/Overpass) within 15 km."""
+    listing = _get_or_404(db, listing_id)
+    if listing.lat is None or listing.lon is None:
+        raise HTTPException(
+            status_code=422,
+            detail="Coordonnées requises : géocodez d'abord l'annonce.",
+        )
+    station = osm.find_nearest_station(listing.lat, listing.lon)
+    if station is None:
+        return StationOut(found=False)
+    return StationOut(found=True, **asdict(station))

@@ -51,7 +51,7 @@ export function Settings() {
               }}
             />
             <button
-              className="btn"
+              className="btn shrink-0"
               type="button"
               onClick={() => {
                 if (regionInput.trim()) {

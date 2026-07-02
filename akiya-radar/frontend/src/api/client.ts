@@ -1,5 +1,6 @@
 import type {
   CompsResult,
+  StationResult,
   DashboardResponse,
   Duplicate,
   ImportResult,
@@ -81,6 +82,8 @@ const realApi = {
   checkHazard: (id: string) =>
     request<ListingDetail>(`/listings/${id}/hazard`, { method: "POST" }),
   comps: (id: string) => request<CompsResult>(`/listings/${id}/comps`),
+  nearestStation: (id: string) =>
+    request<StationResult>(`/listings/${id}/nearest-station`),
   exportCsv: async (): Promise<Blob> => {
     const resp = await fetch(`${BASE}/listings/export.csv`);
     if (!resp.ok) throw new ApiError(resp.status, resp.statusText);

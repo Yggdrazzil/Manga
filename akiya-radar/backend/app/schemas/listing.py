@@ -61,6 +61,15 @@ class CompsOut(BaseModel):
     sample_size: int = 0
 
 
+class StationOut(BaseModel):
+    found: bool
+    name: str | None = None
+    distance_km: float | None = None
+    lat: float | None = None
+    lon: float | None = None
+    operator: str | None = None
+
+
 class NoteOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID

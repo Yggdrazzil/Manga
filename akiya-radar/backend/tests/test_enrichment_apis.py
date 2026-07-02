@@ -37,6 +37,7 @@ GSI_OK = [
 
 def test_geocode_parses_coordinates(monkeypatch):
     monkeypatch.setattr(geocoding.httpx, "get", lambda *a, **k: _FakeResponse(GSI_OK))
+    monkeypatch.setattr(geocoding, "is_on_land", lambda lat, lon: True)
     result = geocoding.geocode("福井県敦賀市櫛川")
     assert result is not None
     assert result.lat == Decimal("35.6536")
@@ -52,6 +53,7 @@ def test_geocode_city_only_match_flagged(monkeypatch):
         }
     ]
     monkeypatch.setattr(geocoding.httpx, "get", lambda *a, **k: _FakeResponse(payload))
+    monkeypatch.setattr(geocoding, "is_on_land", lambda lat, lon: True)
     result = geocoding.geocode("福井県敦賀市相生町12-34 何とかビル")
     assert result is not None
     assert result.accuracy == "city"
@@ -155,3 +157,70 @@ def test_mlit_unknown_prefecture(monkeypatch):
     )
     result = mlit.fetch_comps("Bretagne")
     assert result.available is False
+
+
+# ---- Overpass nearest station ----
+
+OVERPASS_OK = {
+    "elements": [
+        {"lat": 35.644899, "lon": 136.0554, "tags": {"name": "敦賀", "operator": "JR西日本"}},
+        {"lat": 35.618117, "lon": 136.031, "tags": {"name": "西敦賀"}},
+    ]
+}
+
+
+def test_nearest_station_picks_closest(monkeypatch):
+    from app.services import osm
+
+    monkeypatch.setattr(osm.httpx, "post", lambda *a, **k: _FakeResponse(OVERPASS_OK))
+    st = osm.find_nearest_station(35.6547, 136.0427)
+    assert st is not None
+    assert st.name == "敦賀"
+    assert 0 < st.distance_km < 3
+    assert st.operator == "JR西日本"
+
+
+def test_nearest_station_never_raises(monkeypatch):
+    from app.services import osm
+
+    def boom(*a, **k):
+        raise httpx.ConnectError("down")
+
+    monkeypatch.setattr(osm.httpx, "post", boom)
+    assert osm.find_nearest_station(35.0, 135.0) is None
+    assert osm.find_nearest_station(None, None) is None
+
+
+# ---- Frankfurter FX ----
+
+def test_frankfurter_live_rate_with_fallback(monkeypatch):
+    from decimal import Decimal as D
+
+    import httpx as _httpx
+
+    from app.services import providers
+
+    cls = providers.FrankfurterExchangeRateProvider
+    cls._cached_rate, cls._cached_at = None, 0.0
+    monkeypatch.setattr(
+        _httpx, "get", lambda *a, **k: _FakeResponse({"rates": {"EUR": 0.0054}})
+    )
+    assert cls().jpy_to_eur(D(1_000_000)) == D("5400.00")
+
+    # Network failure → static fallback rate, never an exception.
+    cls._cached_rate, cls._cached_at = None, 0.0
+
+    def boom(*a, **k):
+        raise _httpx.ConnectError("down")
+
+    monkeypatch.setattr(_httpx, "get", boom)
+    fallback = cls().jpy_to_eur(D(1_000_000))
+    assert fallback == D("6000.00")  # 0.0060 static rate
+
+
+def test_geocode_rejects_water_points(monkeypatch):
+    monkeypatch.setattr(geocoding.httpx, "get", lambda *a, **k: _FakeResponse(GSI_OK))
+    monkeypatch.setattr(geocoding, "is_on_land", lambda lat, lon: False)
+    assert geocoding.geocode("福井県敦賀市櫛川") is None
+    monkeypatch.setattr(geocoding, "is_on_land", lambda lat, lon: True)
+    assert geocoding.geocode("福井県敦賀市櫛川") is not None

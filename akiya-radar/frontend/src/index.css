@@ -65,8 +65,10 @@ body {
       text-[11px] font-bold uppercase tracking-wider;
   }
   .field {
-    @apply w-full rounded-xl border border-line-strong bg-surface px-3.5 py-2.5 text-ink
-      shadow-sm outline-none transition-shadow duration-150
+    /* min-w-0 lets the input shrink inside flex rows — without it the field's
+       intrinsic min-width pushes sibling buttons off-screen on mobile. */
+    @apply w-full min-w-0 rounded-xl border border-line-strong bg-surface px-3.5 py-2.5
+      text-ink shadow-sm outline-none transition-shadow duration-150
       placeholder:text-ink-mute/70 focus:border-vermilion focus:ring-4 focus:ring-vermilion/15;
   }
   .label {

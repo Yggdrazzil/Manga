@@ -23,6 +23,9 @@ from app.config import get_settings
 logger = logging.getLogger("akiya.geocoding")
 
 GSI_ENDPOINT = "https://msearch.gsi.go.jp/address-search/AddressSearch"
+GSI_REVERSE_ENDPOINT = (
+    "https://mreversegeocoder.gsi.go.jp/reverse-geocoder/LonLatToAddress"
+)
 
 
 @dataclass
@@ -41,6 +44,29 @@ def _infer_accuracy(query: str, matched_title: str) -> str:
     if matched_title.endswith(("市", "町", "村", "区", "郡", "県", "道", "府", "都")):
         return "city"
     return "approximate"
+
+
+def is_on_land(lat, lon) -> bool:
+    """Check that a point resolves to a Japanese address (GSI reverse geocoder).
+
+    The reverse geocoder returns ``{}`` for open water — the exact failure mode
+    behind "un marqueur dans la mer". Fails *open* on network errors so an
+    offline environment never blocks geocoding.
+    """
+    settings = get_settings()
+    try:
+        resp = httpx.get(
+            GSI_REVERSE_ENDPOINT,
+            params={"lat": float(lat), "lon": float(lon)},
+            headers={"User-Agent": settings.user_agent},
+            timeout=settings.import_fetch_timeout,
+        )
+        resp.raise_for_status()
+        payload = resp.json()
+    except Exception as exc:  # noqa: BLE001
+        logger.info("reverse geocode unavailable for (%s, %s): %s", lat, lon, exc)
+        return True
+    return bool(isinstance(payload, dict) and payload.get("results"))
 
 
 def geocode(address: str) -> GeocodeResult | None:
@@ -67,12 +93,19 @@ def geocode(address: str) -> GeocodeResult | None:
     try:
         lon, lat = feature["geometry"]["coordinates"]
         title = str(feature.get("properties", {}).get("title", ""))
-        return GeocodeResult(
-            lat=Decimal(str(lat)),
-            lon=Decimal(str(lon)),
-            matched_title=title,
-            accuracy=_infer_accuracy(address, title),
-        )
     except (KeyError, TypeError, ValueError, IndexError) as exc:
         logger.info("unexpected geocoding payload for %r (%s)", address, exc)
         return None
+
+    # Never place a listing in the sea: reject points that don't reverse-resolve
+    # to a Japanese address.
+    if not is_on_land(lat, lon):
+        logger.info("geocode of %r landed in water (%s, %s) — rejected", address, lat, lon)
+        return None
+
+    return GeocodeResult(
+        lat=Decimal(str(lat)),
+        lon=Decimal(str(lon)),
+        matched_title=title,
+        accuracy=_infer_accuracy(address, title),
+    )

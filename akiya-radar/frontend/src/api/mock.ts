@@ -4,6 +4,7 @@
  */
 import type {
   CompsResult,
+  StationResult,
   DashboardResponse,
   Duplicate,
   Flag,
@@ -169,9 +170,9 @@ const LISTINGS: ListingDetail[] = [
     prefecture: "島根県",
     city: "隠岐の島町",
     address_text: "島根県隠岐郡隠岐の島町都万",
-    lat: 36.145,
-    lon: 133.198,
-    geocode_accuracy: "exact",
+    lat: 36.21315,
+    lon: 133.24324,
+    geocode_accuracy: "approximate",
     land_area_m2: 280,
     building_area_m2: 115,
     floor_plan: "4LDK",
@@ -201,9 +202,9 @@ const LISTINGS: ListingDetail[] = [
     prefecture: "福井県",
     city: "敦賀市",
     address_text: "福井県敦賀市櫛川",
-    lat: 35.6536,
-    lon: 136.0758,
-    geocode_accuracy: "exact",
+    lat: 35.654671,
+    lon: 136.042694,
+    geocode_accuracy: "approximate",
     land_area_m2: 220.5,
     building_area_m2: 98.2,
     floor_plan: "5DK",
@@ -227,9 +228,9 @@ const LISTINGS: ListingDetail[] = [
     prefecture: "大分県",
     city: "由布市",
     address_text: "大分県由布市湯布院町",
-    lat: 33.264,
-    lon: 131.354,
-    geocode_accuracy: "exact",
+    lat: 33.196159,
+    lon: 131.349655,
+    geocode_accuracy: "approximate",
     land_area_m2: 250,
     building_area_m2: 110,
     floor_plan: "3LDK",
@@ -251,9 +252,9 @@ const LISTINGS: ListingDetail[] = [
     prefecture: "島根県",
     city: "隠岐の島町",
     address_text: "島根県隠岐郡隠岐の島町",
-    lat: 36.2095,
-    lon: 133.322,
-    geocode_accuracy: "approximate",
+    lat: 36.213398,
+    lon: 133.311829,
+    geocode_accuracy: "city",
     land_area_m2: 160,
     building_area_m2: 82,
     floor_plan: "3LDK",
@@ -276,8 +277,8 @@ const LISTINGS: ListingDetail[] = [
     prefecture: "千葉県",
     city: "南房総市",
     address_text: "千葉県南房総市千倉町",
-    lat: 34.987,
-    lon: 139.945,
+    lat: 34.934258,
+    lon: 139.948578,
     geocode_accuracy: "approximate",
     land_area_m2: 140,
     building_area_m2: 70.5,
@@ -301,9 +302,9 @@ const LISTINGS: ListingDetail[] = [
     prefecture: "福井県",
     city: "敦賀市",
     address_text: "福井県敦賀市相生町",
-    lat: 35.645,
-    lon: 136.0555,
-    geocode_accuracy: "exact",
+    lat: 35.655514,
+    lon: 136.068314,
+    geocode_accuracy: "approximate",
     land_area_m2: 95,
     building_area_m2: 88,
     floor_plan: "4DK",
@@ -547,6 +548,19 @@ export function createMockApi() {
         median_unit_price: 26667,
         sample_size: 3,
       });
+    },
+
+    nearestStation: (id: string): Promise<StationResult> => {
+      const l = byId(id);
+      const table: Record<string, [string, number, string | null]> = {
+        敦賀市: ["敦賀", 2.1, "JR西日本"],
+        隠岐の島町: ["(pas de gare — île)", 0, null],
+        由布市: ["由布院", 3.4, "JR九州"],
+        南房総市: ["千倉", 1.8, "JR東日本"],
+      };
+      const hit = l?.city ? table[l.city] : undefined;
+      if (!hit || hit[1] === 0) return delay({ found: false, name: null, distance_km: null, lat: null, lon: null, operator: null });
+      return delay({ found: true, name: hit[0], distance_km: hit[1], lat: l!.lat, lon: l!.lon, operator: hit[2] });
     },
 
     exportCsv: (): Promise<Blob> => {

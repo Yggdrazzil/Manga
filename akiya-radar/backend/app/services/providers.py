@@ -70,6 +70,46 @@ class MockExchangeRateProvider:
         return (Decimal(amount_yen) * self._rate).quantize(Decimal("0.01"))
 
 
+class FrankfurterExchangeRateProvider:
+    """Live ECB JPY→EUR rate via api.frankfurter.dev (free, key-less).
+
+    The rate is cached in-process for 12 h; any failure falls back to the
+    static configured rate so the app never depends on the network.
+    """
+
+    ENDPOINT = "https://api.frankfurter.dev/v1/latest"
+    TTL_SECONDS = 12 * 3600
+
+    _cached_rate: Decimal | None = None
+    _cached_at: float = 0.0
+
+    def _live_rate(self) -> Decimal | None:
+        import time
+
+        import httpx
+
+        cls = FrankfurterExchangeRateProvider
+        if cls._cached_rate is not None and time.time() - cls._cached_at < self.TTL_SECONDS:
+            return cls._cached_rate
+        try:
+            resp = httpx.get(
+                self.ENDPOINT,
+                params={"base": "JPY", "symbols": "EUR"},
+                headers={"User-Agent": get_settings().user_agent},
+                timeout=8.0,
+            )
+            resp.raise_for_status()
+            rate = Decimal(str(resp.json()["rates"]["EUR"]))
+        except Exception:  # noqa: BLE001 — fall back to the static rate
+            return None
+        cls._cached_rate, cls._cached_at = rate, time.time()
+        return rate
+
+    def jpy_to_eur(self, amount_yen: Decimal) -> Decimal:
+        rate = self._live_rate() or Decimal(str(get_settings().jpy_to_eur_rate))
+        return (Decimal(amount_yen) * rate).quantize(Decimal("0.01"))
+
+
 def get_translation_provider() -> TranslationProvider:
     provider = get_settings().translation_provider
     if provider == "manual":
@@ -82,4 +122,6 @@ def get_summary_provider() -> SummaryProvider:
 
 
 def get_exchange_rate_provider() -> ExchangeRateProvider:
+    if get_settings().exchange_rate_provider == "frankfurter":
+        return FrankfurterExchangeRateProvider()
     return MockExchangeRateProvider()

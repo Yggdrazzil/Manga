@@ -101,6 +101,15 @@ export interface CompsResult {
   sample_size: number;
 }
 
+export interface StationResult {
+  found: boolean;
+  name: string | null;
+  distance_km: number | null;
+  lat: number | null;
+  lon: number | null;
+  operator: string | null;
+}
+
 export type ListingSort = "newest" | "price_asc" | "price_desc" | "score_desc";
 
 export interface ListingDetail extends ListingSummary {
