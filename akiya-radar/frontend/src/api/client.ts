@@ -1,5 +1,6 @@
 import type {
   CompsResult,
+  RefreshResult,
   StationResult,
   DashboardResponse,
   Duplicate,
@@ -81,6 +82,8 @@ const realApi = {
     request<ListingDetail>(`/listings/${id}/geocode`, { method: "POST" }),
   checkHazard: (id: string) =>
     request<ListingDetail>(`/listings/${id}/hazard`, { method: "POST" }),
+  refreshListing: (id: string) =>
+    request<RefreshResult>(`/listings/${id}/refresh`, { method: "POST" }),
   comps: (id: string) => request<CompsResult>(`/listings/${id}/comps`),
   nearestStation: (id: string) =>
     request<StationResult>(`/listings/${id}/nearest-station`),

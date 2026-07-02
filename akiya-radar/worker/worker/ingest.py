@@ -46,6 +46,9 @@ class IngestSummary:
     created: int = 0
     duplicates: int = 0
     errors: int = 0
+    refreshed: int = 0
+    gone: int = 0
+    price_changes: int = 0
     detail: list[str] = field(default_factory=list)
 
     def as_dict(self) -> dict:
@@ -54,6 +57,9 @@ class IngestSummary:
             "created": self.created,
             "duplicates": self.duplicates,
             "errors": self.errors,
+            "refreshed": self.refreshed,
+            "gone": self.gone,
+            "price_changes": self.price_changes,
         }
 
 
@@ -123,6 +129,40 @@ def _import_one(api_base: str, url: str, token: str | None) -> str:
     return "created"
 
 
+def run_refresh(api_base: str, token: str | None, summary: IngestSummary) -> None:
+    """Re-check every known listing against its source (gone/sold/price).
+
+    Une annonce disparue est marquée ``gone`` côté backend — jamais supprimée.
+    Chaque échec est isolé : une fiche en erreur n'arrête pas le batch.
+    """
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
+    try:
+        resp = requests.get(
+            f"{api_base}/listings", params={"limit": 200}, headers=headers, timeout=30
+        )
+        resp.raise_for_status()
+        items = resp.json().get("items", [])
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("refresh: could not list listings (%s)", exc)
+        return
+    for item in items:
+        try:
+            r = requests.post(
+                f"{api_base}/listings/{item['id']}/refresh", headers=headers, timeout=45
+            )
+            r.raise_for_status()
+            body = r.json()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("refresh failed for %s (%s)", item.get("id"), exc)
+            summary.errors += 1
+            continue
+        summary.refreshed += 1
+        if body.get("status_after") == "gone" and body.get("status_before") != "gone":
+            summary.gone += 1
+        if body.get("price_changed"):
+            summary.price_changes += 1
+
+
 def run_ingest(
     api_base: str,
     token: str | None = None,
@@ -176,6 +216,8 @@ def main() -> None:
         len(watch_urls),
     )
     summary = run_ingest(api_base, token, index_urls, watch_urls)
+    if os.environ.get("AKIYA_REFRESH", "true").lower() != "false":
+        run_refresh(api_base, token, summary)
     logger.info("ingest finished: %s", summary.as_dict())
 
 

@@ -6,13 +6,14 @@ and by the seed script.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import HazardScore, Listing, ListingFlag, ListingScore
-from app.services import dedupe, geocoding, hazard, red_flags, scoring
+from app.models import HazardScore, Listing, ListingFlag, ListingScore, PriceHistory
+from app.services import dedupe, extraction, fetcher, geocoding, hazard, red_flags, scoring
 from app.services.providers import (
     get_exchange_rate_provider,
     get_summary_provider,
@@ -32,6 +33,7 @@ _EXTRACTABLE_FIELDS = (
     "building_area_m2",
     "floor_plan",
     "build_year",
+    "photo_urls",
 )
 
 
@@ -61,6 +63,7 @@ def listing_to_dict(listing: Listing) -> dict:
         "building_area_m2": listing.building_area_m2,
         "build_year": listing.build_year,
         "property_type": listing.property_type,
+        "listing_status": listing.listing_status,
     }
 
 
@@ -215,6 +218,63 @@ def find_possible_duplicates(db: Session, listing: Listing) -> list[dict]:
                 "price_yen": other.price_yen,
             }
         )
+    return result
+
+
+# Japanese transactional-status keywords → listing_status (checked in order).
+_STATUS_KEYWORDS = (
+    ("成約済み", "sold"),
+    ("売約済み", "sold"),
+    ("受付停止", "paused"),
+    ("商談中", "under_negotiation"),
+)
+
+
+def refresh_listing(db: Session, listing: Listing) -> dict:
+    """Re-check the source page: availability, price changes, photos.
+
+    Rules (cahier des charges) : une annonce disparue est MARQUÉE ``gone``,
+    jamais supprimée — notes, historique et score restent consultables. Une
+    erreur réseau ne change jamais le statut (unknown ≠ gone).
+    """
+    outcome, html = fetcher.fetch_page(listing.source_url)
+    result = {
+        "outcome": outcome,
+        "status_before": listing.listing_status,
+        "price_changed": False,
+    }
+
+    if outcome == "gone":
+        listing.listing_status = "gone"
+    elif outcome == "ok" and html:
+        listing.last_seen_at = datetime.now(UTC)
+        for keyword, status in _STATUS_KEYWORDS:
+            if keyword in html:
+                listing.listing_status = status
+                break
+        else:
+            listing.listing_status = "active"
+
+        try:
+            extracted = extraction.extract_listing_fields(html, base_url=listing.source_url)
+        except Exception:  # noqa: BLE001 — refresh must never break on parse
+            extracted = {}
+        new_price = extracted.get("price_yen")
+        if new_price is not None:
+            if listing.price_yen is not None and new_price != listing.price_yen:
+                listing.price_history.append(
+                    PriceHistory(price_yen=new_price, source_url=listing.source_url)
+                )
+                result["price_changed"] = True
+            listing.price_yen = new_price
+            update_price_eur(listing)
+        if not listing.photo_urls and extracted.get("photo_urls"):
+            listing.photo_urls = extracted["photo_urls"]
+    # outcome error/disallowed/disabled → statut inchangé.
+
+    compute_and_store_score(db, listing)
+    db.flush()
+    result["status_after"] = listing.listing_status
     return result
 
 

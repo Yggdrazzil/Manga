@@ -68,6 +68,7 @@ export interface ListingSummary {
   personal_status: string;
   favorite: boolean;
   rating: number | null;
+  photo_urls?: string[] | null;
   flags: Flag[];
   scores: Score[];
 }
@@ -108,6 +109,14 @@ export interface StationResult {
   lat: number | null;
   lon: number | null;
   operator: string | null;
+}
+
+export interface RefreshResult {
+  outcome: "ok" | "gone" | "error" | "disallowed" | "disabled";
+  status_before: string | null;
+  status_after: string | null;
+  price_changed: boolean;
+  listing: ListingDetail;
 }
 
 export type ListingSort = "newest" | "price_asc" | "price_desc" | "score_desc";

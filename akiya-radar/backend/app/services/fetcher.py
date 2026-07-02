@@ -53,14 +53,19 @@ def is_fetch_allowed(url: str, user_agent: str | None = None) -> bool:
     return parser.can_fetch(ua, url)
 
 
-def fetch_html(url: str) -> str | None:
-    """Fetch the HTML body of ``url`` or return ``None`` on any problem."""
+def fetch_page(url: str) -> tuple[str, str | None]:
+    """Status-aware fetch. Returns ``(outcome, html)``.
+
+    Outcomes: ``ok`` (200 + HTML), ``gone`` (404/410 — the page no longer
+    exists), ``error`` (network failure or other status — treat as UNKNOWN,
+    never as gone), ``disallowed`` (robots.txt), ``disabled``.
+    """
     settings = get_settings()
     if not settings.import_fetch_enabled:
-        return None
+        return "disabled", None
     if not is_fetch_allowed(url):
         logger.info("robots.txt disallows fetching %s", url)
-        return None
+        return "disallowed", None
     try:
         resp = httpx.get(
             url,
@@ -70,12 +75,20 @@ def fetch_html(url: str) -> str | None:
         )
     except Exception as exc:  # noqa: BLE001
         logger.info("fetch failed for %s (%s)", url, exc)
-        return None
+        return "error", None
+    if resp.status_code in (404, 410):
+        return "gone", None
     if resp.status_code != 200:
         logger.info("fetch %s returned status %s", url, resp.status_code)
-        return None
+        return "error", None
     content_type = resp.headers.get("content-type", "").lower()
     if content_type and not any(h in content_type for h in _HTML_HINTS):
         logger.info("fetch %s returned non-HTML content-type %s", url, content_type)
-        return None
-    return resp.text
+        return "error", None
+    return "ok", resp.text
+
+
+def fetch_html(url: str) -> str | None:
+    """Fetch the HTML body of ``url`` or return ``None`` on any problem."""
+    _, html = fetch_page(url)
+    return html

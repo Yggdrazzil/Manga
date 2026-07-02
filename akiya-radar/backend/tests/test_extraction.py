@@ -47,3 +47,27 @@ def test_dl_layout_supported():
     fields = extract_listing_fields(html)
     assert fields["price_yen"] == Decimal(12_000_000)
     assert fields["floor_plan"] == "3LDK"
+
+
+def test_extracts_photos_absolutized_and_filtered():
+    html = """
+    <html><head><meta property="og:image" content="/photos/main.jpg"></head><body>
+      <img src="https://cdn.example.jp/bukken/1.jpg">
+      <img src="/img/logo.png">
+      <img src="icons/arrow.jpg">
+      <img src="data:image/gif;base64,xyz">
+      <img data-src="/photos/2.webp">
+      <img src="/photos/plan.pdf">
+    </body></html>
+    """
+    fields = extract_listing_fields(html, base_url="https://akiya.example.jp/bukken/9")
+    photos = fields["photo_urls"]
+    assert photos[0] == "https://akiya.example.jp/photos/main.jpg"
+    assert "https://cdn.example.jp/bukken/1.jpg" in photos
+    assert "https://akiya.example.jp/photos/2.webp" in photos
+    assert all("logo" not in p and "arrow" not in p and "pdf" not in p for p in photos)
+
+
+def test_no_photos_key_when_none_found():
+    fields = extract_listing_fields("<html><body><p>text</p></body></html>", base_url="https://x.jp")
+    assert "photo_urls" not in fields

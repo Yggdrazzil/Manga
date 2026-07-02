@@ -84,6 +84,9 @@ class Listing(UUIDMixin, TimestampMixin, Base):
 
     raw_hash: Mapped[str | None] = mapped_column(Text)
     raw_json: Mapped[dict | None] = mapped_column(JSONB)
+    # URLs of photos found on the source page (never re-hosted — the source
+    # stays the canonical owner; broken links simply stop rendering).
+    photo_urls: Mapped[list | None] = mapped_column(JSONB)
 
     source: Mapped["Source | None"] = relationship(back_populates="listings")  # noqa: F821
     flags: Mapped[list["ListingFlag"]] = relationship(  # noqa: F821

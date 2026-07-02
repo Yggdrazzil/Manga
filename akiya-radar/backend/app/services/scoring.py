@@ -81,6 +81,12 @@ def _price_score(price_yen, positives: list[str], negatives: list[str]) -> tuple
         negatives.append("Prix inconnu : évaluation prix incertaine.")
         return 10, False
     # Heuristic akiya price bands (no MLIT market comparison in the MVP).
+    if price == 0:
+        negatives.append(
+            "Cession gratuite (0円/譲渡) : vérifier les contreparties probables "
+            "(démolition, remise en état, obligations)."
+        )
+        return 14, True
     if price <= 1_000_000:
         positives.append("Prix très faible pour une maison.")
         return 20, True
@@ -271,6 +277,28 @@ def score_listing(
         + reno_score
         + fit_score
     )
+
+    # Plafonds de bon sens : un score additif ne doit jamais masquer un
+    # deal-breaker (règles du cahier des charges).
+    codes = {f.get("flag_code") for f in flags}
+    status = (listing.get("listing_status") or "").lower()
+    if status in ("sold", "gone") or "sold" in codes:
+        if total > 40:
+            total = 40
+        negatives.append("Bien vendu ou disparu de la source : score plafonné à 40.")
+    elif (
+        status in ("under_negotiation", "paused")
+        or codes & {"negotiating", "applications_suspended"}
+    ):
+        if total > 75:
+            total = 75
+        negatives.append("Négociation en cours / demandes suspendues : score plafonné à 75.")
+    if codes & set(_LEGAL_CRITICAL):
+        if total > 65:
+            total = 65
+        negatives.append(
+            "Red flag juridique critique (ex. 再建築不可, 借地権) : score plafonné à 65."
+        )
 
     confidence, conf_label = _confidence([c_price, c_loc, c_nat, c_legal, c_reno, c_fit])
 

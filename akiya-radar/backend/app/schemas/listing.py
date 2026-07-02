@@ -121,6 +121,7 @@ class ListingBase(BaseModel):
     personal_status: str | None = None
     favorite: bool | None = None
     rating: int | None = Field(default=None, ge=0, le=5)
+    photo_urls: list[str] | None = None
 
 
 class ListingCreate(ListingBase):
@@ -155,6 +156,7 @@ class ListingSummary(BaseModel):
     personal_status: str
     favorite: bool
     rating: int | None = None
+    photo_urls: list[str] | None = None
     flags: list[FlagOut] = []
     scores: list[ScoreOut] = []
 
@@ -198,6 +200,14 @@ class ImportResult(BaseModel):
     fetched: bool
     fields_filled: list[str] = []
     possible_duplicates: list[DuplicateOut] = []
+
+
+class RefreshResult(BaseModel):
+    outcome: str  # ok | gone | error | disallowed | disabled
+    status_before: str | None = None
+    status_after: str | None = None
+    price_changed: bool = False
+    listing: ListingDetail
 
 
 class FavoriteRequest(BaseModel):

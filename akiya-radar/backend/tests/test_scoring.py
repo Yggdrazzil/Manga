@@ -95,3 +95,45 @@ def test_scores_within_component_bounds():
     assert 0 <= result.legal_risk_score <= 15
     assert 0 <= result.renovation_score <= 15
     assert 0 <= result.personal_fit_score <= 10
+
+
+def test_sold_or_gone_is_capped():
+    listing = {"price_yen": Decimal(800_000), "prefecture": "福井県", "build_year": 2010}
+    available = scoring.score_listing(dict(listing, listing_status="active"))
+    sold = scoring.score_listing(dict(listing, listing_status="sold"))
+    gone = scoring.score_listing(dict(listing, listing_status="gone"))
+    assert available.total_score > 40
+    assert sold.total_score <= 40 and gone.total_score <= 40
+    assert any("plafonné à 40" in n for n in sold.negatives)
+
+
+def test_negotiation_is_capped_at_75():
+    listing = {"price_yen": Decimal(800_000), "prefecture": "福井県", "build_year": 2015}
+    result = scoring.score_listing(
+        listing, flags=[{"flag_code": "negotiating", "severity": "info"}]
+    )
+    assert result.total_score <= 75
+
+
+def test_critical_legal_flag_caps_total_at_65():
+    # Un bien parfait par ailleurs ne doit JAMAIS dépasser 65 avec 再建築不可.
+    listing = {
+        "price_yen": Decimal(900_000),
+        "prefecture": "福井県",
+        "city": "敦賀市",
+        "build_year": 2015,
+        "geocode_accuracy": "exact",
+    }
+    result = scoring.score_listing(
+        listing,
+        flags=[{"flag_code": "rebuild_forbidden", "severity": "critical"}],
+        hazard={"earthquake_risk": "low"},
+    )
+    assert result.total_score <= 65
+    assert any("plafonné à 65" in n for n in result.negatives)
+
+
+def test_free_transfer_price_is_cautious():
+    result = scoring.score_listing({"price_yen": Decimal(0)})
+    assert result.price_score == 14
+    assert any("Cession gratuite" in n for n in result.negatives)

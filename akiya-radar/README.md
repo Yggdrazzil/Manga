@@ -162,7 +162,12 @@ main (`workflow_dispatch`). Il installe le worker et exécute
    ou les listes fournies par secret ;
 2. découvre les liens de fiches (robots.txt respecté) ;
 3. appelle `POST /listings/import-url` pour chaque fiche — le backend
-   télécharge, extrait, déduplique, score et stocke.
+   télécharge, extrait (dont les **photos**), déduplique, score et stocke ;
+4. **rafraîchit chaque annonce connue** (`POST /listings/{id}/refresh`) :
+   une page 404/410 → statut `gone` (l'annonce est **marquée, jamais
+   supprimée** — notes et historique restent) ; 成約済み → `sold` ;
+   商談中 → `under_negotiation` ; changement de prix → historisé. Une erreur
+   réseau ne change jamais le statut. Désactivable via `AKIYA_REFRESH=false`.
 
 Secrets à définir (Settings → Secrets and variables → Actions) :
 

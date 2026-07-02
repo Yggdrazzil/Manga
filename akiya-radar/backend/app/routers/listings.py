@@ -22,6 +22,7 @@ from app.schemas.listing import (
     ListingListResponse,
     ListingSummary,
     ListingUpdate,
+    RefreshResult,
     StationOut,
 )
 from app.services import extraction, fetcher, listing_ops, mlit, osm
@@ -363,7 +364,7 @@ def import_url(payload: ImportUrlRequest, db: Session = Depends(get_db)) -> Impo
     if html:
         fetched = True
         try:
-            extracted = extraction.extract_listing_fields(html)
+            extracted = extraction.extract_listing_fields(html, base_url=url)
         except Exception:  # noqa: BLE001 — extraction must never break import
             extracted = {}
         fields_filled = listing_ops.apply_extracted(listing, extracted)
@@ -464,6 +465,18 @@ def listing_comps(listing_id: uuid.UUID, db: Session = Depends(get_db)) -> Comps
         comps=[asdict(c) for c in result.comps],
         median_unit_price=result.median_unit_price,
         sample_size=result.sample_size,
+    )
+
+
+@router.post("/{listing_id}/refresh", response_model=RefreshResult)
+def refresh_listing(listing_id: uuid.UUID, db: Session = Depends(get_db)) -> RefreshResult:
+    """Re-check the source page: gone/sold detection, price change, photos."""
+    listing = _get_or_404(db, listing_id, detail=True)
+    result = listing_ops.refresh_listing(db, listing)
+    db.commit()
+    return RefreshResult(
+        **result,
+        listing=ListingDetail.model_validate(_get_or_404(db, listing.id, detail=True)),
     )
 
 

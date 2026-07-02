@@ -91,3 +91,38 @@ def test_watch_urls_are_deduped(monkeypatch):
         watch_urls=["https://x.jp/a", "https://x.jp/a", "https://x.jp/b"],
     )
     assert summary.discovered == 2
+
+
+def test_run_refresh_counts_outcomes(monkeypatch):
+    listings = {"items": [{"id": "a"}, {"id": "b"}, {"id": "c"}]}
+    refresh_bodies = {
+        "a": {"status_before": "active", "status_after": "gone", "price_changed": False},
+        "b": {"status_before": "active", "status_after": "active", "price_changed": True},
+    }
+
+    class R:
+        def __init__(self, body, ok=True):
+            self._body, self._ok = body, ok
+
+        def raise_for_status(self):
+            if not self._ok:
+                raise RuntimeError("boom")
+
+        def json(self):
+            return self._body
+
+    monkeypatch.setattr(ingest.requests, "get", lambda *a, **k: R(listings))
+
+    def fake_post(url, headers, timeout):
+        lid = url.rsplit("/", 2)[-2]
+        if lid == "c":
+            return R({}, ok=False)
+        return R(refresh_bodies[lid])
+
+    monkeypatch.setattr(ingest.requests, "post", fake_post)
+    summary = ingest.IngestSummary()
+    ingest.run_refresh("https://api.example", None, summary)
+    assert summary.refreshed == 2
+    assert summary.gone == 1
+    assert summary.price_changes == 1
+    assert summary.errors == 1

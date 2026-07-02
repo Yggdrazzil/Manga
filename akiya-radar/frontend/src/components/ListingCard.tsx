@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 
 import { fmtArea, fmtEur, fmtYen, severityRank } from "@/lib/format";
@@ -19,8 +20,23 @@ export function ListingCard({ listing, onToggleFavorite }: Props) {
     (a, b) => severityRank(a.severity) - severityRank(b.severity),
   );
 
+  const [photoBroken, setPhotoBroken] = useState(false);
+  const photo = !photoBroken && listing.photo_urls && listing.photo_urls[0];
+
   return (
-    <article className="panel group flex flex-col p-4 transition-transform duration-150 hover:-translate-y-0.5 hover:shadow-lift">
+    <article className="panel group flex flex-col overflow-hidden transition-transform duration-150 hover:-translate-y-0.5 hover:shadow-lift">
+      {photo && (
+        <Link to={`/listings/${listing.id}`} tabIndex={-1} aria-hidden>
+          <img
+            src={photo}
+            alt=""
+            loading="lazy"
+            className="h-36 w-full bg-paper-2 object-cover"
+            onError={() => setPhotoBroken(true)}
+          />
+        </Link>
+      )}
+      <div className="flex flex-col p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
@@ -90,6 +106,7 @@ export function ListingCard({ listing, onToggleFavorite }: Props) {
           )}
         </div>
       )}
+      </div>
     </article>
   );
 }

@@ -4,6 +4,7 @@
  */
 import type {
   CompsResult,
+  RefreshResult,
   StationResult,
   DashboardResponse,
   Duplicate,
@@ -181,6 +182,11 @@ const LISTINGS: ListingDetail[] = [
     personal_status: "very_interesting",
     favorite: true,
     rating: 4,
+    photo_urls: [
+      "https://picsum.photos/seed/akiya-oki-1/800/500",
+      "https://picsum.photos/seed/akiya-oki-2/800/500",
+      "https://picsum.photos/seed/akiya-oki-3/800/500",
+    ],
     scores: [score(74, { price_score: 12, location_score: 18, renovation_score: 13 }, 67)],
     price_history: [
       { id: uid(), price_yen: 9500000, detected_at: "2026-05-01T00:00:00Z", source_url: null },
@@ -212,6 +218,10 @@ const LISTINGS: ListingDetail[] = [
     property_type: "kominka",
     personal_status: "interesting",
     favorite: true,
+    photo_urls: [
+      "https://picsum.photos/seed/akiya-tsuruga-1/800/500",
+      "https://picsum.photos/seed/akiya-tsuruga-2/800/500",
+    ],
     flags: [FLAGS.roof(), FLAGS.repairs()],
     scores: [score(62, { price_score: 13, renovation_score: 5, legal_risk_score: 15 }, 67)],
   }),
@@ -548,6 +558,17 @@ export function createMockApi() {
         median_unit_price: 26667,
         sample_size: 3,
       });
+    },
+
+    refreshListing: (id: string): Promise<RefreshResult> => {
+      const l = byId(id)!;
+      const before = l.listing_status;
+      if (l.id === "L6") {
+        l.listing_status = "gone";
+        return delay({ outcome: "gone" as const, status_before: before, status_after: "gone", price_changed: false, listing: l });
+      }
+      l.listing_status = "active";
+      return delay({ outcome: "ok" as const, status_before: before, status_after: "active", price_changed: false, listing: l });
     },
 
     nearestStation: (id: string): Promise<StationResult> => {

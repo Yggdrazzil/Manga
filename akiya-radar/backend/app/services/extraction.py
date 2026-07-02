@@ -10,6 +10,7 @@ dict and the import simply keeps its editable stub.
 from __future__ import annotations
 
 import re
+from urllib.parse import urljoin, urlsplit
 
 from bs4 import BeautifulSoup
 
@@ -55,7 +56,38 @@ def _split_address(address: str) -> tuple[str | None, str | None]:
     return prefecture, city
 
 
-def extract_listing_fields(html: str) -> dict:
+# Filename fragments that are almost never property photos.
+_PHOTO_EXCLUDE = re.compile(r"logo|icon|banner|btn|button|spacer|arrow|bullet|header|footer", re.I)
+_PHOTO_EXT = re.compile(r"\.(jpe?g|png|webp)(\?|$)", re.I)
+MAX_PHOTOS = 10
+
+
+def extract_photos(soup: BeautifulSoup, base_url: str) -> list[str]:
+    """Collect likely property-photo URLs (og:image first, then content <img>)."""
+    urls: list[str] = []
+    seen: set[str] = set()
+
+    def add(src: str | None) -> None:
+        if not src or src.startswith("data:") or len(urls) >= MAX_PHOTOS:
+            return
+        absolute = urljoin(base_url, src.strip())
+        parts = urlsplit(absolute)
+        if parts.scheme not in ("http", "https"):
+            return
+        if not _PHOTO_EXT.search(absolute) or _PHOTO_EXCLUDE.search(absolute):
+            return
+        if absolute not in seen:
+            seen.add(absolute)
+            urls.append(absolute)
+
+    for meta in soup.select('meta[property="og:image"], meta[name="og:image"]'):
+        add(meta.get("content"))
+    for img in soup.find_all("img"):
+        add(img.get("src") or img.get("data-src"))
+    return urls
+
+
+def extract_listing_fields(html: str, base_url: str = "") -> dict:
     """Return a dict of typed listing fields extracted from ``html``.
 
     Only keys with a confidently-parsed value are included, so callers can
@@ -113,6 +145,10 @@ def extract_listing_fields(html: str) -> dict:
         year = parse_build_year(raw["build_year"])
         if year is not None:
             result["build_year"] = year
+
+    photos = extract_photos(soup, base_url)
+    if photos:
+        result["photo_urls"] = photos
 
     result["_raw_fields"] = raw
     return result

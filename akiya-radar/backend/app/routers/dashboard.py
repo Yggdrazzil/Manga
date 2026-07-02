@@ -76,6 +76,7 @@ def dashboard(db: Session = Depends(get_db)) -> DashboardResponse:
             select(Listing)
             .options(*loaders)
             .join(score_subq, Listing.id == score_subq.c.listing_id)
+            .where(Listing.listing_status.not_in(["sold", "gone"]))
             .order_by(score_subq.c.total_score.desc())
             .limit(5)
         )

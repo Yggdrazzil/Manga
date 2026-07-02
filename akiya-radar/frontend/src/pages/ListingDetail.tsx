@@ -7,6 +7,7 @@ import { DuplicateBanner } from "@/components/DuplicateBanner";
 import { ErrorState, Spinner } from "@/components/feedback";
 import { FlagBadge } from "@/components/FlagBadge";
 import { ListingMap } from "@/components/ListingMap";
+import { PhotoGallery } from "@/components/PhotoGallery";
 import { ScoreBadge } from "@/components/ScoreBadge";
 import { StatusPill } from "@/components/StatusPill";
 import { TranslatableText } from "@/components/TranslatableText";
@@ -70,6 +71,10 @@ export function ListingDetailPage() {
     onSuccess: invalidate,
   });
   const enrich = useMutation({ mutationFn: () => api.enrich(id), onSuccess: invalidate });
+  const refresh = useMutation({
+    mutationFn: () => api.refreshListing(id),
+    onSuccess: invalidate,
+  });
   const geocode = useMutation({
     mutationFn: () => api.geocodeListing(id),
     onSuccess: invalidate,
@@ -220,6 +225,31 @@ export function ListingDetailPage() {
             {enrich.isPending ? "…" : "↻ Ré-enrichir"}
           </button>
           <button
+            className="btn"
+            onClick={() => refresh.mutate()}
+            disabled={refresh.isPending}
+            title="Re-vérifier l'annonce sur le site source (disponibilité, prix, photos)"
+          >
+            {refresh.isPending ? "Vérification…" : "🔎 Vérifier la disponibilité"}
+          </button>
+          {refresh.data && (
+            <span
+              className={`chip ${
+                refresh.data.outcome === "gone"
+                  ? "bg-vermilion-soft text-vermilion"
+                  : refresh.data.outcome === "ok"
+                    ? "bg-moss/15 text-moss"
+                    : "bg-paper-2 text-ink-soft"
+              }`}
+            >
+              {refresh.data.outcome === "gone"
+                ? "Annonce disparue de la source"
+                : refresh.data.outcome === "ok"
+                  ? `Source vérifiée${refresh.data.price_changed ? " · prix mis à jour" : ""}`
+                  : "Source injoignable (statut inchangé)"}
+            </span>
+          )}
+          <button
             className="btn ml-auto border-vermilion text-vermilion"
             onClick={() => {
               if (confirm("Supprimer cette annonce ?")) remove.mutate();
@@ -232,6 +262,8 @@ export function ListingDetailPage() {
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <div className="min-w-0 space-y-6">
+          <PhotoGallery urls={listing.photo_urls} />
+
           {/* Price + facts */}
           <section className="panel p-5">
             <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">

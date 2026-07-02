@@ -307,3 +307,65 @@ def test_dashboard(client):
     assert body["stats"]["total"] >= 1
     assert "top_opportunities" in body
     assert "recent_listings" in body
+
+
+def test_refresh_marks_gone_on_404(client, monkeypatch):
+    import app.services.fetcher as fetcher
+
+    resp = client.post("/listings", json={"source_url": "https://r.jp/gone", "price_yen": 2000000})
+    lid = resp.json()["id"]
+    monkeypatch.setattr(fetcher, "fetch_page", lambda url: ("gone", None))
+    out = client.post(f"/listings/{lid}/refresh").json()
+    assert out["outcome"] == "gone"
+    assert out["listing"]["listing_status"] == "gone"
+    # Le bien n'est PAS supprimé : la fiche reste consultable.
+    assert client.get(f"/listings/{lid}").status_code == 200
+    # Et son score est plafonné.
+    assert out["listing"]["scores"][-1]["total_score"] <= 40
+
+
+def test_refresh_detects_sold_and_price_change(client, monkeypatch):
+    import app.services.fetcher as fetcher
+
+    resp = client.post(
+        "/listings",
+        json={"source_url": "https://r.jp/sold", "title_original": "物件", "price_yen": 3800000},
+    )
+    lid = resp.json()["id"]
+
+    html_sold = """<html><body><h1>物件</h1><p>成約済み</p>
+    <table><tr><th>価格</th><td>350万円</td></tr></table></body></html>"""
+    monkeypatch.setattr(fetcher, "fetch_page", lambda url: ("ok", html_sold))
+    out = client.post(f"/listings/{lid}/refresh").json()
+    assert out["listing"]["listing_status"] == "sold"
+    assert out["price_changed"] is True
+    assert float(out["listing"]["price_yen"]) == 3_500_000
+    # Changement de prix historisé.
+    assert any(float(p["price_yen"]) == 3_500_000 for p in out["listing"]["price_history"])
+
+
+def test_refresh_network_error_never_marks_gone(client, monkeypatch):
+    import app.services.fetcher as fetcher
+
+    resp = client.post("/listings", json={"source_url": "https://r.jp/flaky"})
+    lid = resp.json()["id"]
+    status_before = client.get(f"/listings/{lid}").json()["listing_status"]
+    monkeypatch.setattr(fetcher, "fetch_page", lambda url: ("error", None))
+    out = client.post(f"/listings/{lid}/refresh").json()
+    assert out["outcome"] == "error"
+    # Erreur réseau = état INCONNU : le statut ne change pas (surtout pas "gone").
+    assert out["listing"]["listing_status"] == status_before
+
+
+def test_import_extracts_photos(client, monkeypatch):
+    import app.services.fetcher as fetcher
+
+    html = """<html><head><meta property="og:image" content="/p/main.jpg"></head>
+    <body><h1>物件X</h1><img src="/p/2.jpg"></body></html>"""
+    monkeypatch.setattr(fetcher, "fetch_html", lambda url: html)
+    out = client.post("/listings/import-url", json={"url": "https://photo.example.jp/b/1"}).json()
+    photos = out["listing"]["photo_urls"]
+    assert photos == [
+        "https://photo.example.jp/p/main.jpg",
+        "https://photo.example.jp/p/2.jpg",
+    ]
