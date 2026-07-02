@@ -111,6 +111,30 @@ const FLAGS = {
     ),
 };
 
+
+// Demo photos: self-contained SVG kominka illustrations. No network calls and
+// no random stock-photo service (one of those once served an ISS photo here).
+function demoPhoto(variant: number, label: string): string {
+  const skies = ["#e8e0d0", "#dfe6e2", "#e6dede"];
+  const accents = ["#c93a2b", "#b07d2c", "#3d5a80"];
+  const sky = skies[variant % skies.length];
+  const accent = accents[variant % accents.length];
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500" viewBox="0 0 800 500">
+  <rect width="800" height="500" fill="${sky}"/>
+  <circle cx="650" cy="110" r="52" fill="${accent}" opacity="0.85"/>
+  <path d="M0 340 L140 240 L260 330 L380 250 L520 340 L800 300 L800 500 L0 500 Z" fill="#c9c2b2"/>
+  <path d="M150 380 L400 250 L650 380 L610 380 L400 275 L190 380 Z" fill="#2b2320"/>
+  <rect x="215" y="378" width="370" height="122" fill="#f2ead8" stroke="#2b2320" stroke-width="6"/>
+  <rect x="255" y="405" width="70" height="95" fill="#8a7a62"/>
+  <rect x="360" y="405" width="80" height="60" fill="#d8d2c0" stroke="#2b2320" stroke-width="5"/>
+  <line x1="400" y1="405" x2="400" y2="465" stroke="#2b2320" stroke-width="5"/>
+  <rect x="470" y="405" width="80" height="60" fill="#d8d2c0" stroke="#2b2320" stroke-width="5"/>
+  <line x1="510" y1="405" x2="510" y2="465" stroke="#2b2320" stroke-width="5"/>
+  <text x="24" y="478" font-family="serif" font-size="30" fill="#2b2320" opacity="0.55">${label} — photo de démo</text>
+  </svg>`;
+  return "data:image/svg+xml," + encodeURIComponent(svg);
+}
+
 function base(
   over: Partial<ListingDetail> & { id: string; source_url: string },
 ): ListingDetail {
@@ -182,11 +206,7 @@ const LISTINGS: ListingDetail[] = [
     personal_status: "very_interesting",
     favorite: true,
     rating: 4,
-    photo_urls: [
-      "https://picsum.photos/seed/akiya-oki-1/800/500",
-      "https://picsum.photos/seed/akiya-oki-2/800/500",
-      "https://picsum.photos/seed/akiya-oki-3/800/500",
-    ],
+    photo_urls: [demoPhoto(0, "隠岐の島町"), demoPhoto(1, "隠岐の島町 · 庭"), demoPhoto(2, "隠岐の島町 · 海")],
     scores: [score(74, { price_score: 12, location_score: 18, renovation_score: 13 }, 67)],
     price_history: [
       { id: uid(), price_yen: 9500000, detected_at: "2026-05-01T00:00:00Z", source_url: null },
@@ -218,10 +238,7 @@ const LISTINGS: ListingDetail[] = [
     property_type: "kominka",
     personal_status: "interesting",
     favorite: true,
-    photo_urls: [
-      "https://picsum.photos/seed/akiya-tsuruga-1/800/500",
-      "https://picsum.photos/seed/akiya-tsuruga-2/800/500",
-    ],
+    photo_urls: [demoPhoto(1, "敦賀市"), demoPhoto(2, "敦賀市 · 内装")],
     flags: [FLAGS.roof(), FLAGS.repairs()],
     scores: [score(62, { price_score: 13, renovation_score: 5, legal_risk_score: 15 }, 67)],
   }),
