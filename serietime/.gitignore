@@ -1,0 +1,11 @@
+node_modules/
+dist/
+*.local
+.env
+apps/server/data/*.sqlite
+apps/server/data/*.sqlite-journal
+apps/server/data/imports/
+apps/mobile/android/app/build/
+apps/mobile/android/.gradle/
+apps/mobile/dev-dist/
+coverage/

@@ -1,0 +1,458 @@
+// SerieTime — schéma Prisma (spec §13).
+// SQLite ne supporte ni les enums natifs ni le type Json :
+// les enums de la spec sont des String contraints par Zod côté API,
+// les champs *Json sont des String contenant du JSON sérialisé.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String?
+  displayName  String
+  avatarUrl    String?
+  coverUrl     String?
+  birthYear    Int?
+  gender       String?
+  countryCode  String   @default("FR")
+  passwordHash String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  mediaStatuses   UserMediaStatus[]
+  episodeStatuses UserEpisodeStatus[]
+  watchEvents     WatchEvent[]
+  lists           MediaList[]
+  notifications   Notification[]
+  ratings         Rating[]
+  sessions        Session[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Media {
+  id                String    @id @default(cuid())
+  type              String // "show" | "movie"
+
+  title             String
+  originalTitle     String?
+  localizedTitle    String?
+  overview          String?
+  localizedOverview String?
+
+  posterPath        String?
+  backdropPath      String?
+
+  firstAirDate      DateTime?
+  releaseDate       DateTime?
+  year              Int?
+
+  status            String?
+  originalLanguage  String?
+  originCountry     String?
+  genres            String?
+
+  runtime           Int?
+  popularity        Float?
+  voteAverage       Float?
+  voteCount         Int?
+
+  tmdbId            String?
+  tvdbId            String?
+  imdbId            String?
+
+  sourcePriority    String?
+  lastSyncedAt      DateTime?
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  show              Show?
+  movie             Movie?
+  statuses          UserMediaStatus[]
+  watchEvents       WatchEvent[]
+  ratings           Rating[]
+  listItems         ListItem[]
+  providers         Provider[]
+  credits           Credit[]
+  importMappings    ImportMapping[]
+
+  @@index([type])
+  @@index([title])
+  @@index([tmdbId])
+  @@index([tvdbId])
+  @@index([imdbId])
+}
+
+model Show {
+  id                 String    @id @default(cuid())
+  mediaId            String    @unique
+  media              Media     @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  numberOfSeasons    Int?
+  numberOfEpisodes   Int?
+  inProduction       Boolean?
+  network            String?
+  platform           String?
+  nextEpisodeAirDate DateTime?
+  lastEpisodeAirDate DateTime?
+  airTime            String?
+  airDay             String?
+
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  seasons            Season[]
+  episodes           Episode[]
+}
+
+model Season {
+  id           String    @id @default(cuid())
+  showId       String
+  show         Show      @relation(fields: [showId], references: [id], onDelete: Cascade)
+
+  seasonNumber Int
+  title        String?
+  overview     String?
+  posterPath   String?
+  airDate      DateTime?
+  episodeCount Int?
+
+  tmdbId       String?
+  tvdbId       String?
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  episodes     Episode[]
+
+  @@unique([showId, seasonNumber])
+  @@index([showId])
+}
+
+model Episode {
+  id                String    @id @default(cuid())
+
+  showId            String
+  show              Show      @relation(fields: [showId], references: [id], onDelete: Cascade)
+
+  seasonId          String?
+  season            Season?   @relation(fields: [seasonId], references: [id])
+
+  seasonNumber      Int
+  episodeNumber     Int
+  absoluteNumber    Int?
+
+  title             String
+  localizedTitle    String?
+  overview          String?
+  localizedOverview String?
+  stillPath         String?
+
+  airDate           DateTime?
+  airTime           String?
+  runtime           Int?
+
+  tmdbId            String?
+  tvdbId            String?
+  imdbId            String?
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  statuses          UserEpisodeStatus[]
+  watchEvents       WatchEvent[]
+  ratings           Rating[]
+
+  @@unique([showId, seasonNumber, episodeNumber])
+  @@index([showId])
+  @@index([seasonId])
+  @@index([airDate])
+}
+
+model Movie {
+  id        String   @id @default(cuid())
+  mediaId   String   @unique
+  media     Media    @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  homepage  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model UserMediaStatus {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+
+  mediaId       String
+  media         Media     @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  status        String // UserMediaState
+  isFavorite    Boolean   @default(false)
+  isHidden      Boolean   @default(false)
+  personalNote  String?
+  rating        Float?
+
+  addedAt       DateTime  @default(now())
+  startedAt     DateTime?
+  completedAt   DateTime?
+  lastWatchedAt DateTime?
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([userId, mediaId])
+  @@index([userId])
+  @@index([mediaId])
+  @@index([status])
+}
+
+model UserEpisodeStatus {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id])
+
+  episodeId    String
+  episode      Episode   @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+
+  status       String // EpisodeState
+  watchedAt    DateTime?
+  rating       Float?
+  reaction     String?
+  personalNote String?
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([userId, episodeId])
+  @@index([userId])
+  @@index([episodeId])
+  @@index([status])
+}
+
+model WatchEvent {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+
+  mediaId      String
+  media        Media    @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  episodeId    String?
+  episode      Episode? @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+
+  eventType    String // WatchEventType
+  eventDate    DateTime
+  source       String
+  metadataJson String?
+
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+  @@index([eventDate])
+}
+
+model Rating {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+
+  mediaId   String
+  media     Media    @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  episodeId String?
+  episode   Episode? @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+
+  value     Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([mediaId])
+}
+
+model MediaList {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+
+  title          String
+  description    String?
+  coverMode      String   @default("auto_collage")
+  coverUrl       String?
+  isFavoriteList Boolean  @default(false)
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  items          ListItem[]
+}
+
+model ListItem {
+  id        String    @id @default(cuid())
+  listId    String
+  list      MediaList @relation(fields: [listId], references: [id], onDelete: Cascade)
+
+  mediaId   String
+  media     Media     @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  position  Int
+  addedAt   DateTime  @default(now())
+  createdAt DateTime  @default(now())
+
+  @@unique([listId, mediaId])
+  @@index([listId])
+  @@index([mediaId])
+}
+
+model Provider {
+  id               String   @id @default(cuid())
+  mediaId          String
+  media            Media    @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  countryCode      String
+  providerName     String
+  providerLogoPath String?
+  offerType        String
+  url              String?
+  source           String
+  fetchedAt        DateTime
+  createdAt        DateTime @default(now())
+
+  @@index([mediaId])
+  @@index([countryCode])
+}
+
+model Person {
+  id          String   @id @default(cuid())
+  name        String
+  profilePath String?
+  tmdbId      String?
+  tvdbId      String?
+  imdbId      String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  credits     Credit[]
+
+  @@index([name])
+}
+
+model Credit {
+  id            String   @id @default(cuid())
+
+  mediaId       String
+  media         Media    @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  personId      String
+  person        Person   @relation(fields: [personId], references: [id])
+
+  roleType      String
+  characterName String?
+  job           String?
+  department    String?
+  orderIndex    Int?
+
+  createdAt     DateTime @default(now())
+
+  @@index([mediaId])
+  @@index([personId])
+}
+
+model Import {
+  id          String   @id @default(cuid())
+  source      String
+  fileName    String
+  fileHash    String   @unique
+  status      String // ImportStatus
+  summaryJson String?
+  errorJson   String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  mappings    ImportMapping[]
+}
+
+model ImportMapping {
+  id               String   @id @default(cuid())
+  importId         String
+  import           Import   @relation(fields: [importId], references: [id], onDelete: Cascade)
+
+  sourceRawId      String?
+  sourceUrl        String?
+  sourceTitle      String
+  sourceType       String
+
+  matchedMediaId   String?
+  matchedMedia     Media?   @relation(fields: [matchedMediaId], references: [id])
+  matchedEpisodeId String?
+
+  matchStatus      String // MatchStatus
+  matchScore       Int?
+
+  rawJson          String?
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([importId])
+  @@index([matchStatus])
+}
+
+model Notification {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+
+  type         String
+  title        String
+  body         String?
+  imageUrl     String?
+  date         DateTime
+  isRead       Boolean  @default(false)
+  metadataJson String?
+
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+  @@index([date])
+}
+
+model AppSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  valueJson String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ApiCache {
+  id           String   @id @default(cuid())
+  source       String
+  cacheKey     String
+  responseJson String
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  @@unique([source, cacheKey])
+  @@index([expiresAt])
+}
