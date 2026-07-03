@@ -1,37 +1,34 @@
 # SerieTime
 
 Application personnelle de suivi de séries, animés et films — pensée pour remplacer TV Time
-après la fermeture du service. Interface mobile fidèle aux captures TV Time, **installable en PWA
-Android** et **buildable en APK via Capacitor**, adossée à un **serveur personnel
-Node/Fastify/Prisma/SQLite**.
+après la fermeture du service. Une **app mobile cross-platform React Native + Expo** (Android & iOS,
+visualisable avec Expo Go), adossée à un **serveur personnel Node/Fastify/Prisma/SQLite**.
 
 > Usage strictement personnel. Aucune fonctionnalité sociale (pas d'amis, d'abonnés, de profils
 > publics ni de commentaires publics). Aucun asset propriétaire TV Time n'est réutilisé.
 
 ## Architecture
 
-Monorepo pnpm :
-
 ```txt
 serietime/
+  mobile/      App React Native + Expo (expo-router) — front unique, autonome (npm)
   apps/
-    mobile/    React + Vite + TypeScript + Tailwind, PWA + Capacitor Android
     server/    Node + Fastify + Prisma + SQLite, API REST /api
   packages/
     core/      logique métier pure (parsing import, matching, stats, dates) + tests
-    ui/        composants UI réutilisables
     types/     types TypeScript partagés
   docs/        SPEC, plan, guides Android / import / API, captures de référence
 ```
 
-Le **serveur est la source de vérité** (base SQLite). Le mobile appelle l'API et conserve un cache
-local (TanStack Query + Service Worker) pour un usage hors-ligne partiel.
+Le **serveur est la source de vérité** (base SQLite). L'app mobile appelle l'API et met en cache les
+écrans consultés (TanStack Query). Le serveur et ses packages forment un workspace pnpm ; l'app
+mobile est un projet Expo autonome (npm) qui communique uniquement via HTTP.
 
 ## Prérequis
 
 - Node.js ≥ 20
-- pnpm ≥ 10 (`corepack enable`)
-- Pour l'APK : Android Studio + JDK 17
+- pnpm ≥ 10 (`corepack enable`) — pour le serveur
+- L'app **Expo Go** sur ton téléphone — pour visualiser l'app mobile
 
 ## Installation serveur
 
@@ -61,41 +58,38 @@ vos exports TV Time contiennent des identifiants TheTVDB et que le matching TMDb
 
 Les clés API restent **exclusivement côté serveur** — jamais exposées au mobile.
 
-## Installation mobile (développement)
+## Installation mobile (Expo Go)
 
 ```bash
-pnpm dev:mobile                 # http://localhost:5173
+cd mobile
+npm install
+npx expo start
 ```
 
-Au premier lancement l'app demande l'**URL du serveur**, teste `GET /health`, puis propose la
-connexion / création de compte.
+Scanne le QR code avec Expo Go (Android) ou l'appareil photo (iOS). Le téléphone doit être sur le
+**même Wi-Fi** que l'ordinateur, et le serveur joignable via l'**IP locale** (ex.
+`http://192.168.1.42:4000`, pas `localhost`). Au premier lancement l'app demande l'**URL du
+serveur**, teste `GET /health`, puis propose la connexion / création de compte.
+
+Détails et build APK : [mobile/README.md](mobile/README.md) et
+[docs/README_ANDROID.md](docs/README_ANDROID.md).
 
 ## Import ZIP TV Time
 
 Depuis **Paramètres → Compte → Importer mes données TV Time**, sélectionnez votre archive `.zip`.
 L'import est robuste, tolérant et vérifiable — voir [docs/IMPORT_TVTIME.md](docs/IMPORT_TVTIME.md).
 
-## Build PWA
-
-```bash
-pnpm --filter @serietime/mobile build
-```
-
-Le dossier `apps/mobile/dist` contient la PWA (manifest, service worker, icônes). Servez-le en
-HTTPS et ouvrez-le dans Chrome Android : « Ajouter à l'écran d'accueil » installe SerieTime en mode
-standalone.
-
 ## Build APK Android
 
-Voir [docs/README_ANDROID.md](docs/README_ANDROID.md). En résumé :
+Via **EAS Build** (cloud, sans Android Studio) :
 
 ```bash
-cd apps/mobile
-pnpm build
-npx cap sync android
-cd android && ./gradlew assembleDebug
-# → android/app/build/outputs/apk/debug/app-debug.apk
+cd mobile
+npm install -g eas-cli && eas login
+eas build --platform android --profile preview   # → APK téléchargeable
 ```
+
+Ou en local : `npx expo run:android`. Package `com.serietime.app`.
 
 ## Docker (serveur)
 
@@ -125,14 +119,15 @@ pnpm test                       # unitaires (core) + intégration (API serveur)
 ## Limitations
 
 - L'enrichissement des métadonnées (posters, castings, providers) nécessite une clé TMDb.
-- Hors-ligne : consultation des écrans déjà chargés et mutations en file d'attente (marquage
-  vu/non-vu, favoris, ajout à une liste). La recherche externe et l'import ZIP exigent le réseau.
+- L'app mobile met en cache les écrans consultés (TanStack Query) ; la recherche externe et
+  l'import ZIP exigent le réseau et un serveur joignable.
 - Application mono-utilisateur par serveur (usage personnel).
 
 ## Documentation
 
 - [docs/SPEC_SERIETIME.md](docs/SPEC_SERIETIME.md) — cahier des charges complet
 - [docs/DEVELOPMENT_PLAN.md](docs/DEVELOPMENT_PLAN.md) — arborescence, Prisma, routes, phases
-- [docs/README_ANDROID.md](docs/README_ANDROID.md) — PWA & APK Android
+- [mobile/README.md](mobile/README.md) — app mobile Expo (lancer avec Expo Go, build APK)
+- [docs/README_ANDROID.md](docs/README_ANDROID.md) — Expo Go & APK Android
 - [docs/IMPORT_TVTIME.md](docs/IMPORT_TVTIME.md) — pipeline d'import
 - [docs/API.md](docs/API.md) — référence de l'API REST

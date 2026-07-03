@@ -1,103 +1,68 @@
-# SerieTime sur Android — PWA & APK
+# SerieTime sur Android — Expo Go & APK
 
-SerieTime se déploie de deux façons sur Android : en **PWA installable** depuis Chrome, ou en
-**APK natif** généré via Capacitor. Les deux ciblent l'Oppo Find X / ColorOS et respectent les
-safe areas et le bouton retour Android.
+L'app mobile SerieTime est une app **React Native + Expo** unique, cross-platform (Android & iOS).
+On la visualise avec **Expo Go** pendant le développement, et on produit un **APK** via EAS Build.
+Elle cible l'Oppo Find X / ColorOS et respecte les safe areas et le bouton retour Android.
 
-## 1. PWA installable
+## 1. Visualiser avec Expo Go (développement)
 
-### Build
+Le moyen le plus rapide de voir l'app en rendu natif réel, sans rien compiler.
 
-```bash
-cd apps/mobile
-VITE_DEFAULT_SERVER_URL="https://serietime.mondomaine.fr" pnpm build
-```
+1. **Prérequis** : Node.js ≥ 20 et l'app **Expo Go**
+   ([Android](https://play.google.com/store/apps/details?id=host.exp.exponent) ·
+   [iOS](https://apps.apple.com/app/expo-go/id982107779)). Téléphone et ordinateur sur le
+   **même Wi-Fi**.
+2. **Serveur joignable** : démarre le serveur SerieTime et note l'**IP locale** de l'ordinateur
+   (ex. `192.168.1.42`) — le téléphone doit pouvoir atteindre `http://192.168.1.42:4000`,
+   pas `localhost`.
+3. **Lancer l'app** :
+   ```bash
+   cd serietime/mobile
+   npm install
+   npx expo start
+   ```
+4. Scanne le QR code (appareil photo iOS, ou Expo Go sur Android).
+5. Saisis l'URL du serveur, teste la connexion, crée ton compte ou connecte-toi.
 
-Le dossier `dist/` contient :
+## 2. Générer un APK
 
-- `manifest.webmanifest` — nom `SerieTime`, mode `standalone`, orientation `portrait`,
-  icônes 192/512 + maskable ;
-- un **service worker** (Workbox) qui met en cache l'app shell, les images TMDb déjà vues et les
-  appels API principaux (stratégie NetworkFirst avec fallback hors-ligne) ;
-- les icônes générées (aucun asset TV Time).
-
-### Installation sur l'Oppo Find X
-
-1. Servez `dist/` en **HTTPS** (obligatoire pour l'installation PWA).
-2. Ouvrez l'URL dans **Chrome Android**.
-3. Menu ⋮ → **Ajouter à l'écran d'accueil** / **Installer l'application**.
-4. SerieTime s'ouvre en mode standalone, sans barre navigateur, avec son icône.
-
-Disponible hors-ligne : accueil, séries, films, profil, stats, listes et fiches déjà consultées.
-Indisponibles hors-ligne : recherche externe, refresh des métadonnées, import ZIP.
-
-## 2. APK Android via Capacitor
-
-### Configuration (déjà en place)
-
-`apps/mobile/capacitor.config.ts` :
-
-```ts
-import type { CapacitorConfig } from '@capacitor/cli';
-
-const config: CapacitorConfig = {
-  appId: 'com.serietime.app',
-  appName: 'SerieTime',
-  webDir: 'dist',
-  server: { androidScheme: 'https' },
-};
-
-export default config;
-```
-
-### Première initialisation du projet Android
-
-Le dossier `android/` n'est pas versionné (il est généré). Créez-le une fois :
+### Via EAS Build (recommandé, cloud, sans Android Studio)
 
 ```bash
-cd apps/mobile
-pnpm build
-npx cap add android
+cd serietime/mobile
+npm install -g eas-cli
+eas login
+eas build --platform android --profile preview
 ```
 
-### Build de l'APK
+EAS compile dans le cloud et fournit un lien de téléchargement de l'**APK**. Tu peux l'installer
+directement sur le téléphone.
+
+Pour un premier build, EAS crée un `eas.json` ; le profil `preview` produit un APK installable
+(le profil `production` produit un AAB pour le Play Store).
+
+### En local avec Android Studio
 
 ```bash
-cd apps/mobile
-pnpm build            # (re)génère dist/
-npx cap sync android  # copie dist/ + plugins dans le projet Android
-npx cap open android  # ouvre Android Studio (optionnel)
-
-# APK debug en ligne de commande :
-cd android
-./gradlew assembleDebug
+cd serietime/mobile
+npx expo run:android      # nécessite Android SDK + JDK 17
 ```
 
-Livrable :
+Package Android : `com.serietime.app` · Nom affiché : `SerieTime` · Icône adaptive jaune générée
+par `scripts/icons.mjs`.
 
-```txt
-apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk
-```
+## 3. Comportements natifs
 
-Installez-le sur l'appareil (`adb install app-debug.apk` ou transfert direct).
+- **Safe areas** : gérées via `react-native-safe-area-context` (headers, bottom nav, écrans).
+- **Bottom navigation** : Séries / Films / Explorer / Profil, avec point rouge sur Explorer quand
+  de nouvelles recommandations sont disponibles.
+- **Bouton retour Android** : géré par la navigation `expo-router` (ferme les modales/sheets, puis
+  remonte la pile d'écrans).
+- **Connexion au serveur** : au premier lancement, l'app demande l'URL du serveur et la teste via
+  `GET /health`. L'URL et le token de session sont stockés localement (AsyncStorage) ; aucune clé
+  API externe n'est présente côté mobile.
 
-### Comportements natifs implémentés
+## 4. iOS
 
-- **Bouton retour Android** (`@capacitor/app`) : ferme d'abord la bottom sheet / action sheet /
-  modale ouverte, sinon revient à l'écran précédent, sinon revient à l'onglet Séries, et depuis
-  Séries demande confirmation avant de quitter (« Quitter SerieTime ? »).
-- **Safe areas** : `env(safe-area-inset-*)` appliqué à la bottom nav, aux pages, au bouton filtre
-  flottant et aux bottom sheets.
-- **Package** `com.serietime.app`, nom affiché `SerieTime`.
-
-### Connexion au serveur
-
-Au premier lancement, l'APK demande l'URL du serveur personnel et la teste via `GET /health`
-avant de continuer. L'URL et le token de session sont stockés localement ; aucune clé API externe
-n'est présente côté mobile.
-
-### Icône adaptative
-
-Les icônes PWA (`public/icons/`) sont générées par `scripts/generate-icons.mjs`. Pour l'icône
-adaptative Android, importez `icon-maskable-512.png` via Android Studio
-(**res → New → Image Asset**) ou remplacez les `mipmap` du projet `android/`.
+Le même code tourne sur iOS via Expo Go (scan du QR code) et se build avec
+`eas build --platform ios` (compte Apple Developer requis pour un IPA signé).

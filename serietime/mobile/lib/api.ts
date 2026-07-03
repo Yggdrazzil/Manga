@@ -1,0 +1,59 @@
+import { useAppStore } from './store';
+
+export class ApiError extends Error {
+  status: number;
+  code: string;
+  constructor(status: number, code: string) {
+    super(code);
+    this.status = status;
+    this.code = code;
+  }
+}
+
+async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  const { serverUrl, token } = useAppStore.getState();
+  if (!serverUrl) throw new ApiError(0, 'no_server');
+  const res = await fetch(`${serverUrl}${path}`, {
+    method,
+    headers: {
+      ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  if (res.status === 401) {
+    useAppStore.getState().logout();
+    throw new ApiError(401, 'unauthorized');
+  }
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new ApiError(res.status, (data && data.error) || 'request_failed');
+  return data as T;
+}
+
+export const api = {
+  get: <T>(path: string) => request<T>('GET', path),
+  post: <T>(path: string, body?: unknown) => request<T>('POST', path, body),
+  put: <T>(path: string, body?: unknown) => request<T>('PUT', path, body),
+  del: <T>(path: string) => request<T>('DELETE', path),
+};
+
+// Construit l'URL absolue d'une image TMDb (les posters de démo sont vides sans clé).
+export function tmdbImage(path: string | null | undefined, size = 'w342'): string | null {
+  if (!path) return null;
+  if (path.startsWith('http')) return path;
+  return `https://image.tmdb.org/t/p/${size}${path}`;
+}
+
+export async function checkHealth(url: string): Promise<{ ok: boolean; app: string; version: string }> {
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), 8000);
+  try {
+    const res = await fetch(`${url.replace(/\/+$/, '')}/health`, { signal: controller.signal });
+    if (!res.ok) throw new ApiError(res.status, 'invalid_response');
+    const data = await res.json();
+    if (data?.ok !== true || data?.app !== 'SerieTime') throw new ApiError(200, 'invalid_server');
+    return data;
+  } finally {
+    clearTimeout(t);
+  }
+}
