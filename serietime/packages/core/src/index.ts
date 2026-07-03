@@ -1,6 +1,7 @@
+// Barrel navigateur : uniquement de la logique pure sans dépendance Node.
+// Les parseurs d'import (csv-parse, Buffer) vivent dans `./server` pour ne
+// jamais être embarqués dans le bundle mobile.
 export * from './utils/text.js';
-export * from './importers/records.js';
-export * from './importers/normalize.js';
 export * from './matching/score.js';
 export * from './media/episodes.js';
 export * from './dates/groups.js';

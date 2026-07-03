@@ -17,7 +17,7 @@ import {
   scoreMatch,
   type MatchCandidate,
   type ParsedFile,
-} from '@serietime/core';
+} from '@serietime/core/server';
 import { prisma } from '../../db/client.js';
 import { env } from '../../config/env.js';
 import { toJson, fromJson } from '../../utils/json.js';

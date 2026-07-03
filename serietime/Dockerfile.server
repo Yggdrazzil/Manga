@@ -1,0 +1,27 @@
+# SerieTime — serveur Node/Fastify/Prisma/SQLite
+FROM node:22-slim AS base
+RUN apt-get update && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN corepack enable
+WORKDIR /app
+
+# Manifests pour installer les dépendances du workspace serveur.
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml* .npmrc* tsconfig.base.json ./
+COPY packages/core/package.json packages/core/
+COPY packages/types/package.json packages/types/
+COPY apps/server/package.json apps/server/
+RUN pnpm install --filter @serietime/server... --frozen-lockfile=false
+
+# Code source
+COPY packages/core packages/core
+COPY packages/types packages/types
+COPY apps/server apps/server
+
+# Client Prisma
+RUN pnpm --filter @serietime/server exec prisma generate
+
+ENV NODE_ENV=production
+ENV PORT=4000
+EXPOSE 4000
+
+# Applique les migrations puis démarre le serveur.
+CMD ["sh", "-c", "pnpm --filter @serietime/server exec prisma migrate deploy && pnpm --filter @serietime/server start"]

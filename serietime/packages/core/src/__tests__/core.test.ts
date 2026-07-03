@@ -18,7 +18,7 @@ import {
   scoreMatch,
   showProgress,
   upcomingGroupLabel,
-} from '../index.js';
+} from '../server.js';
 
 describe('normalizeTitle', () => {
   it('strips accents, case and punctuation', () => {

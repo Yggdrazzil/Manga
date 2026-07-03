@@ -1,0 +1,12 @@
+services:
+  serietime-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./apps/server/data:/app/apps/server/data
+    env_file:
+      - .env
+    restart: unless-stopped

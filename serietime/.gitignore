@@ -9,3 +9,4 @@ apps/mobile/android/app/build/
 apps/mobile/android/.gradle/
 apps/mobile/dev-dist/
 coverage/
+apps/server/prisma/data/
