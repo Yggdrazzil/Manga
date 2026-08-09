@@ -68,20 +68,6 @@
     "jest-expo": "~54.0.0",
     "typescript": "^5.3.3"
   },
-  "jest": {
-    "preset": "jest-expo",
-    "testEnvironment": "node",
-    "moduleNameMapper": {
-      "^@/(.*)$": "<rootDir>/$1",
-      "^@react-native-async-storage/async-storage$": "@react-native-async-storage/async-storage/jest/async-storage-mock"
-    },
-    "testPathIgnorePatterns": [
-      "/node_modules/"
-    ],
-    "transformIgnorePatterns": [
-      "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|moti|@motify/.*|zustand)"
-    ]
-  },
   "overrides": {
     "ajv-keywords": {
       "ajv": "$ajv"
