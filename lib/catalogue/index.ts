@@ -56,6 +56,33 @@ function norm(s: string): string {
     .replace(/[^a-z0-9]/g, '');
 }
 
+// Index pré-normalisé : titres de séries et jetons des sous-titres de tomes.
+// Sans lui, chaque frappe re-normalisait 573 titres et chaque résolution
+// d'album re-découpait les 7669 sous-titres en jetons.
+interface BdIndexRow {
+  entry: CatalogueEntry;
+  key: string;                      // titre de série normalisé
+  volumes: Array<{ toks: string[]; weight: number }>;
+}
+
+let _index: BdIndexRow[] | null = null;
+
+function bdIndex(): BdIndexRow[] {
+  if (_index) return _index;
+  _index = getData().series.map(entry => ({
+    entry,
+    key: norm(entry.title),
+    volumes: entry.volumes
+      .filter(v => !!v.s)
+      .map(v => {
+        const toks = tokens(v.s as string);
+        return { toks, weight: toks.reduce((acc, t) => acc + t.length, 0) };
+      })
+      .filter(v => v.toks.length > 0 && v.weight >= MIN_MATCH_WEIGHT),
+  }));
+  return _index;
+}
+
 /**
  * Case-insensitive, accent-insensitive catalogue search.
  * Returns up to `limit` series sorted by match quality (exact > prefix > substring).
@@ -66,13 +93,12 @@ export function searchCatalogue(query: string, limit = 20): CatalogueEntry[] {
   if (!needle) return [];
 
   const results: Array<{ entry: CatalogueEntry; score: number }> = [];
-  for (const entry of getData().series) {
-    const hay = norm(entry.title);
+  for (const row of bdIndex()) {
     let score = 0;
-    if (hay === needle) score = 100;
-    else if (hay.startsWith(needle)) score = 80;
-    else if (hay.includes(needle)) score = 60;
-    if (score > 0) results.push({ entry, score });
+    if (row.key === needle) score = 100;
+    else if (row.key.startsWith(needle)) score = 80;
+    else if (row.key.includes(needle)) score = 60;
+    if (score > 0) results.push({ entry: row.entry, score });
   }
 
   return results
@@ -87,7 +113,7 @@ export function searchCatalogue(query: string, limit = 20): CatalogueEntry[] {
  */
 export function findCatalogueEntry(title: string): CatalogueEntry | null {
   const needle = norm(title);
-  return getData().series.find(e => norm(e.title) === needle) ?? null;
+  return bdIndex().find(row => row.key === needle)?.entry ?? null;
 }
 
 function tokens(s: string): string[] {
@@ -108,16 +134,19 @@ function tokens(s: string): string[] {
  * subtitle "Tintin au pays des Soviets" even though plain substring
  * containment fails.
  */
+// Poids minimal (en caractères) pour qu'une correspondance de sous-titre soit
+// digne de confiance — évite qu'un sous-titre générique comme « Le retour »
+// ne se rattache à n'importe quel album.
+const MIN_MATCH_WEIGHT = 10;
+
 export function subtitleMatchWeight(subtitle: string, albumTitle: string): number {
   const albumToks = new Set(tokens(albumTitle));
   if (albumToks.size === 0) return 0;
   const subToks = tokens(subtitle);
   if (subToks.length === 0) return 0;
   if (!subToks.every(t => albumToks.has(t))) return 0;
-  // Total character weight guards against generic short subtitles
-  // ("Le retour") matching unrelated albums.
   const weight = subToks.reduce((acc, t) => acc + t.length, 0);
-  return weight >= 10 ? weight : 0;
+  return weight >= MIN_MATCH_WEIGHT ? weight : 0;
 }
 
 /**
@@ -125,13 +154,15 @@ export function subtitleMatchWeight(subtitle: string, albumTitle: string): numbe
  * subtitles token-wise across the whole catalogue.
  */
 export function findParentSeriesInCatalogue(albumTitle: string): string | null {
+  const albumToks = new Set(tokens(albumTitle));
+  if (albumToks.size === 0) return null;
+
   let best: { title: string; weight: number } | null = null;
-  for (const entry of getData().series) {
-    for (const v of entry.volumes) {
-      if (!v.s) continue;
-      const weight = subtitleMatchWeight(v.s, albumTitle);
-      if (weight === 0) continue;
-      if (!best || weight > best.weight) best = { title: entry.title, weight };
+  for (const row of bdIndex()) {
+    for (const v of row.volumes) {
+      if (best && v.weight <= best.weight) continue; // ne peut plus gagner
+      if (!v.toks.every(t => albumToks.has(t))) continue;
+      best = { title: row.entry.title, weight: v.weight };
     }
   }
   return best?.title ?? null;

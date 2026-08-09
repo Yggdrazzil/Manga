@@ -117,7 +117,12 @@ interface MPResponse {
     webHomeViewV3?: MPWebHomeView;
     webHomeView?: MPWebHomeView;
   };
-  error?: { popups?: Array<{ subject?: string; body?: string }> };
+  // L'API répond 200 avec ce corps quand elle refuse la requête. Selon les
+  // révisions, le message arrive dans `popups` ou dans `englishPopup`.
+  error?: {
+    popups?: Array<{ subject?: string; body?: string }>;
+    englishPopup?: { subject?: string; body?: string };
+  };
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -373,14 +378,24 @@ export function parseDailyReleases(data: MPResponse): MangaPlusRelease[] {
  * Global feed — every updated series, not just the user's library.
  */
 export async function getDailyReleases(): Promise<MangaPlusRelease[]> {
-  let data: MPResponse;
-  try {
-    data = await fetchMP<MPResponse>('/web/web_homeV4', { lang: 'eng' });
-  } catch (e) {
-    logger.warn('MangaPlus daily releases failed', { error: String(e) });
-    return [];
+  // On laisse remonter l'erreur : l'écran doit pouvoir distinguer « MANGA Plus
+  // est injoignable » de « aucune sortie aujourd'hui ». Un catch qui renvoyait
+  // [] rendait l'état d'erreur inatteignable et affichait « revenez plus tard »
+  // sur une panne réseau.
+  const data = await fetchMP<MPResponse>('/web/web_homeV4', { lang: 'eng' });
+
+  // L'API répond 200 avec un corps d'erreur (ex. « Account Banned » quand
+  // l'adresse IP est bloquée) — sans ça, on afficherait une liste vide.
+  const popup = data.error?.popups?.[0] ?? data.error?.englishPopup;
+  if (popup) {
+    throw new Error(popup.subject ?? 'MANGA Plus a refusé la requête');
   }
-  return parseDailyReleases(data);
+
+  const releases = parseDailyReleases(data);
+  if (releases.length === 0) {
+    logger.warn('MangaPlus daily releases: réponse sans sortie exploitable');
+  }
+  return releases;
 }
 
 // ── Chapter pages: download + XOR-decrypt to a local cache ─────────────────────

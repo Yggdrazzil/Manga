@@ -129,3 +129,59 @@ describe('xorDecrypt', () => {
     expect(Array.from(out)).toEqual([0x11, 0x22, 0x31, 0x42]);
   });
 });
+
+// ── getDailyReleases : distinguer « injoignable » de « aucune sortie » ────────
+
+import { getDailyReleases } from '../lib/api/mangaplus';
+
+describe('getDailyReleases', () => {
+  const realFetch = global.fetch;
+  afterEach(() => { global.fetch = realFetch; });
+
+  const mockJson = (body: unknown, ok = true, status = 200) => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok, status, json: async () => body,
+    }) as unknown as typeof fetch;
+  };
+
+  it('remonte une erreur quand l’API répond 200 avec un corps d’erreur', async () => {
+    // Cas réel : MANGA Plus renvoie 200 + « Account Banned » aux IP de
+    // datacenter. Renvoyer [] ici afficherait « revenez plus tard » à tort.
+    mockJson({ error: { englishPopup: { subject: 'Account Banned', body: '…' } } });
+    await expect(getDailyReleases()).rejects.toThrow('Account Banned');
+  });
+
+  it('remonte aussi la variante `popups` du corps d’erreur', async () => {
+    mockJson({ error: { popups: [{ subject: 'Maintenance' }] } });
+    await expect(getDailyReleases()).rejects.toThrow('Maintenance');
+  });
+
+  it('propage une panne réseau au lieu de l’avaler', async () => {
+    global.fetch = jest.fn().mockRejectedValue(new Error('network down')) as unknown as typeof fetch;
+    await expect(getDailyReleases()).rejects.toThrow();
+  });
+
+  it('renvoie une liste vide — sans erreur — quand le feed n’a rien à annoncer', async () => {
+    mockJson({ success: { webHomeViewV4: { groups: [] } } });
+    await expect(getDailyReleases()).resolves.toEqual([]);
+  });
+
+  it('renvoie les sorties analysées quand tout va bien', async () => {
+    mockJson({
+      success: {
+        webHomeViewV4: {
+          groups: [{
+            titles: [{
+              titleUpdateStatus: 'UPDATED',
+              title: { titleId: 42, name: 'Test Title', language: 'ENGLISH' },
+              chapter: { titleId: 42, chapterId: 1, name: '#7' },
+            }],
+          }],
+        },
+      },
+    });
+    const out = await getDailyReleases();
+    expect(out).toHaveLength(1);
+    expect(out[0].chapterLabel).toBe('7');
+  });
+});

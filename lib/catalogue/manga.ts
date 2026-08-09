@@ -138,12 +138,9 @@ function norm(s: string): string {
     .replace(/[^a-z0-9]/g, '');
 }
 
-function matchScore(needle: string, names: Array<string | undefined>): number {
+function matchScore(needle: string, keys: string[]): number {
   let best = 0;
-  for (const name of names) {
-    if (!name) continue;
-    const hay = norm(name);
-    if (!hay) continue;
+  for (const hay of keys) {
     if (hay === needle) return 100;
     if (hay.startsWith(needle)) best = Math.max(best, 80);
     else if (hay.includes(needle)) best = Math.max(best, 60);
@@ -151,9 +148,46 @@ function matchScore(needle: string, names: Array<string | undefined>): number {
   return best;
 }
 
+// Index de recherche pré-normalisé.
+//
+// Normaliser à la volée coûtait ~40 000 créations de chaînes par frappe
+// (5000 œuvres × jusqu'à 8 titres/synonymes), mesuré à 58 ms par recherche sur
+// un poste de bureau — plusieurs centaines de millisecondes de thread JS bloqué
+// sur mobile, à chaque lettre tapée. En pré-calculant les clés une seule fois,
+// la recherche retombe à ~4 ms.
+interface MangaIndexRow { e: MangaCatEntry; keys: string[]; co: string }
+interface WebtoonIndexRow { e: WebtoonCatEntry; keys: string[] }
+
+let _mangaIndex: MangaIndexRow[] | null = null;
+let _webtoonIndex: WebtoonIndexRow[] | null = null;
+
+function mangaIndex(): MangaIndexRow[] {
+  if (_mangaIndex) return _mangaIndex;
+  _mangaIndex = mangaData().entries.map(e => ({
+    e,
+    co: e.co ?? 'JP',
+    keys: [e.t.u, e.t.e, e.t.r, e.t.n, ...(e.sy ?? [])]
+      .filter((s): s is string => !!s)
+      .map(norm)
+      .filter(Boolean),
+  }));
+  return _mangaIndex;
+}
+
+function webtoonIndex(): WebtoonIndexRow[] {
+  if (_webtoonIndex) return _webtoonIndex;
+  _webtoonIndex = webtoonData().entries.map(e => ({
+    e,
+    keys: [norm(e.t)].filter(Boolean),
+  }));
+  return _webtoonIndex;
+}
+
 export interface LocalMangaFilter {
   country?: 'JP' | 'KR' | 'CN';
 }
+
+const CHINA = ['CN', 'TW', 'HK'];
 
 /** Instant offline search over the bundled AniList top-5000 catalogue. */
 export function searchLocalManga(
@@ -165,15 +199,13 @@ export function searchLocalManga(
   if (needle.length < 2) return [];
 
   const scored: Array<{ e: MangaCatEntry; score: number }> = [];
-  for (const e of mangaData().entries) {
+  for (const row of mangaIndex()) {
     if (filter?.country) {
-      const co = e.co ?? 'JP';
-      if (filter.country === 'CN' ? !['CN', 'TW', 'HK'].includes(co) : co !== filter.country) {
-        continue;
-      }
+      const ok = filter.country === 'CN' ? CHINA.includes(row.co) : row.co === filter.country;
+      if (!ok) continue;
     }
-    const score = matchScore(needle, [e.t.u, e.t.e, e.t.r, e.t.n, ...(e.sy ?? [])]);
-    if (score > 0) scored.push({ e, score });
+    const score = matchScore(needle, row.keys);
+    if (score > 0) scored.push({ e: row.e, score });
   }
 
   return scored
@@ -188,9 +220,9 @@ export function searchLocalWebtoons(query: string, limit = 8): Manga[] {
   if (needle.length < 2) return [];
 
   const scored: Array<{ e: WebtoonCatEntry; score: number }> = [];
-  for (const e of webtoonData().entries) {
-    const score = matchScore(needle, [e.t]);
-    if (score > 0) scored.push({ e, score });
+  for (const row of webtoonIndex()) {
+    const score = matchScore(needle, row.keys);
+    if (score > 0) scored.push({ e: row.e, score });
   }
 
   return scored

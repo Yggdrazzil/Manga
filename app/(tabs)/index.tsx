@@ -16,29 +16,36 @@ import {
 import { useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
-import { getDailyReleases, type MangaPlusRelease } from '@/lib/api/mangaplus';
+import { getChaptersForLibrary } from '@/lib/api/mangadex';
+import { getDailyReleases } from '@/lib/api/mangaplus';
 import { useLibraryStore } from '@/lib/store/library';
 import { Typography } from '@/components/ui/Typography';
 import { BORDERS, COLORS, FONTS, RADIUS, SPACING, themedStyles } from '@/constants/theme';
-import type { LibraryEntry } from '@/lib/types';
+import type { LibraryEntry, MediaSource } from '@/lib/types';
 import { coverSource } from '@/lib/utils/images';
+import { isRecentRelease, releaseGroupLabel, releaseGroupRank } from '@/lib/utils/dates';
 
 const TAB_BAR_HEIGHT = 88;
 
-// ── Date helpers ──────────────────────────────────────────────────────────────
+// ── Sorties : forme commune aux deux fils (séries suivies + MANGA Plus) ───────
 
-function relativeGroup(dateStr: string): string {
-  if (!dateStr) return 'PLUS ANCIEN';
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffH = diffMs / (1000 * 60 * 60);
-  if (diffH < 24) return "AUJOURD'HUI";
-  if (diffH < 48) return 'HIER';
-  if (diffH < 7 * 24) return 'CETTE SEMAINE';
-  const d = date.getDate().toString().padStart(2, '0');
-  const months = ['JAN', 'FÉV', 'MAR', 'AVR', 'MAI', 'JUN', 'JUL', 'AOÛ', 'SEP', 'OCT', 'NOV', 'DÉC'];
-  return `${d} ${months[date.getMonth()]} ${date.getFullYear()}`;
+interface ReleaseItem {
+  key: string;
+  mangaId: string;
+  source: MediaSource;
+  title: string;
+  coverImage?: string;
+  chapterLabel?: string;
+  chapterSubtitle?: string;
+  publishAt: string;
+  followed: boolean;
+  isReadable: boolean;
+  isNewSeries?: boolean;
+  viewCount?: number;
+}
+
+function normTitle(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
 // TV Time-style staleness: after a month without marking a chapter read, the
@@ -143,13 +150,15 @@ function formatViews(n?: number): string | null {
   return String(n);
 }
 
-function ReleaseCard({ release, index }: { release: MangaPlusRelease; index: number }) {
+function ReleaseCard({ release, index }: { release: ReleaseItem; index: number }) {
   const router = useRouter();
-  const { manga } = release;
   const views = formatViews(release.viewCount);
+  const fresh = isRecentRelease(release.publishAt);
   const open = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push(`/manga/${encodeURIComponent(manga.id)}?source=mangaplus` as never);
+    router.push(
+      `/manga/${encodeURIComponent(release.mangaId)}?source=${encodeURIComponent(release.source)}` as never,
+    );
   };
 
   return (
@@ -159,14 +168,21 @@ function ReleaseCard({ release, index }: { release: MangaPlusRelease; index: num
       transition={{ type: 'spring', stiffness: 300, damping: 26, delay: Math.min(index * 40, 400) }}
     >
       <Pressable
-        style={({ pressed }) => [styles.tvCard, pressed && styles.tvCardPressed]}
+        style={({ pressed }) => [
+          styles.tvCard,
+          release.followed && styles.tvCardFollowed,
+          pressed && styles.tvCardPressed,
+        ]}
         onPress={open}
         accessibilityRole="button"
-        accessibilityLabel={`${manga.title.userPreferred}${release.chapterLabel ? `, chapitre ${release.chapterLabel}` : ''}`}
+        accessibilityLabel={
+          `${release.title}${release.chapterLabel ? `, chapitre ${release.chapterLabel}` : ''}` +
+          `${release.followed ? ', série suivie' : ''}`
+        }
       >
         <View style={styles.tvCoverWrap}>
-          {manga.coverImage ? (
-            <Image source={coverSource(manga.coverImage)} style={styles.tvCover} contentFit="cover" cachePolicy="memory-disk" />
+          {release.coverImage ? (
+            <Image source={coverSource(release.coverImage)} style={styles.tvCover} contentFit="cover" cachePolicy="memory-disk" />
           ) : (
             <View style={[styles.tvCover, styles.tvCoverEmpty]}>
               <Ionicons name="book" size={22} color={COLORS.textInkMuted} />
@@ -177,7 +193,7 @@ function ReleaseCard({ release, index }: { release: MangaPlusRelease; index: num
         <View style={styles.tvBody}>
           <Pressable style={styles.tvTitlePill} onPress={open} hitSlop={4}>
             <Typography variant="caption" style={styles.tvTitlePillText} numberOfLines={1}>
-              {manga.title.userPreferred.toUpperCase()}
+              {release.title.toUpperCase()}
             </Typography>
             <Ionicons name="chevron-forward" size={10} color={COLORS.textInk} />
           </Pressable>
@@ -193,14 +209,25 @@ function ReleaseCard({ release, index }: { release: MangaPlusRelease; index: num
           )}
 
           <View style={styles.tvMeta}>
-            <View style={[styles.tvBadge, styles.tvBadgeNew]}>
-              <Typography variant="caption" style={[styles.tvBadgeText, styles.tvBadgeNewText]}>
-                {release.isNew ? 'NOUVELLE SÉRIE' : 'NOUVEAU'}
-              </Typography>
-            </View>
-            <View style={[styles.tvBadge, styles.tvBadgeReadable]}>
-              <Typography variant="caption" style={[styles.tvBadgeText, { color: COLORS.onInk }]}>MANGA PLUS</Typography>
-            </View>
+            {release.followed && (
+              <View style={[styles.tvBadge, styles.tvBadgeFollowed]}>
+                <Typography variant="caption" style={[styles.tvBadgeText, { color: COLORS.onInk }]}>
+                  SUIVI
+                </Typography>
+              </View>
+            )}
+            {(fresh || release.isNewSeries) && (
+              <View style={[styles.tvBadge, styles.tvBadgeNew]}>
+                <Typography variant="caption" style={[styles.tvBadgeText, styles.tvBadgeNewText]}>
+                  {release.isNewSeries ? 'NOUVELLE SÉRIE' : 'NOUVEAU'}
+                </Typography>
+              </View>
+            )}
+            {release.source === 'mangaplus' && (
+              <View style={[styles.tvBadge, styles.tvBadgeReadable]}>
+                <Typography variant="caption" style={[styles.tvBadgeText, { color: COLORS.onInk }]}>MANGA PLUS</Typography>
+              </View>
+            )}
             {views && (
               <Typography variant="caption" color={COLORS.textInkMuted}>
                 {views} vues
@@ -270,43 +297,130 @@ export default function MangaTrackerScreen() {
     ].filter(s => s.data.length > 0);
   }, [entries]);
 
-  // Global MangaPlus daily releases ("Nouveautés"): every series that updated,
-  // not just the library. Published daily ~17:00 Paris time.
+  // ── Onglet SORTIES ──────────────────────────────────────────────────────────
+  // Deux fils complémentaires : les nouveaux chapitres des séries SUIVIES
+  // (le plus utile au quotidien) et le fil global MANGA Plus (~17h00 Paris).
+
+  const mangadexIdMap = useMemo(() => {
+    const map = new Map<string, LibraryEntry>();
+    for (const e of entries) {
+      if (e.source === 'mangadex') map.set(e.mangaId, e);
+      else if (e.manga.mangadexId) map.set(e.manga.mangadexId, e);
+    }
+    return map;
+  }, [entries]);
+
+  const mangadexIds = useMemo(() => Array.from(mangadexIdMap.keys()), [mangadexIdMap]);
+
+  const {
+    data: libraryChapters,
+    isLoading: libraryLoading,
+    refetch: refetchLibrary,
+  } = useQuery({
+    queryKey: ['library-chapters', mangadexIds.join(',')],
+    queryFn: () => getChaptersForLibrary(mangadexIds),
+    enabled: mangadexIds.length > 0,
+    staleTime: 1000 * 60 * 15,
+  });
+
   const {
     data: releases,
     isLoading: releasesLoading,
     isError: releasesError,
-    refetch,
+    error: releasesErrorObj,
+    refetch: refetchReleases,
   } = useQuery({
     queryKey: ['mangaplus-daily-releases'],
     queryFn: getDailyReleases,
     staleTime: 1000 * 60 * 30,
+    retry: 1,
   });
 
-  // Group releases by relative date. The feed is "today's" by default, so an
-  // unknown timestamp falls back to AUJOURD'HUI rather than the generic bucket.
+  // Les chapitres non lus des séries suivies, en tête de liste.
+  const mesSorties = useMemo<ReleaseItem[]>(() => {
+    if (!libraryChapters) return [];
+    const readIds = new Set(entries.flatMap(e => e.readChapterIds ?? []));
+    return libraryChapters
+      .filter(ch => !readIds.has(ch.id) && mangadexIdMap.has(ch.mangaId))
+      .map(ch => {
+        const entry = mangadexIdMap.get(ch.mangaId)!;
+        return {
+          key: `lib-${ch.id}`,
+          mangaId: entry.mangaId,
+          source: entry.source,
+          title: entry.manga.title.userPreferred,
+          coverImage: entry.manga.coverImage,
+          chapterLabel: ch.chapter,
+          chapterSubtitle: ch.title,
+          publishAt: ch.publishAt,
+          followed: true,
+          isReadable: ch.isReadable,
+        };
+      });
+  }, [libraryChapters, entries, mangadexIdMap]);
+
+  const feedGlobal = useMemo<ReleaseItem[]>(() => {
+    if (!releases) return [];
+    // Une série suivie déjà listée au-dessus ne doit pas réapparaître.
+    const seen = new Set(mesSorties.map(r => normTitle(r.title)));
+    return releases
+      .filter(r => !seen.has(normTitle(r.manga.title.userPreferred)))
+      .map(r => ({
+        key: `mp-${r.manga.id}`,
+        mangaId: r.manga.id,
+        source: 'mangaplus' as const,
+        title: r.manga.title.userPreferred,
+        coverImage: r.manga.coverImage,
+        chapterLabel: r.chapterLabel,
+        chapterSubtitle: r.chapterSubtitle,
+        publishAt: r.publishAt,
+        followed: false,
+        isReadable: true,
+        isNewSeries: r.isNew,
+        viewCount: r.viewCount,
+      }));
+  }, [releases, mesSorties]);
+
+  // Regroupement par JOUR CALENDAIRE : un chapitre paru hier à 23h ne doit pas
+  // s'afficher sous « AUJOURD'HUI » sous prétexte qu'il date de moins de 24 h.
   const sorties = useMemo(() => {
-    if (!releases || releases.length === 0) return [];
-    const ordered = [...releases].sort(
-      (a, b) => new Date(b.publishAt || Date.now()).getTime() - new Date(a.publishAt || Date.now()).getTime(),
-    );
-    const groups = new Map<string, MangaPlusRelease[]>();
-    for (const r of ordered) {
-      const grp = r.publishAt ? relativeGroup(r.publishAt) : "AUJOURD'HUI";
-      if (!groups.has(grp)) groups.set(grp, []);
-      groups.get(grp)!.push(r);
+    const all = [...mesSorties, ...feedGlobal];
+    if (all.length === 0) return [];
+    const now = new Date();
+    const groups = new Map<string, { rank: number; data: ReleaseItem[] }>();
+    for (const r of all) {
+      // Le fil global est celui « du jour » : une date absente y vaut aujourd'hui.
+      const iso = r.publishAt || (r.followed ? '' : now.toISOString());
+      const label = releaseGroupLabel(iso, now);
+      const rank = releaseGroupRank(iso, now);
+      const bucket = groups.get(label) ?? { rank, data: [] };
+      bucket.data.push(r);
+      groups.set(label, bucket);
     }
-    return Array.from(groups.entries()).map(([title, data]) => ({ title, data }));
-  }, [releases]);
+    return Array.from(groups.entries())
+      .map(([title, b]) => ({ title, rank: b.rank, data: b.data }))
+      .sort((a, b) => a.rank - b.rank)
+      .map(({ title, data }) => ({
+        title,
+        // Les séries suivies d'abord, puis par popularité.
+        data: data.sort(
+          (x, y) => Number(y.followed) - Number(x.followed) || (y.viewCount ?? 0) - (x.viewCount ?? 0),
+        ),
+      }));
+  }, [mesSorties, feedGlobal]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await refetch();
+    await Promise.all([refetchReleases(), mangadexIds.length > 0 ? refetchLibrary() : null]);
     setRefreshing(false);
   };
 
   const isEmpty = alireSections.length === 0;
-  const sortiesEmpty = sorties.length === 0 && !releasesLoading;
+  const sortiesLoading = releasesLoading || libraryLoading;
+  const sortiesEmpty = sorties.length === 0 && !sortiesLoading;
+  // Le fil global peut échouer alors que les séries suivies s'affichent : on
+  // ne montre l'erreur que si l'écran serait vide autrement.
+  const showReleasesError = releasesError && mesSorties.length === 0;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -385,7 +499,7 @@ export default function MangaTrackerScreen() {
         </MotiView>
       )}
 
-      {/* SORTIES — global MangaPlus daily releases */}
+      {/* SORTIES — séries suivies + fil global MANGA Plus */}
       {activeTab === 'venir' && (
         <MotiView
           key="venir"
@@ -394,7 +508,7 @@ export default function MangaTrackerScreen() {
           transition={{ type: 'spring', stiffness: 400, damping: 32 }}
           style={styles.tabPane}
         >
-        {releasesLoading ? (
+        {sortiesLoading ? (
           <View style={styles.loadingWrap}>
             <ActivityIndicator color={COLORS.accentRed} size="large" />
             <Typography variant="body" color={COLORS.textInkMuted}>Chargement des sorties du jour…</Typography>
@@ -404,27 +518,31 @@ export default function MangaTrackerScreen() {
             contentContainerStyle={[styles.emptyWrap, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom }]}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accentRed} colors={[COLORS.accentRed]} />}
           >
-            <Ionicons name={releasesError ? 'cloud-offline-outline' : 'calendar-outline'} size={56} color={COLORS.textInkMuted} />
+            <Ionicons name={showReleasesError ? 'cloud-offline-outline' : 'calendar-outline'} size={56} color={COLORS.textInkMuted} />
             <Typography variant="heading" color={COLORS.textInk} style={styles.emptyTitle}>
-              {releasesError ? 'Sorties indisponibles' : 'Pas encore de sorties'}
+              {showReleasesError ? 'Sorties indisponibles' : 'Pas encore de sorties'}
             </Typography>
             <Typography variant="body" color={COLORS.textInkMuted} style={styles.emptyText}>
-              {releasesError
-                ? 'Impossible de contacter MANGA Plus. Tirez vers le bas pour réessayer.'
+              {showReleasesError
+                ? `Impossible de récupérer les sorties MANGA Plus${
+                    releasesErrorObj instanceof Error ? ` (${releasesErrorObj.message})` : ''
+                  }. Tirez vers le bas pour réessayer.`
                 : 'Les nouveaux chapitres MANGA Plus paraissent chaque jour vers 17h00. Revenez plus tard ou tirez pour actualiser.'}
             </Typography>
           </ScrollView>
         ) : (
           <SectionList
             sections={sorties}
-            keyExtractor={item => `mp-${item.manga.id}`}
+            keyExtractor={item => item.key}
             renderSectionHeader={({ section }) => <SectionHeader title={section.title} />}
             renderItem={({ item, index }) => <ReleaseCard release={item} index={index} />}
             stickySectionHeadersEnabled
             showsVerticalScrollIndicator={false}
             ListHeaderComponent={
               <Typography variant="caption" color={COLORS.textInkMuted} style={styles.sortiesHint}>
-                Sorties MANGA Plus · mises à jour quotidiennes vers 17h00
+                {releasesError
+                  ? 'Vos séries suivies · fil MANGA Plus indisponible'
+                  : 'Vos séries suivies · sorties MANGA Plus (vers 17h00)'}
               </Typography>
             }
             contentContainerStyle={[styles.listContent, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom }]}
@@ -506,6 +624,8 @@ const styles = themedStyles(() => StyleSheet.create({
     elevation: 2,
   },
   tvCardPressed: { backgroundColor: COLORS.paper },
+  // Liseré d'accent : distingue une sortie d'une série suivie d'une découverte.
+  tvCardFollowed: { borderLeftWidth: 3, borderLeftColor: COLORS.accentRed },
   tvCoverWrap: {
     borderRadius: RADIUS.sm,
     borderWidth: BORDERS.bold,
@@ -553,6 +673,7 @@ const styles = themedStyles(() => StyleSheet.create({
   },
   tvBadgeNew: { backgroundColor: COLORS.warning },
   tvBadgeReadable: { backgroundColor: COLORS.statusCompleted },
+  tvBadgeFollowed: { backgroundColor: COLORS.accentRed },
   tvBadgeText: { fontSize: 8, letterSpacing: 0.8, color: COLORS.onInk, fontFamily: FONTS.bodyBold },
   tvBadgeNewText: { color: COLORS.onInk },
 
