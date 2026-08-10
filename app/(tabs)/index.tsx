@@ -318,6 +318,17 @@ export default function MangaTrackerScreen() {
 
   const mangadexIds = useMemo(() => Array.from(mangadexIdMap.keys()), [mangadexIdMap]);
 
+  // Toutes les œuvres suivies, quelle que soit leur source — sert à reconnaître
+  // une série de la bibliothèque dans le fil global MANGA Plus.
+  const followedKeys = useMemo(
+    () => new Set(entries.map(e => `${e.source}:${e.mangaId}`)),
+    [entries],
+  );
+  const followedTitles = useMemo(
+    () => new Set(entries.map(e => normTitle(e.manga.title.userPreferred))),
+    [entries],
+  );
+
   const {
     data: libraryChapters,
     isLoading: libraryLoading,
@@ -381,12 +392,16 @@ export default function MangaTrackerScreen() {
         chapterLabel: r.chapterLabel,
         chapterSubtitle: r.chapterSubtitle,
         publishAt: r.publishAt,
-        followed: false,
+        // Une série suivie depuis MANGA Plus (ou toute source sans identifiant
+        // MangaDex) n'apparaît pas dans le fil « mes séries » : sans ce test,
+        // elle était affichée comme une découverte et reléguée en fin de liste.
+        followed: followedKeys.has(`mangaplus:${r.manga.id}`) ||
+          followedTitles.has(normTitle(r.manga.title.userPreferred)),
         isReadable: true,
         isNewSeries: r.isNew,
         viewCount: r.viewCount,
       }));
-  }, [releases, mesSorties]);
+  }, [releases, mesSorties, followedKeys, followedTitles]);
 
   // Regroupement par JOUR CALENDAIRE : un chapitre paru hier à 23h ne doit pas
   // s'afficher sous « AUJOURD'HUI » sous prétexte qu'il date de moins de 24 h.

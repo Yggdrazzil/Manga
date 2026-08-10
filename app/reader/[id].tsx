@@ -372,7 +372,7 @@ export default function ReaderScreen() {
     [id, downloadEntry],
   );
 
-  const { data: pages, isLoading, isError, error, refetch } = useQuery({
+  const { data: pages, isLoading, isFetching, isError, error, refetch } = useQuery({
     queryKey: ['chapter-pages', id, feedSource, dataSaver, localPages != null],
     queryFn: () => {
       if (localPages) return Promise.resolve(localPages);
@@ -413,6 +413,10 @@ export default function ReaderScreen() {
     chapterIdRef.current = id;
     setFinished(false);
     setCurrentPage(1);
+    // Sans ça, si l'écran était réutilisé au lieu d'être remonté (route
+    // singulière, setParams), un chapitre suivant plus court hériterait d'une
+    // progression déjà au-delà de son total et serait marqué lu à l'ouverture.
+    setFurthestPage(1);
     setResumeVisible(false);
     if (savePositionTimer.current) clearTimeout(savePositionTimer.current);
   }, [id]);
@@ -490,8 +494,12 @@ export default function ReaderScreen() {
     );
   }, [nextChapter, router, entryMangaId, source, feedSource, mangaTitle]);
 
-  if (isLoading) return <ReaderMessage loading onBack={handleBack} />;
+  // isLoading vaut false dès qu'une première tentative a échoué (il exige
+  // isPending), donc s'y fier seul laissait l'écran d'erreur figé pendant tout
+  // le nouvel essai : le bouton paraissait mort. isFetching couvre les deux.
+  if (isLoading || isFetching) return <ReaderMessage loading onBack={handleBack} />;
   if (isError || !pages || pages.length === 0) {
+    const emptySuccess = !isError && pages != null && pages.length === 0;
     return (
       <ReaderMessage
         loading={false}
@@ -501,7 +509,9 @@ export default function ReaderScreen() {
             ? error.message
             : 'Cette source ne fournit pas les pages de ce chapitre.'
         }
-        onRetry={() => { void refetch(); }}
+        // Une réponse valide mais vide se reproduira à l'identique : proposer
+        // « Réessayer » n'offrirait qu'une boucle sans issue.
+        onRetry={emptySuccess ? undefined : () => { void refetch(); }}
       />
     );
   }

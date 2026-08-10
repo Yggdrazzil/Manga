@@ -310,7 +310,31 @@ export async function getChaptersForLibrary(
     includeExternalUrl: 0,
   });
 
-  return data.data.map(normalizeChapter);
+  // MangaDex renvoie un enregistrement par langue ET par groupe de scantrad :
+  // un même chapitre remonte donc plusieurs fois. Sans dédoublonnage, le fil
+  // des sorties affichait « Ch. 1152 » trois fois, marquer une version lue ne
+  // faisait pas disparaître les autres, et les doublons consommaient le
+  // plafond de 100 au point de masquer les sorties les plus anciennes.
+  // getMangaChapters déduplique déjà de la même façon.
+  const preferred = (lang ?? ['en', 'fr'])[0];
+  const best = new Map<string, MDChapter>();
+  for (const ch of data.data) {
+    const key = `${ch.relationships?.find(r => r.type === 'manga')?.id ?? ''}#${ch.attributes.chapter ?? 'none'}`;
+    const current = best.get(key);
+    if (!current) {
+      best.set(key, ch);
+      continue;
+    }
+    // À chapitre égal, on garde la langue préférée de l'utilisateur.
+    if (
+      ch.attributes.translatedLanguage === preferred &&
+      current.attributes.translatedLanguage !== preferred
+    ) {
+      best.set(key, ch);
+    }
+  }
+
+  return Array.from(best.values()).map(normalizeChapter);
 }
 
 function normalizeTitleString(s: string): string {

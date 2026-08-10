@@ -32,7 +32,7 @@ const STATUSES: ReadingStatus[] = ['READING', 'PLAN_TO_READ', 'COMPLETED', 'PAUS
 // ── Volume card — data pre-loaded at add-time, synopsis lazy via Wikipedia FR ──
 // Tap the card to expand the synopsis; tap the checkbox to mark read.
 
-function VolumeCard({
+function VolumeCardBase({
   volume,
   seriesTitle,
   isRead,
@@ -169,6 +169,10 @@ function VolumeCard({
   );
 }
 
+// Mémoïsée : avec une liste virtualisée, cocher un tome ne doit re-rendre que
+// la carte concernée, pas les ~25 montées dans la fenêtre.
+const VolumeCard = React.memo(VolumeCardBase);
+
 function VolumeSeparator() {
   return <View style={styles.volumeSeparator} />;
 }
@@ -186,6 +190,9 @@ export default function SeriesDetailScreen() {
   // des centaines (xkcd 998, Tex 739, One Piece 112) — les monter toutes dans
   // un ScrollView figeait l'ouverture de la fiche.
   const listRef = useRef<FlatList<BDVolume>>(null);
+  // Hauteur réelle de l'en-tête : React Native ne l'inclut pas dans
+  // averageItemLength, il faut donc la mesurer pour viser juste.
+  const headerHeightRef = useRef(0);
   const userTookOverRef = useRef(false);
   const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current); }, []);
@@ -315,6 +322,31 @@ export default function SeriesDetailScreen() {
     }
   }, [entry, series, updateStatus, addOrUpdateSeries]);
 
+  // Référence stable : CellRenderer est une PureComponent, donc un renderItem
+  // recréé à chaque render invalide TOUTES les cellules montées. Sans ça,
+  // taper dans le champ Notes re-rendait les ~25 cartes de la fenêtre de
+  // virtualisation à chaque lettre.
+  const readVolumes = entry?.readVolumes;
+  const seriesId = series?.id;
+  const seriesTitle2 = series?.title;
+  const renderVolume = useCallback(
+    ({ item, index }: { item: BDVolume; index: number }) => (
+      <View style={styles.volumeRow}>
+        <VolumeCard
+          volume={item}
+          seriesTitle={seriesTitle2 ?? ''}
+          isRead={readVolumes?.includes(item.num) ?? false}
+          onToggle={() => handleToggle(item.num)}
+          onEnrich={desc => {
+            if (seriesId) updateVolumeDetail(seriesId, item.num, { description: desc });
+          }}
+          defaultExpanded={index === focusIndex}
+        />
+      </View>
+    ),
+    [readVolumes, seriesId, seriesTitle2, focusIndex, handleToggle, updateVolumeDetail],
+  );
+
   // Stored series data is frozen at add-time; sources (Wikidata, Wikipedia)
   // keep improving. Re-consolidate silently on open and merge — no manual
   // refresh needed, the stored data stays usable until fresh data lands.
@@ -386,18 +418,6 @@ export default function SeriesDetailScreen() {
     );
   }
 
-  const renderVolume = ({ item, index }: { item: BDVolume; index: number }) => (
-    <View style={styles.volumeRow}>
-      <VolumeCard
-        volume={item}
-        seriesTitle={series.title}
-        isRead={entry?.readVolumes.includes(item.num) ?? false}
-        onToggle={() => handleToggle(item.num)}
-        onEnrich={desc => updateVolumeDetail(series.id, item.num, { description: desc })}
-        defaultExpanded={index === focusIndex}
-      />
-    </View>
-  );
 
   const readCount = entry?.readVolumes.length ?? 0;
   const totalVolumes = series.totalVolumes;
@@ -449,15 +469,25 @@ export default function SeriesDetailScreen() {
         removeClippedSubviews
         // Les cartes ont des hauteurs variables (résumé déplié) : pas de
         // getItemLayout possible, donc on prévoit le repli de scrollToIndex.
+        //
+        // averageItemLength ne moyenne QUE les cellules de données : React
+        // Native mesure l'en-tête séparément. L'ignorer faisait atterrir le
+        // défilement ~900 px trop haut (hero + suivi + synopsis), soit une
+        // dizaine de tomes avant la cible. On l'ajoute, puis on repasse par
+        // scrollToIndex une fois la zone rendue pour tomber juste.
         onScrollToIndexFailed={({ index, averageItemLength }) => {
           listRef.current?.scrollToOffset({
-            offset: index * (averageItemLength || 92),
+            offset: headerHeightRef.current + index * (averageItemLength || 92),
             animated: false,
           });
+          setTimeout(() => {
+            if (userTookOverRef.current) return;
+            listRef.current?.scrollToIndex({ index, viewPosition: 0.2, animated: false });
+          }, 120);
         }}
         contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
         ListHeaderComponent={
-          <>
+          <View onLayout={e => { headerHeightRef.current = e.nativeEvent.layout.height; }}>
         {/* Hero */}
         <View style={styles.hero}>
           {series.coverImage ? (
@@ -635,7 +665,7 @@ export default function SeriesDetailScreen() {
             </MotiView>
           )}
         </View>
-          </>
+          </View>
         }
       />
     </View>
