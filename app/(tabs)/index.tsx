@@ -297,7 +297,7 @@ export default function MangaTrackerScreen() {
     stale.sort(byLastRead);
     notStarted.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
     return [
-      { title: 'À LIRE', data: active },
+      { title: 'EN COURS', data: active },
       { title: 'PAS LU DEPUIS UN MOMENT', data: stale },
       { title: 'PAS COMMENCÉ', data: notStarted },
     ].filter(s => s.data.length > 0);

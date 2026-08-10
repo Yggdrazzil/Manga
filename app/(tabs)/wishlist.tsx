@@ -230,7 +230,7 @@ export default function BDTrackerScreen() {
     stale.sort(byUpdated);
     notStarted.sort(byUpdated);
     return [
-      { title: 'À LIRE', data: active },
+      { title: 'EN COURS', data: active },
       { title: 'PAS LU DEPUIS UN MOMENT', data: stale },
       { title: 'PAS COMMENCÉ', data: notStarted },
     ].filter(s => s.data.length > 0);
