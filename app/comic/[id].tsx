@@ -8,7 +8,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Pressable,
-  ScrollView,
+  FlatList,
   StyleSheet,
   TextInput,
   View,
@@ -169,6 +169,10 @@ function VolumeCard({
   );
 }
 
+function VolumeSeparator() {
+  return <View style={styles.volumeSeparator} />;
+}
+
 // ── Screen ────────────────────────────────────────────────────────────────────
 
 export default function SeriesDetailScreen() {
@@ -178,42 +182,13 @@ export default function SeriesDetailScreen() {
     id: string; title?: string; focusTitle?: string;
   }>();
 
-  // Défilement automatique vers l'album ciblé.
-  //
-  // Les décalages sont cumulés depuis les onLayout de la hiérarchie
-  // (contenu → section Tomes → grille → carte), ce qui donne la position
-  // absolue dans le ScrollView. On ne se contente pas d'un seul essai : la
-  // liste affichée au départ vient du catalogue local (placeholderData) et sa
-  // hauteur change quand les vraies données arrivent (couvertures, résumés).
-  // Tant que l'utilisateur n'a pas fait défiler lui-même, on se recale.
-  const scrollRef = useRef<ScrollView>(null);
-  const contentYRef = useRef(0);
-  const volumesSectionYRef = useRef(0);
-  const volumeGridYRef = useRef(0);
-  const focusCardYRef = useRef<number | null>(null);
-  const lastScrolledToRef = useRef<number | null>(null);
+  // La liste de tomes est virtualisée : certaines séries du catalogue en ont
+  // des centaines (xkcd 998, Tex 739, One Piece 112) — les monter toutes dans
+  // un ScrollView figeait l'ouverture de la fiche.
+  const listRef = useRef<FlatList<BDVolume>>(null);
   const userTookOverRef = useRef(false);
   const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current); }, []);
-
-  const tryFocusScroll = useCallback(() => {
-    if (userTookOverRef.current || focusCardYRef.current === null) return;
-    if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
-    scrollTimerRef.current = setTimeout(() => {
-      scrollTimerRef.current = null;
-      if (userTookOverRef.current || focusCardYRef.current === null) return;
-      const target = Math.max(
-        0,
-        contentYRef.current + volumesSectionYRef.current + volumeGridYRef.current +
-          focusCardYRef.current - 100,
-      );
-      // Ne pas rejouer une animation pour un déplacement invisible.
-      const previous = lastScrolledToRef.current;
-      if (previous !== null && Math.abs(previous - target) < 8) return;
-      lastScrolledToRef.current = target;
-      scrollRef.current?.scrollTo({ y: target, animated: true });
-    }, 180);
-  }, []);
 
   // L'id de la route vient du titre tapé dans la recherche, qui peut être
   // celui d'un ALBUM (« tintin-au-pays-des-soviets »), alors que la série
@@ -297,6 +272,27 @@ export default function SeriesDetailScreen() {
     }
     return best?.num ?? null;
   }, [focusTitleParam, series]);
+
+  const focusIndex = useMemo(
+    () => (focusTargetNum === null || !series
+      ? -1
+      : series.volumes.findIndex(v => v.num === focusTargetNum)),
+    [focusTargetNum, series],
+  );
+
+  // Amener l'album ciblé sous les yeux. scrollToIndex remplace l'ancien cumul
+  // de décalages : la FlatList connaît la position de l'élément, plus besoin de
+  // reconstituer la hiérarchie à la main. Court délai pour laisser la fenêtre
+  // de rendu couvrir l'index visé.
+  useEffect(() => {
+    if (focusIndex < 0 || userTookOverRef.current) return;
+    if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
+    scrollTimerRef.current = setTimeout(() => {
+      scrollTimerRef.current = null;
+      if (userTookOverRef.current) return;
+      listRef.current?.scrollToIndex({ index: focusIndex, viewPosition: 0.2, animated: true });
+    }, 250);
+  }, [focusIndex]);
 
   const handleToggle = useCallback((volNum: number) => {
     if (!series) return;
@@ -390,6 +386,19 @@ export default function SeriesDetailScreen() {
     );
   }
 
+  const renderVolume = ({ item, index }: { item: BDVolume; index: number }) => (
+    <View style={styles.volumeRow}>
+      <VolumeCard
+        volume={item}
+        seriesTitle={series.title}
+        isRead={entry?.readVolumes.includes(item.num) ?? false}
+        onToggle={() => handleToggle(item.num)}
+        onEnrich={desc => updateVolumeDetail(series.id, item.num, { description: desc })}
+        defaultExpanded={index === focusIndex}
+      />
+    </View>
+  );
+
   const readCount = entry?.readVolumes.length ?? 0;
   const totalVolumes = series.totalVolumes;
   const progressPct = totalVolumes > 0 ? Math.min(readCount / totalVolumes, 1) : 0;
@@ -424,14 +433,31 @@ export default function SeriesDetailScreen() {
         </Pressable>
       )}
 
-      <ScrollView
-        ref={scrollRef}
+      <FlatList
+        ref={listRef}
+        data={series.volumes}
+        keyExtractor={v => String(v.num)}
+        renderItem={renderVolume}
+        ItemSeparatorComponent={VolumeSeparator}
         showsVerticalScrollIndicator={false}
         // Dès que l'utilisateur fait défiler, on lui rend la main : plus aucun
         // recalage automatique ne viendra lui reprendre la position.
         onScrollBeginDrag={() => { userTookOverRef.current = true; }}
+        initialNumToRender={12}
+        maxToRenderPerBatch={10}
+        windowSize={9}
+        removeClippedSubviews
+        // Les cartes ont des hauteurs variables (résumé déplié) : pas de
+        // getItemLayout possible, donc on prévoit le repli de scrollToIndex.
+        onScrollToIndexFailed={({ index, averageItemLength }) => {
+          listRef.current?.scrollToOffset({
+            offset: index * (averageItemLength || 92),
+            animated: false,
+          });
+        }}
         contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
-      >
+        ListHeaderComponent={
+          <>
         {/* Hero */}
         <View style={styles.hero}>
           {series.coverImage ? (
@@ -477,7 +503,7 @@ export default function SeriesDetailScreen() {
           </View>
         </View>
 
-        <View style={styles.content} onLayout={e => { contentYRef.current = e.nativeEvent.layout.y; }}>
+        <View style={styles.content}>
           {/* Tracking */}
           <MotiView
             from={{ opacity: 0, translateY: 16 }}
@@ -591,13 +617,13 @@ export default function SeriesDetailScreen() {
             </MotiView>
           )}
 
-          {/* Volume list */}
+          {/* En-tête de la liste de tomes — les cartes elles-mêmes sont
+              rendues par la FlatList, donc virtualisées. */}
           {series.volumes.length > 0 && (
             <MotiView
               from={{ opacity: 0, translateY: 12 }}
               animate={{ opacity: 1, translateY: 0 }}
               transition={{ type: 'spring', stiffness: 280, damping: 25, delay: 220 }}
-              onLayout={e => { volumesSectionYRef.current = e.nativeEvent.layout.y; }}
             >
               <View style={styles.sectionHeaderRow}>
                 <View style={styles.sectionMarker} />
@@ -606,37 +632,12 @@ export default function SeriesDetailScreen() {
                   Cochez pour marquer lu · tapez la carte pour le résumé
                 </Typography>
               </View>
-              <View
-                style={styles.volumesGrid}
-                onLayout={e => { volumeGridYRef.current = e.nativeEvent.layout.y; tryFocusScroll(); }}
-              >
-                {series.volumes.map(vol => {
-                  const isRead = entry?.readVolumes.includes(vol.num) ?? false;
-                  const isTarget = focusTargetNum === vol.num;
-                  return (
-                    <View
-                      key={vol.num}
-                      onLayout={isTarget ? e => {
-                        focusCardYRef.current = e.nativeEvent.layout.y;
-                        tryFocusScroll();
-                      } : undefined}
-                    >
-                      <VolumeCard
-                        volume={vol}
-                        seriesTitle={series.title}
-                        isRead={isRead}
-                        onToggle={() => handleToggle(vol.num)}
-                        onEnrich={desc => updateVolumeDetail(series.id, vol.num, { description: desc })}
-                        defaultExpanded={isTarget}
-                      />
-                    </View>
-                  );
-                })}
-              </View>
             </MotiView>
           )}
         </View>
-      </ScrollView>
+          </>
+        }
+      />
     </View>
   );
 }
@@ -715,7 +716,10 @@ const styles = themedStyles(() => StyleSheet.create({
     textAlignVertical: 'top',
   },
 
-  volumesGrid: { gap: SPACING.sm },
+  // Les cartes de tome sont des éléments de FlatList : elles portent elles-mêmes
+  // la marge horizontale que leur donnait auparavant le conteneur `content`.
+  volumeRow: { paddingHorizontal: SPACING.base },
+  volumeSeparator: { height: SPACING.sm },
 
   volumeCard: {
     borderRadius: RADIUS.lg,
