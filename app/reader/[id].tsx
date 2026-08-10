@@ -256,7 +256,17 @@ function ResumeBanner({
   );
 }
 
-function ReaderMessage({ loading, onBack }: { loading: boolean; onBack: () => void }) {
+function ReaderMessage({
+  loading,
+  onBack,
+  message,
+  onRetry,
+}: {
+  loading: boolean;
+  onBack: () => void;
+  message?: string;
+  onRetry?: () => void;
+}) {
   const insets = useSafeAreaInsets();
   return (
     <View style={styles.centered}>
@@ -283,11 +293,37 @@ function ReaderMessage({ loading, onBack }: { loading: boolean; onBack: () => vo
           <Typography variant="heading" color={COLORS.onInk} style={styles.messageHeading}>
             Impossible de charger ce chapitre
           </Typography>
-          <Pressable style={styles.retryBtn} onPress={onBack}>
-            <Typography variant="bodyBold" color={COLORS.onInk}>
-              Retour
+          {/* La raison exacte vient de la source (abonnement requis, contenu
+              restreint…) : la taire laissait l'utilisateur sans explication. */}
+          {message ? (
+            <Typography variant="body" color={COLORS.onInkMuted} style={styles.messageText}>
+              {message}
             </Typography>
-          </Pressable>
+          ) : null}
+          <View style={styles.messageActions}>
+            {onRetry ? (
+              <Pressable
+                style={styles.retryBtn}
+                onPress={onRetry}
+                accessibilityRole="button"
+                accessibilityLabel="Réessayer"
+              >
+                <Typography variant="bodyBold" color={COLORS.onInk}>
+                  Réessayer
+                </Typography>
+              </Pressable>
+            ) : null}
+            <Pressable
+              style={styles.retryBtn}
+              onPress={onBack}
+              accessibilityRole="button"
+              accessibilityLabel="Retour"
+            >
+              <Typography variant="bodyBold" color={COLORS.onInk}>
+                Retour
+              </Typography>
+            </Pressable>
+          </View>
         </>
       )}
     </View>
@@ -315,6 +351,8 @@ export default function ReaderScreen() {
   const [chromeVisible, setChromeVisible] = useState(true);
   const toggleChrome = useCallback(() => setChromeVisible(v => !v), []);
   const [currentPage, setCurrentPage] = useState(1);
+  // Page la plus avancée atteinte — sert à détecter la fin du chapitre.
+  const [furthestPage, setFurthestPage] = useState(1);
   const [finished, setFinished] = useState(false);
   const [resumeVisible, setResumeVisible] = useState(false);
   const [resumePage, setResumePage] = useState(0);
@@ -334,7 +372,7 @@ export default function ReaderScreen() {
     [id, downloadEntry],
   );
 
-  const { data: pages, isLoading, isError } = useQuery({
+  const { data: pages, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['chapter-pages', id, feedSource, dataSaver, localPages != null],
     queryFn: () => {
       if (localPages) return Promise.resolve(localPages);
@@ -344,6 +382,10 @@ export default function ReaderScreen() {
       return getMDChapterPages(id!, dataSaver);
     },
     enabled: !!id,
+    // Les échecs sont ici déterministes (chapitre réservé aux abonnés, mur de
+    // contenu, source qui ne fournit plus d'images) : réessayer trois fois
+    // faisait patienter l'utilisateur plusieurs secondes pour le même résultat.
+    retry: 1,
   });
 
   const total = pages?.length ?? 0;
@@ -389,21 +431,29 @@ export default function ReaderScreen() {
   }, [id, pages?.length]);
 
   useEffect(() => {
-    if (finished || total === 0 || currentPage < total) return;
+    if (finished || total === 0 || furthestPage < total) return;
     setFinished(true);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     if (id) clearReadingPosition(id);
     if (id && entryMangaId && source) {
       markChapterRead(entryMangaId, source, id, chapterNumber(chapter));
     }
-  }, [currentPage, total, finished, id, chapter, entryMangaId, source, markChapterRead, clearReadingPosition]);
+  }, [furthestPage, total, finished, id, chapter, entryMangaId, source, markChapterRead, clearReadingPosition]);
 
   const onViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
-      const first = viewableItems.find(v => v.isViewable && v.index != null);
+      const visible = viewableItems.filter(v => v.isViewable && v.index != null);
+      const first = visible[0];
       if (first?.index == null) return;
       const page = first.index + 1;
       setCurrentPage(page);
+
+      // La fin de chapitre se juge sur le DERNIER élément visible, pas le
+      // premier : quand la dernière planche est courte (bandeau de crédits qui
+      // ne couvre que 17 % de l'écran), l'avant-dernière reste la première
+      // visible et le chapitre n'était jamais marqué comme lu.
+      const last = visible[visible.length - 1];
+      if (last?.index != null) setFurthestPage(p => Math.max(p, last.index! + 1));
       // Debounce-save position (1.5s), skip page 1
       if (savePositionTimer.current) clearTimeout(savePositionTimer.current);
       if (page > 1) {
@@ -442,7 +492,18 @@ export default function ReaderScreen() {
 
   if (isLoading) return <ReaderMessage loading onBack={handleBack} />;
   if (isError || !pages || pages.length === 0) {
-    return <ReaderMessage loading={false} onBack={handleBack} />;
+    return (
+      <ReaderMessage
+        loading={false}
+        onBack={handleBack}
+        message={
+          error instanceof Error
+            ? error.message
+            : 'Cette source ne fournit pas les pages de ce chapitre.'
+        }
+        onRetry={() => { void refetch(); }}
+      />
+    );
   }
 
   return (
@@ -525,6 +586,7 @@ const styles = themedStyles(() => StyleSheet.create({
   },
   messageText: { textAlign: 'center' },
   messageHeading: { textAlign: 'center', fontSize: 18 },
+  messageActions: { flexDirection: 'row', gap: SPACING.md, alignItems: 'center' },
   retryBtn: {
     marginTop: SPACING.sm,
     paddingHorizontal: SPACING.lg,
