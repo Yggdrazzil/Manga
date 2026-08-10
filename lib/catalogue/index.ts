@@ -113,7 +113,16 @@ export function searchCatalogue(query: string, limit = 20): CatalogueEntry[] {
  */
 export function findCatalogueEntry(title: string): CatalogueEntry | null {
   const needle = norm(title);
-  return bdIndex().find(row => row.key === needle)?.entry ?? null;
+  // Le catalogue contient des séries homonymes (deux « Clifton », l'une de 22
+  // tomes, l'autre de 2). Prendre la première rencontrée rendait la plus
+  // complète inatteignable : on garde la mieux garnie.
+  let best: { entry: CatalogueEntry; size: number } | null = null;
+  for (const row of bdIndex()) {
+    if (row.key !== needle) continue;
+    const size = row.entry.volumes.length;
+    if (!best || size > best.size) best = { entry: row.entry, size };
+  }
+  return best?.entry ?? null;
 }
 
 function tokens(s: string): string[] {
@@ -157,15 +166,26 @@ export function findParentSeriesInCatalogue(albumTitle: string): string | null {
   const albumToks = new Set(tokens(albumTitle));
   if (albumToks.size === 0) return null;
 
+  // Des sous-titres identiques existent dans des séries différentes (« La Ville
+  // fantôme », « Le Retour »…). Rattacher l'album à la première série trouvée
+  // l'aurait envoyé vers une œuvre sans rapport : en cas d'égalité entre deux
+  // séries distinctes, on préfère ne rien décider et laisser le pipeline
+  // interroger le réseau.
   let best: { title: string; weight: number } | null = null;
+  let ambiguous = false;
   for (const row of bdIndex()) {
     for (const v of row.volumes) {
-      if (best && v.weight <= best.weight) continue; // ne peut plus gagner
+      if (best && v.weight < best.weight) continue;
       if (!v.toks.every(t => albumToks.has(t))) continue;
+      if (best && v.weight === best.weight) {
+        if (row.entry.title !== best.title) ambiguous = true;
+        continue;
+      }
       best = { title: row.entry.title, weight: v.weight };
+      ambiguous = false;
     }
   }
-  return best?.title ?? null;
+  return ambiguous ? null : best?.title ?? null;
 }
 
 /**

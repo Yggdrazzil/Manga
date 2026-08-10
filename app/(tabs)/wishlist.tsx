@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { MotiView } from 'moti';
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, SectionList, StyleSheet, View } from 'react-native';
+import { useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -23,6 +24,7 @@ const STALE_AFTER_MS = 1000 * 60 * 60 * 24 * 30;
 
 function BDCard({ entry, index }: { entry: BDSeriesEntry; index: number }) {
   const router = useRouter();
+  const reduceMotion = useReducedMotion();
   const toggleVolumeRead = useComicsStore(s => s.toggleVolumeRead);
   const total = entry.series.totalVolumes;
   const readCount = entry.readVolumes.length;
@@ -48,9 +50,11 @@ function BDCard({ entry, index }: { entry: BDSeriesEntry; index: number }) {
 
   return (
     <MotiView
-      from={{ opacity: 0, translateX: -12 }}
+      from={reduceMotion ? { opacity: 1, translateX: 0 } : { opacity: 0, translateX: -12 }}
       animate={{ opacity: 1, translateX: 0 }}
-      transition={{ type: 'spring', stiffness: 300, damping: 26, delay: Math.min(index * 45, 400) }}
+      transition={reduceMotion
+        ? { type: 'timing', duration: 0 }
+        : { type: 'spring', stiffness: 300, damping: 26, delay: Math.min(index * 45, 400) }}
     >
       <Pressable
         style={({ pressed }) => [styles.tvCard, pressed && styles.tvCardPressed]}
@@ -118,15 +122,18 @@ function BDCard({ entry, index }: { entry: BDSeriesEntry; index: number }) {
 
 function UpcomingAlbumCard({ entry, volume, index }: { entry: BDSeriesEntry; volume: BDVolume; index: number }) {
   const router = useRouter();
+  const reduceMotion = useReducedMotion();
   const dateLabel = volume.publishedDate
     ? format(parseISO(volume.publishedDate), 'd MMMM yyyy', { locale: fr })
     : null;
 
   return (
     <MotiView
-      from={{ opacity: 0, translateX: -12 }}
+      from={reduceMotion ? { opacity: 1, translateX: 0 } : { opacity: 0, translateX: -12 }}
       animate={{ opacity: 1, translateX: 0 }}
-      transition={{ type: 'spring', stiffness: 300, damping: 26, delay: Math.min(index * 45, 400) }}
+      transition={reduceMotion
+        ? { type: 'timing', duration: 0 }
+        : { type: 'spring', stiffness: 300, damping: 26, delay: Math.min(index * 45, 400) }}
     >
       <Pressable
         style={({ pressed }) => [styles.tvCard, pressed && styles.tvCardPressed]}

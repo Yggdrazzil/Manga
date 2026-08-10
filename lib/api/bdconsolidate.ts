@@ -244,8 +244,13 @@ export async function consolidateBDSeries(
 
   // Best cover: tome 1 first, then any tome with a cover, then the bundled
   // Wikipedia thumbnail from the catalogue
+  // Le `??` doit porter sur la COUVERTURE, pas sur le tome : quand le tome 1
+  // existe sans jaquette (fréquent pour les vieux premiers tomes), tester
+  // l'objet tome le trouvait « présent » et la série restait sans visuel alors
+  // que les tomes suivants en avaient un.
   const bestCover =
-    (volumes.find(v => v.num === 1) ?? volumes.find(v => v.coverImage))?.coverImage ??
+    volumes.find(v => v.num === 1)?.coverImage ??
+    volumes.find(v => v.coverImage)?.coverImage ??
     catalogueEntry?.cover;
 
   // Best authors: Wikidata labels are cleanest, then BnF, then OL

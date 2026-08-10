@@ -69,6 +69,7 @@ function lastReadTime(entry: LibraryEntry): number {
 
 function TrackerCard({ entry, index }: { entry: LibraryEntry; index: number }) {
   const router = useRouter();
+  const reduceMotion = useReducedMotion();
   const progress = entry.progress;
   const total = entry.manga.chapters;
   // Single source of truth for display: the progress watermark
@@ -78,9 +79,11 @@ function TrackerCard({ entry, index }: { entry: LibraryEntry; index: number }) {
 
   return (
     <MotiView
-      from={{ opacity: 0, translateX: -12 }}
+      from={reduceMotion ? { opacity: 1, translateX: 0 } : { opacity: 0, translateX: -12 }}
       animate={{ opacity: 1, translateX: 0 }}
-      transition={{ type: 'spring', stiffness: 300, damping: 26, delay: Math.min(index * 45, 400) }}
+      transition={reduceMotion
+        ? { type: 'timing', duration: 0 }
+        : { type: 'spring', stiffness: 300, damping: 26, delay: Math.min(index * 45, 400) }}
     >
       <Pressable
         style={({ pressed }) => [styles.tvCard, pressed && styles.tvCardPressed]}
@@ -152,6 +155,7 @@ function formatViews(n?: number): string | null {
 
 function ReleaseCard({ release, index }: { release: ReleaseItem; index: number }) {
   const router = useRouter();
+  const reduceMotion = useReducedMotion();
   const views = formatViews(release.viewCount);
   const fresh = isRecentRelease(release.publishAt);
   const open = () => {
@@ -163,9 +167,11 @@ function ReleaseCard({ release, index }: { release: ReleaseItem; index: number }
 
   return (
     <MotiView
-      from={{ opacity: 0, translateX: -12 }}
+      from={reduceMotion ? { opacity: 1, translateX: 0 } : { opacity: 0, translateX: -12 }}
       animate={{ opacity: 1, translateX: 0 }}
-      transition={{ type: 'spring', stiffness: 300, damping: 26, delay: Math.min(index * 40, 400) }}
+      transition={reduceMotion
+        ? { type: 'timing', duration: 0 }
+        : { type: 'spring', stiffness: 300, damping: 26, delay: Math.min(index * 40, 400) }}
     >
       <Pressable
         style={({ pressed }) => [

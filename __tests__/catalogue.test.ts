@@ -91,3 +91,51 @@ describe('findParentSeriesInCatalogue', () => {
     expect(findParentSeriesInCatalogue('xyzzy plugh frobozz')).toBeNull();
   });
 });
+
+describe('homonymes', () => {
+  it('choisit la série la mieux garnie quand deux portent le même titre', () => {
+    // Le catalogue contient deux « Clifton » ; la plus complète doit gagner.
+    // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
+    const cat = require('../assets/bd-catalogue.json') as {
+      series: Array<{ title: string; volumes: unknown[] }>;
+    };
+    const norm = (s: string) =>
+      s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '');
+
+    const groups = new Map<string, Array<{ title: string; volumes: unknown[] }>>();
+    for (const s of cat.series) {
+      const k = norm(s.title);
+      groups.set(k, [...(groups.get(k) ?? []), s]);
+    }
+    const dupes = [...groups.values()].filter(g => g.length > 1);
+    if (dupes.length === 0) return; // rien à départager dans ce build
+
+    for (const group of dupes) {
+      const richest = Math.max(...group.map(s => s.volumes.length));
+      const picked = findCatalogueEntry(group[0].title);
+      expect(picked?.volumes.length).toBe(richest);
+    }
+  });
+
+  it('refuse de trancher un sous-titre partagé par deux séries', () => {
+    // Mieux vaut laisser le pipeline réseau décider que rattacher l'album
+    // à une œuvre sans rapport.
+    // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
+    const cat = require('../assets/bd-catalogue.json') as {
+      series: Array<{ title: string; volumes: Array<{ s?: string }> }>;
+    };
+    const owners = new Map<string, Set<string>>();
+    for (const s of cat.series) {
+      for (const v of s.volumes) {
+        if (!v.s) continue;
+        const k = v.s.toLowerCase();
+        owners.set(k, (owners.get(k) ?? new Set()).add(s.title));
+      }
+    }
+    const shared = [...owners.entries()].find(
+      ([sub, set]) => set.size > 1 && sub.replace(/[^a-z0-9]/g, '').length >= 10,
+    );
+    if (!shared) return; // aucune collision dans ce build
+    expect(findParentSeriesInCatalogue(shared[0])).toBeNull();
+  });
+});
