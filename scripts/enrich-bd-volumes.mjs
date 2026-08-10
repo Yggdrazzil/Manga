@@ -152,23 +152,43 @@ const series = FILTER
   : catalogue.series;
 
 // Purge : un résumé FAUX est pire qu'un résumé absent. On repasse le
-// classifieur (durci) sur ce qui a déjà été collecté et on efface ce qui ne
-// tient plus — le tome repart alors dans la file d'enrichissement.
-let purged = 0;
+// classifieur sur ce qui a déjà été collecté et on efface ce qui ne tient
+// plus — le tome repart alors dans la file d'enrichissement.
+//
+// Garde-fou : ce script tourne sans surveillance en CI et committe son
+// résultat. Si un jour le classifieur devenait trop strict (durcissement mal
+// calibré, reformulation massive côté Wikipédia), une purge non bornée
+// détruirait des données correctes de façon irréversible. Au-delà d'un seuil,
+// on s'arrête plutôt que d'écraser le catalogue.
+const PURGE_RATIO_MAX = 0.15;
+
+const doomed = [];
+let withSynopsis = 0;
 for (const s of series) {
   for (const v of s.volumes) {
     if (!v.ds) continue;
-    const verdict = classifyVolumeSynopsis(v.ds, '', s.title, v.s ?? '');
-    if (verdict.ok) continue;
-    delete v.ds;
-    // L'article pointé est la source du mauvais résumé : on l'oublie aussi,
-    // sinon la passe A le resservirait immédiatement.
-    delete v.w;
-    delete v.cv;
-    purged++;
+    withSynopsis++;
+    if (!classifyVolumeSynopsis(v.ds, '', s.title, v.s ?? '').ok) doomed.push(v);
   }
 }
-if (purged > 0) console.log(`Purge : ${purged} résumés erronés supprimés.`);
+
+if (withSynopsis > 0 && doomed.length / withSynopsis > PURGE_RATIO_MAX) {
+  console.error(
+    `ABANDON : la purge supprimerait ${doomed.length}/${withSynopsis} résumés ` +
+    `(${((100 * doomed.length) / withSynopsis).toFixed(0)} %, seuil ${PURGE_RATIO_MAX * 100} %).\n` +
+    'Le classifieur est probablement trop strict — vérifiez-le avant de relancer.',
+  );
+  process.exit(1);
+}
+
+for (const v of doomed) {
+  delete v.ds;
+  // L'article pointé est la source du mauvais résumé : on l'oublie aussi,
+  // sinon la passe A le resservirait immédiatement.
+  delete v.w;
+  delete v.cv;
+}
+if (doomed.length > 0) console.log(`Purge : ${doomed.length} résumés erronés supprimés.`);
 
 const todo = [];
 for (const s of series) {
