@@ -10,10 +10,17 @@ jobs:
     name: Rebuild bundled catalogues (BD, manga, webtoon)
     runs-on: ubuntu-latest
 
+    # Le job committe les catalogues régénérés : sans cette déclaration, le
+    # GITHUB_TOKEN est en lecture seule sur tout dépôt créé depuis 2023 et le
+    # push échoue à la toute dernière étape, après ~15 min de collecte.
+    permissions:
+      contents: write
+
     steps:
+      # Pas de `ref:` figé : on travaille sur la branche qui déclenche le
+      # workflow. Épingler main récupérait un arbre qui ne contient ni les
+      # scripts ni les catalogues, et toutes les étapes suivantes échouaient.
       - uses: actions/checkout@v4
-        with:
-          ref: main
 
       - uses: actions/setup-node@v4
         with:
@@ -51,7 +58,7 @@ jobs:
           "
 
       - name: Run catalogue tests against fresh data
-        run: npx jest __tests__/catalogue.test.ts __tests__/mangaCatalogue.test.ts
+        run: npm test -- __tests__/catalogue.test.ts __tests__/mangaCatalogue.test.ts
 
       - name: Commit updated catalogues
         run: |
@@ -60,5 +67,5 @@ jobs:
           git add assets/bd-catalogue.json assets/manga-catalogue.json assets/webtoon-catalogue.json
           git diff --staged --quiet && echo "No changes" || (
             git commit -m "chore: refresh local catalogues $(date +%Y-%m-%d) [skip ci]" &&
-            git push
+            git push origin "HEAD:${GITHUB_REF_NAME}"
           )

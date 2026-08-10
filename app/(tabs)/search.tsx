@@ -666,7 +666,13 @@ export default function SearchScreen() {
             accessibilityLabel="Rechercher des mangas ou BD"
           />
           {query.length > 0 && (
-            <Pressable onPress={() => { setQuery(''); setDebouncedQuery(''); }} style={styles.clearBtn}>
+            <Pressable
+              onPress={() => { setQuery(''); setDebouncedQuery(''); }}
+              style={styles.clearBtn}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Effacer la recherche"
+            >
               <Ionicons name="close-circle" size={18} color={COLORS.textInkMuted} />
             </Pressable>
           )}

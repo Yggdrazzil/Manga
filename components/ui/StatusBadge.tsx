@@ -23,7 +23,15 @@ interface StatusBadgeProps {
 export function StatusBadge({ status, compact = false }: StatusBadgeProps) {
   const color = statusColor(status);
   return (
-    <View style={[styles.badge, { backgroundColor: `${color}22`, borderColor: `${color}44` }]}>
+    // En mode compact le statut n'est plus qu'une pastille de couleur : sans
+    // libellé accessible, il est invisible pour un lecteur d'écran — et pour
+    // qui distingue mal les couleurs.
+    <View
+      style={[styles.badge, { backgroundColor: `${color}22`, borderColor: `${color}44` }]}
+      accessible
+      accessibilityRole="text"
+      accessibilityLabel={STATUS_LABELS[status]}
+    >
       <View style={[styles.dot, { backgroundColor: color }]} />
       {!compact && (
         <Typography variant="label" color={color} style={styles.text}>

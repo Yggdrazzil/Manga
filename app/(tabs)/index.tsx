@@ -23,6 +23,7 @@ import { Typography } from '@/components/ui/Typography';
 import { BORDERS, COLORS, FONTS, RADIUS, SPACING, themedStyles } from '@/constants/theme';
 import type { LibraryEntry, MediaSource } from '@/lib/types';
 import { coverSource } from '@/lib/utils/images';
+import { readableInk } from '@/lib/utils/contrast';
 import { isRecentRelease, releaseGroupLabel, releaseGroupRank } from '@/lib/utils/dates';
 
 const TAB_BAR_HEIGHT = 88;
@@ -101,16 +102,15 @@ function TrackerCard({ entry, index }: { entry: LibraryEntry; index: number }) {
         </View>
 
         <View style={styles.tvBody}>
-          <Pressable
-            style={styles.tvTitlePill}
-            onPress={() => router.push(`/manga/${encodeURIComponent(entry.mangaId)}?source=${encodeURIComponent(entry.source)}` as never)}
-            hitSlop={4}
-          >
+          {/* Décor, pas un bouton : la carte entière porte déjà l'action. Un
+              Pressable imbriqué dupliquait la cible pour les lecteurs d'écran
+              tout en offrant une zone tactile de 19 px. */}
+          <View style={styles.tvTitlePill}>
             <Typography variant="caption" style={styles.tvTitlePillText} numberOfLines={1}>
               {entry.manga.title.userPreferred.toUpperCase()}
             </Typography>
             <Ionicons name="chevron-forward" size={10} color={COLORS.textInk} />
-          </Pressable>
+          </View>
 
           <Typography style={styles.tvChapter}>
             {isCaughtUp
@@ -191,12 +191,12 @@ function ReleaseCard({ release, index }: { release: ReleaseItem; index: number }
         </View>
 
         <View style={styles.tvBody}>
-          <Pressable style={styles.tvTitlePill} onPress={open} hitSlop={4}>
+          <View style={styles.tvTitlePill}>
             <Typography variant="caption" style={styles.tvTitlePillText} numberOfLines={1}>
               {release.title.toUpperCase()}
             </Typography>
             <Ionicons name="chevron-forward" size={10} color={COLORS.textInk} />
-          </Pressable>
+          </View>
 
           <Typography style={styles.tvChapter}>
             {release.chapterLabel ? `Ch. ${release.chapterLabel}` : 'Nouveau chapitre'}
@@ -211,21 +211,21 @@ function ReleaseCard({ release, index }: { release: ReleaseItem; index: number }
           <View style={styles.tvMeta}>
             {release.followed && (
               <View style={[styles.tvBadge, styles.tvBadgeFollowed]}>
-                <Typography variant="caption" style={[styles.tvBadgeText, { color: COLORS.onInk }]}>
+                <Typography variant="caption" style={[styles.tvBadgeText, { color: readableInk(COLORS.accentRed) }]}>
                   SUIVI
                 </Typography>
               </View>
             )}
             {(fresh || release.isNewSeries) && (
               <View style={[styles.tvBadge, styles.tvBadgeNew]}>
-                <Typography variant="caption" style={[styles.tvBadgeText, styles.tvBadgeNewText]}>
+                <Typography variant="caption" style={[styles.tvBadgeText, { color: readableInk(COLORS.warning) }]}>
                   {release.isNewSeries ? 'NOUVELLE SÉRIE' : 'NOUVEAU'}
                 </Typography>
               </View>
             )}
             {release.source === 'mangaplus' && (
               <View style={[styles.tvBadge, styles.tvBadgeReadable]}>
-                <Typography variant="caption" style={[styles.tvBadgeText, { color: COLORS.onInk }]}>MANGA PLUS</Typography>
+                <Typography variant="caption" style={[styles.tvBadgeText, { color: readableInk(COLORS.statusCompleted) }]}>MANGA PLUS</Typography>
               </View>
             )}
             {views && (
@@ -315,6 +315,7 @@ export default function MangaTrackerScreen() {
   const {
     data: libraryChapters,
     isLoading: libraryLoading,
+    isError: libraryError,
     refetch: refetchLibrary,
   } = useQuery({
     queryKey: ['library-chapters', mangadexIds.join(',')],
@@ -541,8 +542,14 @@ export default function MangaTrackerScreen() {
             ListHeaderComponent={
               <Typography variant="caption" color={COLORS.textInkMuted} style={styles.sortiesHint}>
                 {releasesError
-                  ? 'Vos séries suivies · fil MANGA Plus indisponible'
-                  : 'Vos séries suivies · sorties MANGA Plus (vers 17h00)'}
+                  // L'en-tête ne doit pas affirmer que les séries suivies sont
+                  // listées quand leur source est tombée.
+                  ? (libraryError
+                      ? 'Sources indisponibles · tirez pour réessayer'
+                      : 'Vos séries suivies · fil MANGA Plus indisponible')
+                  : (libraryError
+                      ? 'Sorties MANGA Plus · vos séries suivies indisponibles'
+                      : 'Vos séries suivies · sorties MANGA Plus (vers 17h00)')}
               </Typography>
             }
             contentContainerStyle={[styles.listContent, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom }]}
@@ -674,8 +681,14 @@ const styles = themedStyles(() => StyleSheet.create({
   tvBadgeNew: { backgroundColor: COLORS.warning },
   tvBadgeReadable: { backgroundColor: COLORS.statusCompleted },
   tvBadgeFollowed: { backgroundColor: COLORS.accentRed },
-  tvBadgeText: { fontSize: 8, letterSpacing: 0.8, color: COLORS.onInk, fontFamily: FONTS.bodyBold },
-  tvBadgeNewText: { color: COLORS.onInk },
+  // Encre calculée depuis le fond : les couleurs d'accent varient d'un thème à
+  // l'autre et l'encre codée en dur tombait à 1,4:1 sur l'ambre de Néo-Tokyo.
+  tvBadgeText: {
+    fontSize: 8,
+    letterSpacing: 0.8,
+    color: readableInk(COLORS.accentRed),
+    fontFamily: FONTS.bodyBold,
+  },
 
   // Section header
   sectionHeaderWrap: { alignItems: 'center', paddingVertical: SPACING.md },
