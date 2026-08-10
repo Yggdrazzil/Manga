@@ -3,13 +3,23 @@ import type { LibraryEntry } from '@/lib/types';
 const DAY_MS = 86_400_000;
 const DAY_LABELS_FR = ['Di', 'Lu', 'Ma', 'Me', 'Je', 'Ve', 'Sa'] as const;
 
+/**
+ * Jour CALENDAIRE LOCAL au format 'YYYY-MM-DD'.
+ *
+ * `toISOString()` donnait le jour UTC : un chapitre lu à 00h30 à Paris était
+ * comptabilisé la veille, et le graphe hebdomadaire étiquetait ses barres avec
+ * le jour local tout en les remplissant avec des clés UTC — le libellé pouvait
+ * donc désigner un autre jour que les données affichées.
+ */
 function toDateStr(date: Date): string {
-  return date.toISOString().slice(0, 10); // 'YYYY-MM-DD'
+  const m = `${date.getMonth() + 1}`.padStart(2, '0');
+  const d = `${date.getDate()}`.padStart(2, '0');
+  return `${date.getFullYear()}-${m}-${d}`;
 }
 
 /**
  * Aggregates reading events from chapterData readAt timestamps.
- * Returns 'YYYY-MM-DD' → chapters read count for that day.
+ * Returns 'YYYY-MM-DD' (jour local) → chapters read count for that day.
  */
 export function getReadingActivity(entries: LibraryEntry[]): Record<string, number> {
   const activity: Record<string, number> = {};
@@ -17,33 +27,62 @@ export function getReadingActivity(entries: LibraryEntry[]): Record<string, numb
     if (!entry.chapterData) continue;
     for (const note of Object.values(entry.chapterData)) {
       if (!note.readAt) continue;
-      const date = note.readAt.slice(0, 10);
+      // readAt est un instant ISO (UTC) : on le ramène au jour vécu par le lecteur.
+      const at = new Date(note.readAt);
+      if (Number.isNaN(at.getTime())) continue;
+      const date = toDateStr(at);
       activity[date] = (activity[date] ?? 0) + 1;
     }
   }
   return activity;
 }
 
+export interface ReadingStreak {
+  /** Série en cours, terminée aujourd'hui ou hier (jour de grâce). */
+  current: number;
+  /** Plus longue série jamais réalisée — la donnée qui rend le suivi motivant. */
+  best: number;
+}
+
 /**
- * Consecutive-day reading streak ending today (or yesterday as grace period).
- * Returns 0 if no recent activity.
+ * Série de jours consécutifs de lecture.
+ * `now` est un paramètre explicite pour rester déterministe et testable.
  */
-export function getReadingStreak(activity: Record<string, number>): number {
-  const today = new Date();
-  const todayStr = toDateStr(today);
-  const yesterdayStr = toDateStr(new Date(today.getTime() - DAY_MS));
+export function getReadingStreak(
+  activity: Record<string, number>,
+  now: Date = new Date(),
+): ReadingStreak {
+  const days = Object.keys(activity)
+    .filter(d => activity[d] > 0)
+    .sort();
+  if (days.length === 0) return { current: 0, best: 0 };
 
+  // Meilleure série historique : on parcourt les jours actifs dans l'ordre.
+  const dayNumber = (s: string) => {
+    const [y, m, d] = s.split('-').map(Number);
+    return Date.UTC(y, (m ?? 1) - 1, d ?? 1) / DAY_MS;
+  };
+  let best = 1;
+  let run = 1;
+  for (let i = 1; i < days.length; i++) {
+    run = dayNumber(days[i]) - dayNumber(days[i - 1]) === 1 ? run + 1 : 1;
+    if (run > best) best = run;
+  }
+
+  // Série courante : elle doit se terminer aujourd'hui ou hier.
+  const todayStr = toDateStr(now);
+  const yesterdayStr = toDateStr(new Date(now.getTime() - DAY_MS));
   let cursor: Date | null = null;
-  if (activity[todayStr]) cursor = today;
-  else if (activity[yesterdayStr]) cursor = new Date(today.getTime() - DAY_MS);
-  if (!cursor) return 0;
+  if (activity[todayStr]) cursor = new Date(now);
+  else if (activity[yesterdayStr]) cursor = new Date(now.getTime() - DAY_MS);
 
-  let streak = 0;
-  while (activity[toDateStr(cursor)]) {
-    streak++;
+  let current = 0;
+  while (cursor && activity[toDateStr(cursor)]) {
+    current++;
     cursor = new Date(cursor.getTime() - DAY_MS);
   }
-  return streak;
+
+  return { current, best: Math.max(best, current) };
 }
 
 export interface DayActivity {
@@ -57,8 +96,9 @@ export interface DayActivity {
 export function getWeekActivity(
   activity: Record<string, number>,
   daysBack = 7,
+  now: Date = new Date(),
 ): DayActivity[] {
-  const today = new Date();
+  const today = now;
   const todayStr = toDateStr(today);
   const result: DayActivity[] = [];
 

@@ -80,39 +80,51 @@ describe('getReadingActivity', () => {
 // ── getReadingStreak ───────────────────────────────────────────────────────────
 
 describe('getReadingStreak', () => {
-  it('returns 0 for empty activity', () => {
-    expect(getReadingStreak({})).toBe(0);
+  // Référence fixe : le calcul prend `now` en paramètre, donc plus de
+  // dépendance à l'horloge de la machine de test.
+  const NOW = new Date(2026, 1, 12, 10, 0, 0);
+  const day = (back: number) => {
+    const d = new Date(NOW);
+    d.setDate(d.getDate() - back);
+    const m = `${d.getMonth() + 1}`.padStart(2, '0');
+    return `${d.getFullYear()}-${m}-${`${d.getDate()}`.padStart(2, '0')}`;
+  };
+
+  it('renvoie 0 pour une activité vide', () => {
+    expect(getReadingStreak({}, NOW)).toEqual({ current: 0, best: 0 });
   });
 
-  it('returns 0 if last read was 2+ days ago', () => {
-    const threeDaysAgo = daysAgo(3).slice(0, 10);
-    expect(getReadingStreak({ [threeDaysAgo]: 5 })).toBe(0);
+  it('coupe la série courante si la dernière lecture date de 2 jours ou plus', () => {
+    const s = getReadingStreak({ [day(3)]: 5 }, NOW);
+    expect(s.current).toBe(0);
+    // …mais le record historique, lui, reste acquis.
+    expect(s.best).toBe(1);
   });
 
-  it('counts streak from today', () => {
+  it('compte la série en cours depuis aujourd’hui', () => {
     const activity: Record<string, number> = {};
-    for (let i = 0; i < 5; i++) {
-      activity[daysAgo(i).slice(0, 10)] = 3;
-    }
-    expect(getReadingStreak(activity)).toBe(5);
+    for (let i = 0; i < 5; i++) activity[day(i)] = 3;
+    expect(getReadingStreak(activity, NOW).current).toBe(5);
   });
 
-  it('counts streak from yesterday (grace period)', () => {
+  it('accorde le jour de grâce de la veille', () => {
     const activity: Record<string, number> = {};
-    for (let i = 1; i <= 4; i++) {
-      activity[daysAgo(i).slice(0, 10)] = 2;
-    }
-    expect(getReadingStreak(activity)).toBe(4);
+    for (let i = 1; i <= 4; i++) activity[day(i)] = 2;
+    expect(getReadingStreak(activity, NOW).current).toBe(4);
   });
 
-  it('stops at a gap in consecutive days', () => {
-    const activity = {
-      [daysAgo(0).slice(0, 10)]: 1,
-      [daysAgo(1).slice(0, 10)]: 1,
-      // gap on day -2
-      [daysAgo(3).slice(0, 10)]: 1,
-    };
-    expect(getReadingStreak(activity)).toBe(2);
+  it('s’arrête sur un trou dans les jours consécutifs', () => {
+    const activity = { [day(0)]: 1, [day(1)]: 1, [day(3)]: 1 };
+    expect(getReadingStreak(activity, NOW).current).toBe(2);
+  });
+
+  it('retient le meilleur record même s’il est plus ancien que la série en cours', () => {
+    const activity: Record<string, number> = {};
+    for (let i = 20; i <= 26; i++) activity[day(i)] = 1; // 7 jours d'affilée
+    activity[day(0)] = 1;                                // série courante de 1
+    const s = getReadingStreak(activity, NOW);
+    expect(s.current).toBe(1);
+    expect(s.best).toBe(7);
   });
 });
 
@@ -181,5 +193,28 @@ describe('getAnnualStats', () => {
     const e2 = makeEntry({ mangaId: 'b', score: 60 });
     const result = getAnnualStats([e1, e2]);
     expect(result.averageScore).toBe(70);
+  });
+});
+
+describe('fuseau horaire', () => {
+  it('rattache une lecture au jour VÉCU par le lecteur, pas au jour UTC', () => {
+    // Lu le 12 février à 00h30 heure locale. Avec l'ancien découpage UTC, ce
+    // chapitre était comptabilisé le 11 dans les fuseaux à l'est de Greenwich.
+    const local = new Date(2026, 1, 12, 0, 30, 0);
+    const entries = [
+      {
+        mangaId: '1',
+        source: 'anilist',
+        status: 'READING',
+        progress: 1,
+        addedAt: local.toISOString(),
+        updatedAt: local.toISOString(),
+        manga: { id: '1', title: { userPreferred: 'X' }, coverImage: '', genres: [], tags: [], authors: [] },
+        chapterData: { '1': { readAt: local.toISOString() } },
+      },
+    ] as unknown as Parameters<typeof getReadingActivity>[0];
+
+    const activity = getReadingActivity(entries);
+    expect(Object.keys(activity)).toEqual(['2026-02-12']);
   });
 });

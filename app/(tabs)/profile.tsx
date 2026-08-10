@@ -10,6 +10,7 @@ import { Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from 'react
 import {
   getReadingActivity,
   getReadingStreak,
+  type ReadingStreak,
   getWeekActivity,
   getAnnualStats,
   type DayActivity,
@@ -80,7 +81,7 @@ function StatusBar({ status, count, total }: { status: ReadingStatus; count: num
   );
 }
 
-function WeeklyActivityChart({ weekData, streak }: { weekData: DayActivity[]; streak: number }) {
+function WeeklyActivityChart({ weekData, streak }: { weekData: DayActivity[]; streak: ReadingStreak }) {
   const maxCount = Math.max(1, ...weekData.map(d => d.count));
 
   return (
@@ -89,13 +90,20 @@ function WeeklyActivityChart({ weekData, streak }: { weekData: DayActivity[]; st
         <Typography variant="kicker" color={COLORS.textInkMuted} style={styles.chartTitle}>
           ACTIVITÉ (7 JOURS)
         </Typography>
-        {streak > 0 && (
+        {streak.current > 0 ? (
           <View style={styles.streakChip}>
             <Typography variant="label" color={COLORS.star} style={styles.streakLabel}>
-              🔥 {streak} jour{streak > 1 ? 's' : ''}
+              🔥 {streak.current} jour{streak.current > 1 ? 's' : ''}
+              {streak.best > streak.current ? ` · record ${streak.best}` : ''}
             </Typography>
           </View>
-        )}
+        ) : streak.best > 1 ? (
+          <View style={styles.streakChip}>
+            <Typography variant="label" color={COLORS.textInkMuted} style={styles.streakLabel}>
+              Record : {streak.best} jours
+            </Typography>
+          </View>
+        ) : null}
       </View>
       <View style={styles.barsRow}>
         {weekData.map(day => {
