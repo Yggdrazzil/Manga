@@ -56,22 +56,31 @@ function norm(s: string): string {
     .replace(/[^a-z0-9]/g, '');
 }
 
-// Index pré-normalisé : titres de séries et jetons des sous-titres de tomes.
-// Sans lui, chaque frappe re-normalisait 573 titres et chaque résolution
-// d'album re-découpait les 7669 sous-titres en jetons.
-interface BdIndexRow {
+// Index pré-normalisés. Sans eux, chaque frappe re-normalisait 573 titres et
+// chaque résolution d'album re-découpait 7669 sous-titres en jetons.
+// Deux index INDÉPENDANTS, chacun construit à la première utilisation.
+// Les fusionner faisait payer la tokenisation des 5641 sous-titres de tomes
+// dès la première lettre tapée dans la recherche, qui ne se sert que des
+// titres de séries.
+interface BdTitleRow { entry: CatalogueEntry; key: string }
+interface BdSubtitleRow {
   entry: CatalogueEntry;
-  key: string;                      // titre de série normalisé
   volumes: Array<{ toks: string[]; weight: number }>;
 }
 
-let _index: BdIndexRow[] | null = null;
+let _titleIndex: BdTitleRow[] | null = null;
+let _subtitleIndex: BdSubtitleRow[] | null = null;
 
-function bdIndex(): BdIndexRow[] {
-  if (_index) return _index;
-  _index = getData().series.map(entry => ({
+function bdTitleIndex(): BdTitleRow[] {
+  if (_titleIndex) return _titleIndex;
+  _titleIndex = getData().series.map(entry => ({ entry, key: norm(entry.title) }));
+  return _titleIndex;
+}
+
+function bdSubtitleIndex(): BdSubtitleRow[] {
+  if (_subtitleIndex) return _subtitleIndex;
+  _subtitleIndex = getData().series.map(entry => ({
     entry,
-    key: norm(entry.title),
     volumes: entry.volumes
       .filter(v => !!v.s)
       .map(v => {
@@ -80,7 +89,7 @@ function bdIndex(): BdIndexRow[] {
       })
       .filter(v => v.toks.length > 0 && v.weight >= MIN_MATCH_WEIGHT),
   }));
-  return _index;
+  return _subtitleIndex;
 }
 
 /**
@@ -93,7 +102,7 @@ export function searchCatalogue(query: string, limit = 20): CatalogueEntry[] {
   if (!needle) return [];
 
   const results: Array<{ entry: CatalogueEntry; score: number }> = [];
-  for (const row of bdIndex()) {
+  for (const row of bdTitleIndex()) {
     let score = 0;
     if (row.key === needle) score = 100;
     else if (row.key.startsWith(needle)) score = 80;
@@ -117,7 +126,7 @@ export function findCatalogueEntry(title: string): CatalogueEntry | null {
   // tomes, l'autre de 2). Prendre la première rencontrée rendait la plus
   // complète inatteignable : on garde la mieux garnie.
   let best: { entry: CatalogueEntry; size: number } | null = null;
-  for (const row of bdIndex()) {
+  for (const row of bdTitleIndex()) {
     if (row.key !== needle) continue;
     const size = row.entry.volumes.length;
     if (!best || size > best.size) best = { entry: row.entry, size };
@@ -173,7 +182,7 @@ export function findParentSeriesInCatalogue(albumTitle: string): string | null {
   // interroger le réseau.
   let best: { title: string; weight: number } | null = null;
   let ambiguous = false;
-  for (const row of bdIndex()) {
+  for (const row of bdSubtitleIndex()) {
     for (const v of row.volumes) {
       if (best && v.weight < best.weight) continue;
       if (!v.toks.every(t => albumToks.has(t))) continue;

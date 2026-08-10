@@ -124,7 +124,13 @@ export const useComicsStore = create<ComicsState>()(
               coverImage: series.coverImage ?? e.series.coverImage,
               authors: series.authors.length ? series.authors : e.series.authors,
               volumes,
-              totalVolumes: Math.max(volumes.length, e.series.totalVolumes),
+              // Le nombre de tomes réellement connus. Pas de Math.max avec
+              // l'ancien total : les entrées ajoutées avant la correction
+              // portent un total gonflé (le plus grand ordinal, ex. 435 pour
+              // 39 tomes) qui ne redescendrait alors jamais. L'union ci-dessus
+              // garantit déjà qu'un refresh dégradé ne peut pas réduire la
+              // liste.
+              totalVolumes: volumes.length,
             };
 
             // Keep user progress; recompute status against the merged total.

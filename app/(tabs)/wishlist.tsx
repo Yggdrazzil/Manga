@@ -29,12 +29,16 @@ function BDCard({ entry, index }: { entry: BDSeriesEntry; index: number }) {
   const total = entry.series.totalVolumes;
   const readCount = entry.readVolumes.length;
 
+  // Se fier aux numéros RÉELS des tomes, pas à une plage 1..total : les
+  // séries ne commencent pas toutes à 1 et beaucoup ont des trous (Bob et
+  // Bobette va de 67 à 435). Balayer une plage proposait un tome inexistant.
   const nextVolume = useMemo(() => {
-    for (let i = 1; i <= total; i++) {
-      if (!entry.readVolumes.includes(i)) return i;
-    }
-    return null;
-  }, [entry.readVolumes, total]);
+    const read = new Set(entry.readVolumes);
+    return entry.series.volumes
+      .map(v => v.num)
+      .sort((a, b) => a - b)
+      .find(n => !read.has(n)) ?? null;
+  }, [entry.readVolumes, entry.series.volumes]);
 
   const navigate = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

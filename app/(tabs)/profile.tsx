@@ -239,11 +239,14 @@ function BDHistoryRow({ entry }: { entry: BDSeriesEntry }) {
   const readCount = entry.readVolumes.length;
   const total = entry.series.totalVolumes;
 
+  // Numéros réels des tomes plutôt qu'une plage 1..total : toutes les séries
+  // ne commencent pas au tome 1 et certaines ont des trous.
   const nextVolume = (() => {
-    for (let i = 1; i <= total; i++) {
-      if (!entry.readVolumes.includes(i)) return i;
-    }
-    return null;
+    const read = new Set(entry.readVolumes);
+    return entry.series.volumes
+      .map(v => v.num)
+      .sort((a, b) => a - b)
+      .find(n => !read.has(n)) ?? null;
   })();
 
   const handlePlusOne = () => {
