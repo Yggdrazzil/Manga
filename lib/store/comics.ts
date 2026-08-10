@@ -85,28 +85,53 @@ export const useComicsStore = create<ComicsState>()(
         set(state => ({ entries: [entry, ...state.entries] }));
       },
 
+      // Un rafraîchissement ne doit JAMAIS appauvrir ce qui est déjà stocké.
+      // Les sources (Wikidata, BnF, Open Library…) échouent indépendamment :
+      // sur un réseau dégradé, le pipeline peut ne remonter que 3 tomes sur 24.
+      // Remplacer la liste ferait disparaître des tomes cochés et recalculerait
+      // le statut sur un total rétréci — la série passerait à « Terminé ».
       refreshSeries: series => {
         set(state => ({
           entries: state.entries.map(e => {
             if (e.seriesId !== series.id) return e;
-            // Keep lazily-enriched volume details the fresh payload lacks
-            const volumes: BDVolume[] = series.volumes.map(v => {
-              const old = e.series.volumes.find(o => o.num === v.num);
-              return old
+
+            // Union par numéro de tome : l'ancien sert de base, le frais
+            // complète champ par champ sans jamais écraser par undefined.
+            const byNum = new Map<number, BDVolume>();
+            for (const old of e.series.volumes) byNum.set(old.num, old);
+            for (const v of series.volumes) {
+              const old = byNum.get(v.num);
+              byNum.set(v.num, old
                 ? {
+                    ...old,
                     ...v,
                     subtitle: v.subtitle ?? old.subtitle,
                     description: v.description ?? old.description,
                     publisher: v.publisher ?? old.publisher,
                     coverImage: v.coverImage ?? old.coverImage,
+                    publishedDate: v.publishedDate ?? old.publishedDate,
+                    frwikiTitle: v.frwikiTitle ?? old.frwikiTitle,
+                    authors: v.authors?.length ? v.authors : old.authors,
                   }
-                : v;
-            });
-            // Keep user progress; recompute status against the fresh totalVolumes.
-            const status = nextStatus(e.status, e.readVolumes, series.totalVolumes);
+                : v);
+            }
+            const volumes = Array.from(byNum.values()).sort((a, b) => a.num - b.num);
+
+            const merged: BDSeries = {
+              ...e.series,
+              ...series,
+              description: series.description ?? e.series.description,
+              coverImage: series.coverImage ?? e.series.coverImage,
+              authors: series.authors.length ? series.authors : e.series.authors,
+              volumes,
+              totalVolumes: Math.max(volumes.length, e.series.totalVolumes),
+            };
+
+            // Keep user progress; recompute status against the merged total.
+            const status = nextStatus(e.status, e.readVolumes, merged.totalVolumes);
             // A metadata refresh is not user activity: updatedAt stays untouched
             // so the library's staleness grouping remains meaningful.
-            return { ...e, series: { ...series, volumes }, status };
+            return { ...e, series: merged, status };
           }),
         }));
       },

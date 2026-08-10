@@ -230,6 +230,16 @@ export default function MangaDetailScreen() {
   const preferredLang = useSettingsStore(s => s.scanLang);
   const [readLang, setReadLang] = useState<'fr' | 'en'>(preferredLang);
 
+  // Référentiellement stable : une fonction recréée à chaque render forcerait
+  // TanStack Query à la rappeler à chaque fois, donc à matérialiser le
+  // catalogue de 4 Mo pendant l'animation de navigation.
+  const cataloguePlaceholder = useMemo(() => {
+    if (!id) return undefined;
+    if (source === 'webtoon') return findLocalWebtoon(id) ?? undefined;
+    if (!source || source === 'anilist') return findLocalManga(id) ?? undefined;
+    return undefined;
+  }, [id, source]);
+
   const { data: manga, isLoading, isError } = useQuery({
     queryKey: ['manga-detail', id, source],
     queryFn: async () => {
@@ -244,12 +254,7 @@ export default function MangaDetailScreen() {
     enabled: !!id,
     // Instant first paint from the bundled catalogue (title, cover, synopsis)
     // while the live API loads the authoritative record.
-    placeholderData: () => {
-      if (!id) return undefined;
-      if (source === 'webtoon') return findLocalWebtoon(id) ?? undefined;
-      if (!source || source === 'anilist') return findLocalManga(id) ?? undefined;
-      return undefined;
-    },
+    placeholderData: cataloguePlaceholder,
   });
 
   const searchTitle = manga

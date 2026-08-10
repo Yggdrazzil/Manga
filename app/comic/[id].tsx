@@ -53,6 +53,14 @@ function VolumeCard({
   const { subtitle, publisher } = volume;
   const description = volume.description ?? localDesc;
 
+  // Le tome ciblé n'est parfois connu qu'après coup : l'écran affiche d'abord
+  // le catalogue local, et le titre d'album ne se résout qu'une fois les vraies
+  // données arrivées. On déplie alors, sans jamais refermer ce que l'utilisateur
+  // a ouvert lui-même.
+  useEffect(() => {
+    if (defaultExpanded) setExpanded(true);
+  }, [defaultExpanded]);
+
   // Lazy per-volume synopsis, fetched the first time the card is expanded:
   // dedicated FR Wikipedia article when Wikidata knows it, else Google Books
   // (4e de couverture) looked up by episode title.
@@ -170,33 +178,53 @@ export default function SeriesDetailScreen() {
     id: string; title?: string; focusTitle?: string;
   }>();
 
-  // Scroll-to-focused-album tracking
+  // Défilement automatique vers l'album ciblé.
+  //
+  // Les décalages sont cumulés depuis les onLayout de la hiérarchie
+  // (contenu → section Tomes → grille → carte), ce qui donne la position
+  // absolue dans le ScrollView. On ne se contente pas d'un seul essai : la
+  // liste affichée au départ vient du catalogue local (placeholderData) et sa
+  // hauteur change quand les vraies données arrivent (couvertures, résumés).
+  // Tant que l'utilisateur n'a pas fait défiler lui-même, on se recale.
   const scrollRef = useRef<ScrollView>(null);
   const contentYRef = useRef(0);
   const volumesSectionYRef = useRef(0);
   const volumeGridYRef = useRef(0);
   const focusCardYRef = useRef<number | null>(null);
-  const hasScrolledRef = useRef(false);
+  const lastScrolledToRef = useRef<number | null>(null);
+  const userTookOverRef = useRef(false);
   const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current); }, []);
 
   const tryFocusScroll = useCallback(() => {
-    if (hasScrolledRef.current || focusCardYRef.current === null) return;
+    if (userTookOverRef.current || focusCardYRef.current === null) return;
     if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
     scrollTimerRef.current = setTimeout(() => {
       scrollTimerRef.current = null;
-      if (hasScrolledRef.current) return;
-      const y =
-        contentYRef.current +
-        volumesSectionYRef.current +
-        volumeGridYRef.current +
-        (focusCardYRef.current ?? 0);
-      scrollRef.current?.scrollTo({ y: Math.max(0, y - 100), animated: true });
-      hasScrolledRef.current = true;
-    }, 150);
+      if (userTookOverRef.current || focusCardYRef.current === null) return;
+      const target = Math.max(
+        0,
+        contentYRef.current + volumesSectionYRef.current + volumeGridYRef.current +
+          focusCardYRef.current - 100,
+      );
+      // Ne pas rejouer une animation pour un déplacement invisible.
+      const previous = lastScrolledToRef.current;
+      if (previous !== null && Math.abs(previous - target) < 8) return;
+      lastScrolledToRef.current = target;
+      scrollRef.current?.scrollTo({ y: target, animated: true });
+    }, 180);
   }, []);
 
-  const entry = useComicsStore(s => s.getEntry(id ?? ''));
+  // L'id de la route vient du titre tapé dans la recherche, qui peut être
+  // celui d'un ALBUM (« tintin-au-pays-des-soviets »), alors que la série
+  // résolue est stockée sous le sien (« les-aventures-de-tintin »). Chercher
+  // l'entrée avec le seul id d'URL la rendait introuvable : les cases cochées
+  // ne réapparaissaient jamais et « Retirer » ne retirait rien.
+  const storeEntries = useComicsStore(s => s.entries);
+  const routeEntry = useMemo(
+    () => storeEntries.find(e => e.seriesId === id),
+    [storeEntries, id],
+  );
   const addOrUpdateSeries = useComicsStore(s => s.addOrUpdateSeries);
   const removeEntry = useComicsStore(s => s.removeEntry);
   const toggleVolumeRead = useComicsStore(s => s.toggleVolumeRead);
@@ -205,13 +233,24 @@ export default function SeriesDetailScreen() {
   const updateNotes = useComicsStore(s => s.updateNotes);
   const updateVolumeDetail = useComicsStore(s => s.updateVolumeDetail);
   const toggleFavorite = useComicsStore(s => s.toggleFavorite);
-  const [notes, setNotes] = useState(entry?.notes ?? '');
-  useEffect(() => { setNotes(entry?.notes ?? ''); }, [entry?.notes]);
-
   // If the series isn't in the store yet, run the full consolidation pipeline.
   // expo-router already decodes params — no manual decodeURIComponent (it
   // crashes on titles containing a literal "%").
-  const seriesTitle = entry?.series.title ?? titleParam ?? '';
+  const seriesTitle = routeEntry?.series.title ?? titleParam ?? '';
+
+  // Le placeholder doit être référentiellement stable : TanStack Query ne
+  // réutilise le résultat précédent que si la fonction est la MÊME référence,
+  // sinon il la rappelle à chaque render — soit un scan du catalogue BD à
+  // chaque frappe dans le champ Notes.
+  const cataloguePlaceholder = useMemo(() => {
+    if (!seriesTitle) return undefined;
+    const direct = findCatalogueEntry(seriesTitle);
+    if (direct) return catalogueToBDSeries(direct);
+    const parent = findParentSeriesInCatalogue(seriesTitle);
+    const resolved = parent ? findCatalogueEntry(parent) : null;
+    return resolved ? catalogueToBDSeries(resolved) : undefined;
+  }, [seriesTitle]);
+
   const { data: fetchedSeries, isLoading: loadingSeries, isError: previewError, refetch: retryPreview } = useQuery({
     queryKey: ['series-preview', id, seriesTitle],
     queryFn: async () => {
@@ -219,22 +258,30 @@ export default function SeriesDetailScreen() {
       if (!result) throw new Error('Aucune donnée trouvée pour cette série');
       return result;
     },
-    enabled: !entry && !!seriesTitle,
+    enabled: !routeEntry && !!seriesTitle,
     staleTime: 1000 * 60 * 10,
-    // Instant first paint from the bundled catalogue (tome list, dates,
-    // authors) while covers/synopses load from the live pipeline.
-    placeholderData: () => {
-      if (!seriesTitle) return undefined;
-      const direct = findCatalogueEntry(seriesTitle);
-      if (direct) return catalogueToBDSeries(direct);
-      const parent = findParentSeriesInCatalogue(seriesTitle);
-      const resolved = parent ? findCatalogueEntry(parent) : null;
-      return resolved ? catalogueToBDSeries(resolved) : undefined;
-    },
+    // Affichage instantané depuis le catalogue embarqué (liste des tomes,
+    // dates, auteurs) pendant que couvertures et synopsis arrivent du réseau.
+    placeholderData: cataloguePlaceholder,
   });
 
-  const series: BDSeries | undefined = entry?.series ?? fetchedSeries ?? undefined;
-  const isLoading = !entry && loadingSeries;
+  const series: BDSeries | undefined = routeEntry?.series ?? fetchedSeries ?? undefined;
+
+  // L'entrée de suivi peut être stockée sous l'id de la série résolue plutôt
+  // que sous celui de la route : on la retrouve par l'un ou l'autre.
+  const entry = useMemo(() => {
+    if (routeEntry) return routeEntry;
+    if (!series) return undefined;
+    return storeEntries.find(e => e.seriesId === series.id);
+  }, [routeEntry, storeEntries, series]);
+
+  // Id sous lequel écrire dans le store — jamais celui de l'URL seul.
+  const trackingId = entry?.seriesId ?? series?.id ?? id;
+
+  const [notes, setNotes] = useState(entry?.notes ?? '');
+  useEffect(() => { setNotes(entry?.notes ?? ''); }, [entry?.notes]);
+
+  const isLoading = !routeEntry && loadingSeries && !series;
 
   // Volume number to focus on (auto-scroll + auto-expand) when the user tapped
   // a specific album in search results. Token matching handles long original
@@ -254,23 +301,23 @@ export default function SeriesDetailScreen() {
   const handleToggle = useCallback((volNum: number) => {
     if (!series) return;
     if (entry) {
-      toggleVolumeRead(id!, volNum);
+      toggleVolumeRead(entry.seriesId, volNum);
     } else {
       // First interaction adds the series and marks this volume
       addOrUpdateSeries(series, volNum);
     }
-  }, [entry, series, id, toggleVolumeRead, addOrUpdateSeries]);
+  }, [entry, series, toggleVolumeRead, addOrUpdateSeries]);
 
   const handleStatus = useCallback((status: ReadingStatus) => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     if (entry) {
-      updateStatus(id!, status);
+      updateStatus(entry.seriesId, status);
     } else if (series) {
       // Track the series without marking any volume read
       addOrUpdateSeries(series);
       updateStatus(series.id, status);
     }
-  }, [entry, series, id, updateStatus, addOrUpdateSeries]);
+  }, [entry, series, updateStatus, addOrUpdateSeries]);
 
   // Stored series data is frozen at add-time; sources (Wikidata, Wikipedia)
   // keep improving. Re-consolidate silently on open and merge — no manual
@@ -294,7 +341,7 @@ export default function SeriesDetailScreen() {
       confirmLabel: 'Retirer',
       destructive: true,
       onConfirm: () => {
-        removeEntry(id!);
+        if (trackingId) removeEntry(trackingId);
         router.back();
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       },
@@ -380,6 +427,9 @@ export default function SeriesDetailScreen() {
       <ScrollView
         ref={scrollRef}
         showsVerticalScrollIndicator={false}
+        // Dès que l'utilisateur fait défiler, on lui rend la main : plus aucun
+        // recalage automatique ne viendra lui reprendre la position.
+        onScrollBeginDrag={() => { userTookOverRef.current = true; }}
         contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
       >
         {/* Hero */}

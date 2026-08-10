@@ -190,7 +190,11 @@ export function catalogueToBDSeries(entry: CatalogueEntry): BDSeries {
     authors: entry.authors,
     coverImage: entry.cover,
     description: entry.desc,
-    totalVolumes: volumes.length > 0 ? volumes[volumes.length - 1].num : 0,
+    // Nombre de tomes RÉELLEMENT connus, pas le plus grand ordinal : 165 des
+    // 573 séries du catalogue ont des trous (Ranma ½ : dernier tome n°52 mais
+    // 15 tomes présents). Annoncer 52 pour 15 cartes rendait la progression
+    // impossible à terminer.
+    totalVolumes: volumes.length,
     volumes,
     type: 'BD',
   };

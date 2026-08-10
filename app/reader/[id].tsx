@@ -461,6 +461,20 @@ export default function ReaderScreen() {
         initialNumToRender={3}
         maxToRenderPerBatch={3}
         updateCellsBatchingPeriod={60}
+        // Les pages ont des hauteurs variables (bandes webtoon), donc pas de
+        // getItemLayout possible : sans ce repli, scrollToIndex vers une page
+        // pas encore rendue lève une invariant React Native — c'est le cas dès
+        // qu'on reprend au-delà des premières pages.
+        onScrollToIndexFailed={({ index, averageItemLength }) => {
+          flatListRef.current?.scrollToOffset({
+            offset: index * (averageItemLength || width),
+            animated: false,
+          });
+          // Une fois la zone rendue, on affine sur la page exacte.
+          setTimeout(() => {
+            flatListRef.current?.scrollToIndex({ index, animated: false });
+          }, 120);
+        }}
       />
 
       <ReaderChrome

@@ -238,7 +238,9 @@ export async function consolidateBDSeries(
     return null;
   }
 
-  const totalVolumes = volumes[volumes.length - 1].num;
+  // Nombre de tomes connus, et non le plus grand ordinal : une série dont les
+  // sources ne remontent que les tomes 1, 2 et 47 compte 3 tomes, pas 47.
+  const totalVolumes = volumes.length;
 
   // Best cover: tome 1 first, then any tome with a cover, then the bundled
   // Wikipedia thumbnail from the catalogue
