@@ -3,6 +3,13 @@ import * as Haptics from '@/lib/utils/haptics';
 import { Image } from 'expo-image';
 import { Directory, Paths } from 'expo-file-system';
 import { PAGE_CACHE_DIRS } from '@/lib/utils/pageCache';
+import {
+  getLockCapability,
+  isLockEnabled,
+  requestUnlock,
+  setLockEnabled as persistLockEnabled,
+  type LockCapability,
+} from '@/lib/utils/appLock';
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import { MotiView } from 'moti';
@@ -130,6 +137,43 @@ export default function SettingsScreen() {
   const setNotifications = useSettingsStore(s => s.setNotifications);
 
   const [cacheCleared, setCacheCleared] = useState(false);
+  const [lockCapability, setLockCapability] = useState<LockCapability | null>(null);
+  const [lockEnabled, setLockEnabled] = useState(false);
+
+  React.useEffect(() => {
+    void (async () => {
+      const [capability, enabled] = await Promise.all([getLockCapability(), isLockEnabled()]);
+      setLockCapability(capability);
+      setLockEnabled(enabled);
+    })();
+  }, []);
+
+  // Activer le verrou demande une authentification immédiate : sans elle, on
+  // pourrait l'activer sans savoir si la biométrie fonctionne et se retrouver
+  // devant un écran qu'on ne sait pas franchir.
+  const handleToggleLock = async (next: boolean) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (!next) {
+      const result = await requestUnlock('Confirmer la désactivation du verrouillage');
+      if (result !== 'success' && result !== 'unavailable') return;
+      await persistLockEnabled(false);
+      setLockEnabled(false);
+      return;
+    }
+    const result = await requestUnlock('Activer le verrouillage de l’application');
+    if (result !== 'success') {
+      if (result === 'unavailable') {
+        Alert.alert(
+          'Verrouillage indisponible',
+          'Configurez une empreinte, un visage ou un code dans les réglages de votre appareil, puis réessayez.',
+        );
+      }
+      return;
+    }
+    await persistLockEnabled(true);
+    setLockEnabled(true);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  };
   const [exportState, setExportState] = useState<'idle' | 'loading' | 'done'>('idle');
   const [importState, setImportState] = useState<'idle' | 'loading'>('idle');
 
@@ -355,6 +399,49 @@ export default function SettingsScreen() {
                 value={notifications}
                 onChange={v => { void handleToggleNotifications(v); }}
               />
+            </View>
+          </Panel>
+        </MotiView>
+
+        {/* ── SÉCURITÉ ── */}
+        <MotiView
+          from={{ opacity: 0, translateY: 12 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 26, delay: 150 }}
+        >
+          <SectionHeader icon="lock-closed" title="Sécurité" />
+          <Panel variant="paper" bordered style={styles.card}>
+            <View style={styles.cardInner}>
+              {lockCapability?.available ? (
+                <ToggleRow
+                  icon="finger-print"
+                  label="Verrouiller l’application"
+                  sublabel={`Demander ${lockCapability.label.toLowerCase()} à l’ouverture`}
+                  value={lockEnabled}
+                  onChange={v => { void handleToggleLock(v); }}
+                />
+              ) : (
+                <View style={styles.settingRow}>
+                  <View style={styles.settingIconWrap}>
+                    <Ionicons name="lock-open" size={18} color={COLORS.textInkMuted} />
+                  </View>
+                  <View style={styles.settingTexts}>
+                    <Typography variant="subheading" color={COLORS.textInkMuted}>
+                      Verrouillage indisponible
+                    </Typography>
+                    <Typography variant="label" color={COLORS.textInkMuted}>
+                      {lockCapability && lockCapability.hasHardware
+                        ? 'Configurez une empreinte, un visage ou un code dans les réglages de votre appareil.'
+                        : 'Cet appareil ne dispose pas de déverrouillage biométrique.'}
+                    </Typography>
+                  </View>
+                </View>
+              )}
+              <Typography variant="caption" color={COLORS.textInkFaint} style={styles.lockNote}>
+                Le déverrouillage est géré par votre appareil : l’app ne stocke ni empreinte ni
+                code. Cela protège l’accès depuis un téléphone déverrouillé, pas une sauvegarde
+                extraite de l’appareil.
+              </Typography>
             </View>
           </Panel>
         </MotiView>
@@ -628,6 +715,7 @@ const styles = themedStyles(() => StyleSheet.create({
   },
   settingTexts: { flex: 1, gap: 2 },
   divider: { height: BORDERS.hair, backgroundColor: COLORS.line },
+  lockNote: { lineHeight: 15, marginTop: SPACING.sm },
 
   langToggle: {
     flexDirection: 'row',

@@ -12,9 +12,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.mangatrack.app",
       "infoPlist": {
-        "NSAppTransportSecurity": {
-          "NSAllowsArbitraryLoads": true
-        }
+        "NSFaceIDUsageDescription": "Face ID est utilisé pour déverrouiller votre bibliothèque de lecture."
       }
     },
     "android": {
@@ -25,7 +23,8 @@
       "package": "com.mangatrack.app",
       "permissions": [
         "INTERNET"
-      ]
+      ],
+      "usesCleartextTraffic": false
     },
     "web": {
       "bundler": "metro",
@@ -39,7 +38,14 @@
           "fonts": []
         }
       ],
-      "expo-background-task"
+      "expo-background-task",
+      "expo-secure-store",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Face ID est utilisé pour déverrouiller votre bibliothèque de lecture."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

@@ -20,6 +20,7 @@ import {
   unregisterBackgroundCheck,
 } from '@/lib/utils/notifications';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { AppLockGate } from '@/components/AppLockGate';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -114,6 +115,10 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
           <StatusBar style={THEMES[theme].mode === 'dark' ? 'light' : 'dark'} />
+          {/* Le verrou enveloppe la navigation : aucun écran n'est atteignable
+              tant que l'identité n'est pas confirmée, et le contenu est masqué
+              dans l'aperçu système des applications. */}
+          <AppLockGate>
           <Stack
             screenOptions={{
               headerShown: false,
@@ -152,6 +157,7 @@ export default function RootLayout() {
             />
             <Stack.Screen name="+not-found" />
           </Stack>
+          </AppLockGate>
         </QueryClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
