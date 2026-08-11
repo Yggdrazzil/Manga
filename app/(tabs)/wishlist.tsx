@@ -322,7 +322,14 @@ export default function BDTrackerScreen() {
         </View>
       </View>
 
-      {activeTab === 'voir' && (
+      {/* Panneaux superposés et toujours montés : les démonter perdait la
+          position de défilement à chaque bascule de sous-onglet. */}
+      <View style={styles.paneStack}>
+
+      <View
+        style={[styles.tabPane, styles.paneLayer, activeTab === 'voir' && styles.paneActive]}
+        pointerEvents={activeTab === 'voir' ? 'auto' : 'none'}
+      >
         <View style={styles.tabPane}>
           {alireSections.length === 0 ? (
             <ScrollView contentContainerStyle={[styles.emptyWrap, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom }]}>
@@ -347,9 +354,12 @@ export default function BDTrackerScreen() {
             />
           )}
         </View>
-      )}
+      </View>
 
-      {activeTab === 'venir' && (
+      <View
+        style={[styles.tabPane, styles.paneLayer, activeTab === 'venir' && styles.paneActive]}
+        pointerEvents={activeTab === 'venir' ? 'auto' : 'none'}
+      >
         <View style={styles.tabPane}>
           {venirSections.length === 0 ? (
             <ScrollView contentContainerStyle={[styles.emptyWrap, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom }]}>
@@ -377,7 +387,8 @@ export default function BDTrackerScreen() {
             />
           )}
         </View>
-      )}
+      </View>
+      </View>
     </View>
   );
 }
@@ -420,6 +431,9 @@ const styles = themedStyles(() => StyleSheet.create({
   listContent: { paddingTop: SPACING.md },
   // TV Time-style contrast: raised cards float on a sunken pane
   tabPane: { flex: 1, backgroundColor: COLORS.paperSunken },
+  paneStack: { flex: 1, position: 'relative' },
+  paneLayer: { ...StyleSheet.absoluteFillObject },
+  paneActive: { zIndex: 1 },
 
   tvCard: {
     flexDirection: 'row', alignItems: 'center',

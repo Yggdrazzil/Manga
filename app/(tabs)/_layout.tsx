@@ -8,6 +8,10 @@ export default function TabsLayout() {
       tabBar={props => <CustomTabBar {...props} />}
       screenOptions={{
         headerShown: false,
+        // Sans gel, l'onglet Profil (non virtualisé) reste abonné aux stores et
+        // recalcule ses agrégats hors écran à chaque chapitre coché — sur le
+        // même thread que la transition en cours.
+        freezeOnBlur: true,
       }}
     >
       <Tabs.Screen name="index" options={{ title: 'Manga & Webtoon' }} />

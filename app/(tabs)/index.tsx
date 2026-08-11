@@ -268,11 +268,16 @@ export default function MangaTrackerScreen() {
   const [activeTab, setActiveTab] = useState<'voir' | 'venir'>('voir');
   const [refreshing, setRefreshing] = useState(false);
 
-  // Tab content slides in from the side of the tab being entered
-  const tabEnter = (tab: 'voir' | 'venir') =>
-    reduceMotion
-      ? { opacity: 1, translateX: 0 }
-      : { opacity: 0, translateX: tab === 'voir' ? -16 : 16 };
+  // Panneaux superposés : on anime l'opacité (et un léger glissement) au lieu
+  // de monter/démonter. `reduceMotion` neutralise le déplacement.
+  const paneAnim = (tab: 'voir' | 'venir') => {
+    const active = activeTab === tab;
+    if (reduceMotion) return { opacity: active ? 1 : 0, translateX: 0 };
+    return { opacity: active ? 1 : 0, translateX: active ? 0 : (tab === 'voir' ? -16 : 16) };
+  };
+  const paneTransition = reduceMotion
+    ? ({ type: 'timing', duration: 0 } as const)
+    : ({ type: 'spring', stiffness: 400, damping: 32 } as const);
 
   const entries = useLibraryStore(s => s.entries);
   const scanLang = useSettingsStore(s => s.scanLang);
@@ -341,6 +346,11 @@ export default function MangaTrackerScreen() {
     queryFn: () => getChaptersForLibrary(mangadexIds),
     enabled: mangadexIds.length > 0,
     staleTime: 1000 * 60 * 15,
+    // La clé change dès qu'une série entre dans la bibliothèque. Sans ça,
+    // ajouter une œuvre depuis l'onglet SORTIES faisait disparaître tout le
+    // fil derrière un spinner, alors que les sorties MANGA Plus étaient
+    // toujours en cache.
+    placeholderData: prev => prev,
   });
 
   const {
@@ -442,7 +452,8 @@ export default function MangaTrackerScreen() {
   };
 
   const isEmpty = alireSections.length === 0;
-  const sortiesLoading = releasesLoading || libraryLoading;
+  // Ne montrer le spinner que si l'écran serait vide de toute façon.
+  const sortiesLoading = (releasesLoading || libraryLoading) && sorties.length === 0;
   const sortiesEmpty = sorties.length === 0 && !sortiesLoading;
   // Le fil global peut échouer alors que les séries suivies s'affichent : on
   // ne montre l'erreur que si l'écran serait vide autrement.
@@ -487,14 +498,19 @@ export default function MangaTrackerScreen() {
         </View>
       </View>
 
+      {/* Les deux panneaux restent MONTÉS et se superposent : les démonter à
+          chaque bascule perdait la position de défilement et rejouait les
+          animations d'entrée. Les listes étant virtualisées, le coût est
+          marginal. */}
+      <View style={styles.paneStack}>
+
       {/* À LIRE */}
-      {activeTab === 'voir' && (
-        <MotiView
+      <MotiView
           key="voir"
-          from={tabEnter('voir')}
-          animate={{ opacity: 1, translateX: 0 }}
-          transition={{ type: 'spring', stiffness: 400, damping: 32 }}
-          style={styles.tabPane}
+          animate={paneAnim('voir')}
+          transition={paneTransition}
+          pointerEvents={activeTab === 'voir' ? 'auto' : 'none'}
+          style={[styles.tabPane, styles.paneLayer, activeTab === 'voir' && styles.paneActive]}
         >
         {isEmpty ? (
           <ScrollView
@@ -523,16 +539,14 @@ export default function MangaTrackerScreen() {
           />
         )}
         </MotiView>
-      )}
 
       {/* SORTIES — séries suivies + fil global MANGA Plus */}
-      {activeTab === 'venir' && (
-        <MotiView
+      <MotiView
           key="venir"
-          from={tabEnter('venir')}
-          animate={{ opacity: 1, translateX: 0 }}
-          transition={{ type: 'spring', stiffness: 400, damping: 32 }}
-          style={styles.tabPane}
+          animate={paneAnim('venir')}
+          transition={paneTransition}
+          pointerEvents={activeTab === 'venir' ? 'auto' : 'none'}
+          style={[styles.tabPane, styles.paneLayer, activeTab === 'venir' && styles.paneActive]}
         >
         {sortiesLoading ? (
           <View style={styles.loadingWrap}>
@@ -582,7 +596,7 @@ export default function MangaTrackerScreen() {
           />
         )}
         </MotiView>
-      )}
+      </View>
     </View>
   );
 }
@@ -645,6 +659,10 @@ const styles = themedStyles(() => StyleSheet.create({
   },
   // TV Time-style contrast: raised cards float on a sunken pane
   tabPane: { flex: 1, backgroundColor: COLORS.paperSunken },
+  paneStack: { flex: 1, position: 'relative' },
+  paneLayer: { ...StyleSheet.absoluteFillObject },
+  // Le panneau actif passe devant pour recevoir les gestes.
+  paneActive: { zIndex: 1 },
 
   // TV Time card
   tvCard: {

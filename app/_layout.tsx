@@ -8,7 +8,7 @@ import * as Notifications from 'expo-notifications';
 import { router, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AppState, Platform, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -68,11 +68,17 @@ export default function RootLayout() {
 
   const ready = (fontsLoaded || !!fontError) && settingsHydrated;
 
+  // Le verrou consulte le coffre sécurisé avant de savoir s'il doit s'afficher.
+  // Masquer le splash avant cette réponse intercalait un rectangle plein écran
+  // — très visible sur les thèmes clairs.
+  const [lockResolved, setLockResolved] = useState(false);
+  const handleLockResolved = useCallback(() => setLockResolved(true), []);
+
   useEffect(() => {
-    if (ready) {
+    if (ready && lockResolved) {
       SplashScreen.hideAsync().catch(() => {});
     }
-  }, [ready]);
+  }, [ready, lockResolved]);
 
   // New-chapter notifications: check at launch and on each return to
   // foreground (throttled internally), keep the background task in sync with
@@ -123,7 +129,7 @@ export default function RootLayout() {
           {/* Le verrou enveloppe la navigation : aucun écran n'est atteignable
               tant que l'identité n'est pas confirmée, et le contenu est masqué
               dans l'aperçu système des applications. */}
-          <AppLockGate>
+          <AppLockGate onResolved={handleLockResolved}>
           <Stack
             screenOptions={{
               headerShown: false,
@@ -143,6 +149,10 @@ export default function RootLayout() {
               name="reader/[id]"
               options={{
                 headerShown: false,
+                // Le lecteur est ouvert DEPUIS la fiche, elle-même présentée en
+                // modal : une présentation 'card' l'empilait dans le modal, donc
+                // en page-sheet — barre d'état non masquable et insets à zéro.
+                presentation: 'fullScreenModal',
                 animation: 'slide_from_bottom',
               }}
             />

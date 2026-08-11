@@ -24,7 +24,16 @@ import {
  * - Masquer le contenu pendant que l'app est en arrière-plan, pour que la
  *   vignette de l'aperçu des applications ne dévoile pas la bibliothèque.
  */
-export function AppLockGate({ children }: { children: React.ReactNode }) {
+export function AppLockGate({
+  children,
+  onResolved,
+}: {
+  children: React.ReactNode;
+  /** Appelé une fois qu'on sait si le verrou est actif — le splash ne doit pas
+      disparaître avant, sinon un voile plein écran s'intercale le temps de
+      l'accès au coffre sécurisé. */
+  onResolved?: () => void;
+}) {
   const reduceMotion = useReducedMotion();
   // null = on ne sait pas encore si le verrou est actif
   const [locked, setLocked] = useState<boolean | null>(null);
@@ -32,6 +41,9 @@ export function AppLockGate({ children }: { children: React.ReactNode }) {
   const [lastResult, setLastResult] = useState<LockResult | null>(null);
   const [obscured, setObscured] = useState(false);
   const backgroundedAt = useRef<number | null>(null);
+  // Ref plutôt que dépendance : le callback ne doit pas relancer l'effet.
+  const onResolvedRef = useRef(onResolved);
+  useEffect(() => { onResolvedRef.current = onResolved; });
 
   const unlock = useCallback(async () => {
     setBusy(true);
@@ -50,6 +62,7 @@ export function AppLockGate({ children }: { children: React.ReactNode }) {
       const enabled = await isLockEnabled();
       if (cancelled) return;
       setLocked(enabled);
+      onResolvedRef.current?.();
       if (enabled) void unlock();
     })();
     return () => { cancelled = true; };
