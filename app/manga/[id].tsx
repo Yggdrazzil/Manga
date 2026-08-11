@@ -33,6 +33,7 @@ import { useSettingsStore } from '@/lib/store/settings';
 import { confirmAction } from '@/lib/utils/confirm';
 import { Panel } from '@/components/ui/Panel';
 import { Halftone } from '@/components/ui/Halftone';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { StarRating } from '@/components/ui/StarRating';
 import { TypeBadge } from '@/components/ui/TypeBadge';
 import { Typography } from '@/components/ui/Typography';
@@ -205,17 +206,34 @@ function TrackingPanel({ manga, totalChapters, readCount }: {
   );
 }
 
+/**
+ * Squelette calqué sur la mise en page réelle plutôt qu'un spinner centré.
+ *
+ * Les fiches AniList et Webtoon s'affichent instantanément grâce au catalogue
+ * embarqué ; MangaDex, Comick, MANGA Plus et Jikan n'ont pas d'équivalent local
+ * et tombaient sur une page vide avec un spinner rouge le temps de l'aller-retour
+ * réseau. Le hero et les marges existent déjà, donc le passage au contenu se
+ * fait sans reflow.
+ */
 function LoadingScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={styles.container}>
       <Pressable style={[styles.backBtn, { top: insets.top + 8 }]} onPress={() => router.back()}>
         <View style={styles.backBtnInner}>
           <Ionicons name="chevron-down" size={22} color={COLORS.onInk} />
         </View>
       </Pressable>
-      <ActivityIndicator color={COLORS.accentRed} size="large" style={{ flex: 1 }} />
+      <View style={styles.hero} />
+      <View style={styles.skeletonBody}>
+        <Skeleton width="60%" height={26} />
+        <Skeleton width="35%" height={14} />
+        <Skeleton height={92} borderRadius={RADIUS.lg} />
+        <Skeleton height={16} />
+        <Skeleton height={16} />
+        <Skeleton width="70%" height={16} />
+      </View>
     </View>
   );
 }
@@ -928,6 +946,7 @@ const styles = themedStyles(() => StyleSheet.create({
     paddingVertical: SPACING.xl * 2,
   },
   chaptersPendingText: { textAlign: 'center' },
+  skeletonBody: { padding: SPACING.base, gap: SPACING.md },
   infoCard: { borderRadius: RADIUS.lg },
   infoGrid: {
     flexDirection: 'row',

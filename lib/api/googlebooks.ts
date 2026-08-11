@@ -8,7 +8,12 @@
 
 const BASE = 'https://www.googleapis.com/books/v1/volumes';
 
-// Inlined at bundle time by Expo's Metro config.
+// Inlined at bundle time by Expo's Metro config, so it is EXTRACTABLE from any
+// installed copy of the app — c'est inhérent à une clé embarquée côté client,
+// pas un défaut de ce code. Si vous en configurez une, restreignez-la dans la
+// console Google Cloud (API « Books » uniquement, quota journalier plafonné) :
+// sans restriction, quiconque extrait la clé consomme votre quota, ou votre
+// facture si la facturation est activée. L'app fonctionne sans clé.
 // Must be prefixed EXPO_PUBLIC_ to be available in the JS bundle.
 const API_KEY = process.env.EXPO_PUBLIC_GOOGLE_BOOKS_KEY ?? '';
 

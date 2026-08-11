@@ -22,6 +22,7 @@ import { getWikipediaSummaryByTitle } from '@/lib/api/wikipedia';
 import { useComicsStore } from '@/lib/store/comics';
 import { confirmAction } from '@/lib/utils/confirm';
 import { Panel } from '@/components/ui/Panel';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { StarRating } from '@/components/ui/StarRating';
 import { Typography } from '@/components/ui/Typography';
 import { BORDERS, COLORS, FONTS, RADIUS, SPACING, STATUS_LABELS, inkScrim, themedStyles } from '@/constants/theme';
@@ -385,7 +386,14 @@ export default function SeriesDetailScreen() {
             <Ionicons name="chevron-down" size={22} color={COLORS.onInk} />
           </View>
         </Pressable>
-        <ActivityIndicator color={COLORS.accentRed} size="large" style={{ flex: 1 }} />
+        <View style={styles.hero} />
+        <View style={styles.skeletonBody}>
+          <Skeleton width="60%" height={26} />
+          <Skeleton width="35%" height={14} />
+          <Skeleton height={92} borderRadius={RADIUS.lg} />
+          <Skeleton height={16} />
+          <Skeleton width="70%" height={16} />
+        </View>
       </View>
     );
   }
@@ -748,6 +756,7 @@ const styles = themedStyles(() => StyleSheet.create({
 
   // Les cartes de tome sont des éléments de FlatList : elles portent elles-mêmes
   // la marge horizontale que leur donnait auparavant le conteneur `content`.
+  skeletonBody: { padding: SPACING.base, gap: SPACING.md },
   volumeRow: { paddingHorizontal: SPACING.base },
   volumeSeparator: { height: SPACING.sm },
 
