@@ -95,10 +95,29 @@ export const useComicsStore = create<ComicsState>()(
           entries: state.entries.map(e => {
             if (e.seriesId !== series.id) return e;
 
+            // Distinguer une panne d'une réparation.
+            //
+            // Un stock pollué (ancienne exécution ayant ajouté des tomes
+            // positionnels en plus des vrais) est toujours PLUS gros que la
+            // vérité : comparer les tailles brutes ne réparerait donc jamais
+            // rien. On raisonne en proportion — un effondrement (3 tomes sur
+            // 24) trahit des sources tombées et déclenche l'union protectrice,
+            // une baisse légère est traitée comme une correction et le frais
+            // fait autorité sur la liste.
+            // Dans tous les cas, un tome que l'utilisateur a coché est conservé.
+            const HEALTHY_RATIO = 0.6;
+            const healthy =
+              series.volumes.length >= Math.ceil(e.series.volumes.length * HEALTHY_RATIO);
+            const fresh = new Set(series.volumes.map(v => v.num));
+            const ticked = new Set(e.readVolumes);
+
             // Union par numéro de tome : l'ancien sert de base, le frais
             // complète champ par champ sans jamais écraser par undefined.
             const byNum = new Map<number, BDVolume>();
-            for (const old of e.series.volumes) byNum.set(old.num, old);
+            for (const old of e.series.volumes) {
+              if (healthy && !fresh.has(old.num) && !ticked.has(old.num)) continue;
+              byNum.set(old.num, old);
+            }
             for (const v of series.volumes) {
               const old = byNum.get(v.num);
               byNum.set(v.num, old

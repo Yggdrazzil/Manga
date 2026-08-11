@@ -92,3 +92,44 @@ describe('refreshSeries — un rafraîchissement ne doit jamais appauvrir les do
     expect(useComicsStore.getState().getEntry('thorgal')!.series.title).toBe('Thorgal');
   });
 });
+
+describe('refreshSeries — auto-réparation sans perte', () => {
+  it('élimine les tomes parasites quand le rafraîchissement est au moins aussi riche', () => {
+    // Un ancien run avait ajouté des tomes positionnels en plus des vrais.
+    const store = useComicsStore.getState();
+    const polluted = series();
+    polluted.volumes = [
+      ...series().volumes,
+      { num: 90, title: 'parasite', authors: [] },
+      { num: 91, title: 'parasite', authors: [] },
+    ];
+    store.addOrUpdateSeries(polluted);
+    // Le pipeline renvoie désormais les 3 vrais tomes.
+    store.refreshSeries(series());
+
+    const entry = useComicsStore.getState().getEntry('thorgal')!;
+    expect(entry.series.volumes.map(v => v.num)).toEqual([1, 2, 3]);
+    expect(entry.series.totalVolumes).toBe(3);
+  });
+
+  it('ne retire jamais un tome que l’utilisateur a coché', () => {
+    const store = useComicsStore.getState();
+    const polluted = series();
+    polluted.volumes = [...series().volumes, { num: 90, title: 'douteux', authors: [] }];
+    store.addOrUpdateSeries(polluted, 90);
+    store.refreshSeries(series());
+
+    const entry = useComicsStore.getState().getEntry('thorgal')!;
+    expect(entry.series.volumes.map(v => v.num)).toContain(90);
+    expect(entry.readVolumes).toContain(90);
+  });
+
+  it('conserve tout quand le rafraîchissement est plus pauvre (réseau dégradé)', () => {
+    const store = useComicsStore.getState();
+    store.addOrUpdateSeries(series());
+    store.refreshSeries(series({ volumes: [series().volumes[0]] }));
+
+    const entry = useComicsStore.getState().getEntry('thorgal')!;
+    expect(entry.series.volumes.map(v => v.num)).toEqual([1, 2, 3]);
+  });
+});
