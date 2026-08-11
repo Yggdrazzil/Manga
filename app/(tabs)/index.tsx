@@ -19,6 +19,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getChaptersForLibrary } from '@/lib/api/mangadex';
 import { getDailyReleases } from '@/lib/api/mangaplus';
 import { useLibraryStore } from '@/lib/store/library';
+import { useSettingsStore } from '@/lib/store/settings';
 import { Typography } from '@/components/ui/Typography';
 import { BORDERS, COLORS, FONTS, RADIUS, SPACING, themedStyles } from '@/constants/theme';
 import type { LibraryEntry, MediaSource } from '@/lib/types';
@@ -274,6 +275,7 @@ export default function MangaTrackerScreen() {
       : { opacity: 0, translateX: tab === 'voir' ? -16 : 16 };
 
   const entries = useLibraryStore(s => s.entries);
+  const scanLang = useSettingsStore(s => s.scanLang);
   // TV Time grouping: active reads, stale reads (> 1 month), never started
   const alireSections = useMemo(() => {
     const active: LibraryEntry[] = [];
@@ -348,8 +350,10 @@ export default function MangaTrackerScreen() {
     error: releasesErrorObj,
     refetch: refetchReleases,
   } = useQuery({
-    queryKey: ['mangaplus-daily-releases'],
-    queryFn: getDailyReleases,
+    queryKey: ['mangaplus-daily-releases', scanLang],
+    // Encapsulé : TanStack passe son contexte de requête en premier argument,
+    // qui serait pris pour la langue.
+    queryFn: () => getDailyReleases(scanLang),
     staleTime: 1000 * 60 * 30,
     retry: 1,
   });

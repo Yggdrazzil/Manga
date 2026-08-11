@@ -395,6 +395,17 @@ export function ChapterList({ chapters, entryMangaId, source, pagesSource, manga
                           {dateStr}{dateStr && ch.pages > 0 ? ' · ' : ''}{ch.pages > 0 ? `${ch.pages}p` : ''}
                         </Typography>
                       )}
+                      {/* La langue choisie sert de préférence, pas de filtre : quand
+                          la VF est incomplète, le flux complète avec l'anglais. Le
+                          taire donnait l'impression de lire en français des
+                          chapitres qui ne l'étaient pas. */}
+                      {activeLang && ch.translatedLanguage && ch.translatedLanguage !== activeLang && (
+                        <View style={styles.langTag}>
+                          <Typography variant="caption" color={COLORS.textInkMuted} style={styles.langTagText}>
+                            {ch.translatedLanguage.toUpperCase()}
+                          </Typography>
+                        </View>
+                      )}
                       {readingPositions[ch.id] != null && !read && (
                         <View style={styles.resumeBadge}>
                           <Ionicons name="bookmark" size={8} color={COLORS.accentRed} />
@@ -697,6 +708,15 @@ const styles = themedStyles(() => StyleSheet.create({
     borderColor: `${COLORS.accentRed}44`,
   },
   resumeBadgeText: { fontSize: 9, letterSpacing: 0.3, textTransform: 'none', lineHeight: 12 },
+  langTag: {
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: RADIUS.sm,
+    borderWidth: BORDERS.hair,
+    borderColor: COLORS.line,
+    backgroundColor: COLORS.paperSunken,
+  },
+  langTagText: { fontSize: 8, letterSpacing: 0.6, lineHeight: 11 },
   checkCircle: { width: 36, alignItems: 'center', justifyContent: 'center' },
   readChip: {
     width: 36,

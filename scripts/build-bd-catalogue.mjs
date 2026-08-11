@@ -254,6 +254,14 @@ console.log(`  ${enriched}/${withWiki.length} series enriched with synopsis/cove
 // are carried over as-is, and per-volume enrichment (ds/cv/w harvested by
 // enrich-bd-volumes.mjs, which accumulates Google Books results across weekly
 // runs) is preserved on rebuilt series.
+function normalizeAlbumKey(title) {
+  return String(title)
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '');
+}
+
 let finalSeries = series;
 try {
   const previous = JSON.parse(readFileSync(OUT, 'utf-8'));
@@ -267,6 +275,15 @@ try {
     for (const v of s.volumes) {
       const pv = prevVols.get(v.n);
       if (!pv) continue;
+      // Le numéro seul ne suffit pas à identifier un album : Wikidata
+      // renumérote parfois une série (insertion d'un hors-série, correction
+      // d'un décalage, réindexation d'une intégrale). Recopier le résumé du
+      // « tome 5 » précédent sur le nouveau tome 5 collerait le texte du
+      // mauvais album. On n'hérite que si le titre concorde — ou si l'un des
+      // deux n'a pas de titre, auquel cas il n'y a rien qui contredise.
+      const sameAlbum =
+        !pv.s || !v.s || normalizeAlbumKey(pv.s) === normalizeAlbumKey(v.s);
+      if (!sameAlbum) continue;
       if (pv.ds && !v.ds) { v.ds = pv.ds; preserved++; }
       if (pv.cv && !v.cv) v.cv = pv.cv;
       if (pv.w && !v.w) v.w = pv.w;

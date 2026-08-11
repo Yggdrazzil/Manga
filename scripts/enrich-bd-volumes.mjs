@@ -79,6 +79,16 @@ async function fetchJson(url, attempt = 0) {
       signal: AbortSignal.timeout(15_000),
     });
     if (res.status === 429 || res.status === 503) throw new Error(`HTTP ${res.status}`);
+    // Un blocage explicite (403/401) n'est pas un « rien trouvé » : renvoyer
+    // null en silence faisait rendre zéro à la passe couverture tout en
+    // laissant la CI verte, comme si les sources n'avaient rien à offrir.
+    if (res.status === 403 || res.status === 401) {
+      blockedRequests++;
+      if (blockedRequests <= 5) {
+        console.warn(`  Bloqué (${res.status}) : ${url.split('?')[0]}`);
+      }
+      return null;
+    }
     if (!res.ok) return null;
     return await res.json();
   } catch (e) {
@@ -89,6 +99,11 @@ async function fetchJson(url, attempt = 0) {
     return null;
   }
 }
+
+// Compteur global des refus explicites — un run massivement bloqué doit se
+// voir dans les logs et faire échouer la CI plutôt que de committer un
+// catalogue appauvri.
+let blockedRequests = 0;
 
 function trim(s, max) {
   const clean = s.replace(/\s+/g, ' ').trim();
@@ -184,9 +199,11 @@ if (withSynopsis > 0 && doomed.length / withSynopsis > PURGE_RATIO_MAX) {
 for (const v of doomed) {
   delete v.ds;
   // L'article pointé est la source du mauvais résumé : on l'oublie aussi,
-  // sinon la passe A le resservirait immédiatement.
+  // sinon la passe A le resservirait immédiatement. En revanche on GARDE la
+  // couverture : elle vient d'Open Library, pas de l'article incriminé, et
+  // elle n'est pas toujours régénérable pour les séries reportées d'un build
+  // précédent.
   delete v.w;
-  delete v.cv;
 }
 if (doomed.length > 0) console.log(`Purge : ${doomed.length} résumés erronés supprimés.`);
 
@@ -360,4 +377,14 @@ for (let i = 0; i < coverTodo.length; i += COVER_CONCURRENCY) {
 writeFileSync(FILE, JSON.stringify(catalogue));
 const size = (JSON.stringify(catalogue).length / 1024 / 1024).toFixed(1);
 console.log(`Done: covers=${stats.covers}`);
+if (blockedRequests > 0) {
+  console.warn(`${blockedRequests} requêtes refusées (403/401) — résultats partiels.`);
+}
+// Une passe couverture qui ne rend rien ALORS QUE les sources nous bloquent
+// signale un run inexploitable : mieux vaut faire échouer la CI que committer
+// un catalogue appauvri.
+if (blockedRequests > 50 && stats.covers === 0) {
+  console.error('Sources massivement bloquées et aucune couverture récupérée — abandon.');
+  process.exit(1);
+}
 console.log(`Written ${FILE} (${size} MB)`);

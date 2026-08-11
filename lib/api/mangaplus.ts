@@ -377,12 +377,16 @@ export function parseDailyReleases(data: MPResponse): MangaPlusRelease[] {
  * Today's MangaPlus chapter releases (published daily ~17:00 Paris time).
  * Global feed — every updated series, not just the user's library.
  */
-export async function getDailyReleases(): Promise<MangaPlusRelease[]> {
+export async function getDailyReleases(lang: 'fr' | 'en' = 'fr'): Promise<MangaPlusRelease[]> {
   // On laisse remonter l'erreur : l'écran doit pouvoir distinguer « MANGA Plus
   // est injoignable » de « aucune sortie aujourd'hui ». Un catch qui renvoyait
   // [] rendait l'état d'erreur inatteignable et affichait « revenez plus tard »
   // sur une panne réseau.
-  const data = await fetchMP<MPResponse>('/web/web_homeV4', { lang: 'eng' });
+  // La langue était codée en dur sur l'anglais alors que l'app est en français
+  // et que MANGA Plus publie un catalogue français.
+  const data = await fetchMP<MPResponse>('/web/web_homeV4', {
+    lang: lang === 'fr' ? 'fra' : 'eng',
+  });
 
   // L'API répond 200 avec un corps d'erreur (ex. « Account Banned » quand
   // l'adresse IP est bloquée) — sans ça, on afficherait une liste vide.
