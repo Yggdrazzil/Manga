@@ -231,6 +231,18 @@ export function searchLocalWebtoons(query: string, limit = 8): Manga[] {
     .map(({ e }) => toWebtoonManga(e));
 }
 
+/**
+ * Matérialise les catalogues et construit les index HORS du chemin de rendu.
+ *
+ * Sans ça, la toute première recherche de la session payait, en synchrone dans
+ * le render, le require() des JSON puis la construction des index : le champ de
+ * saisie se figeait une demi-seconde juste après le debounce.
+ */
+export function warmCatalogues(): void {
+  mangaIndex();
+  webtoonIndex();
+}
+
 /** AniList-id lookup for instant detail-screen first paint. */
 export function findLocalManga(anilistId: string): Manga | null {
   const id = parseInt(anilistId, 10);

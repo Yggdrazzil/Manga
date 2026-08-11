@@ -11,6 +11,7 @@ import { useReducedMotion } from 'react-native-reanimated';
 import { useDownloadsStore } from '@/lib/store/downloads';
 import { downloadChapter, deleteChapterDownload } from '@/lib/utils/downloads';
 import { useLibraryStore } from '@/lib/store/library';
+import { useReadingPositionsStore } from '@/lib/store/readingPositions';
 import { Panel } from '@/components/ui/Panel';
 import { Typography } from '@/components/ui/Typography';
 import { ChapterDetailSheet } from './ChapterDetailSheet';
@@ -76,7 +77,7 @@ export function ChapterList({ chapters, entryMangaId, source, pagesSource, manga
   const toggleChapterRead = useLibraryStore(s => s.toggleChapterRead);
   const markVolumeRead = useLibraryStore(s => s.markVolumeRead);
   const unmarkAllRead = useLibraryStore(s => s.unmarkAllRead);
-  const readingPositions = useLibraryStore(s => s.readingPositions);
+  const readingPositions = useReadingPositionsStore(s => s.positions);
   const downloads = useDownloadsStore(s => s.downloads);
   const downloadProgress = useDownloadsStore(s => s.progress);
 
@@ -86,12 +87,19 @@ export function ChapterList({ chapters, entryMangaId, source, pagesSource, manga
   // remote-URL download path doesn't apply, so the offline button is hidden.
   const canDownload = feedSource !== 'mangaplus' && feedSource !== 'webtoon';
 
+  // Set plutôt qu'Array.includes : isChapterRead est appelé pour CHAQUE
+  // chapitre depuis totalRead, focusChapter et le rendu de chaque ligne. Sur
+  // une série de 1100 chapitres dont 900 lus, la recherche linéaire donnait un
+  // O(n×m) qui gelait l'interface à chaque case cochée.
+  const readIdSet = useMemo(
+    () => new Set(entry?.readChapterIds ?? []),
+    [entry?.readChapterIds],
+  );
+
   const isChapterRead = (ch: MangaChapter): boolean => {
+    if (readIdSet.has(ch.id)) return true;
     const num = parseFloat(ch.chapter);
-    const ids = entry?.readChapterIds ?? [];
-    if (ids.includes(ch.id)) return true;
-    if (Number.isFinite(num) && num <= (entry?.progress ?? 0)) return true;
-    return false;
+    return Number.isFinite(num) && num <= (entry?.progress ?? 0);
   };
 
   const openReader = (ch: MangaChapter) => {

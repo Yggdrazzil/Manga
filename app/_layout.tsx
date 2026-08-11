@@ -28,6 +28,11 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 1000 * 60 * 5,
+      // Par défaut TanStack purge un cache inactif au bout de 5 min : rouvrir
+      // une fiche relançait alors toute la cascade de requêtes (et, pour une
+      // BD, six appels réseau plus une réécriture du store). Trente minutes
+      // rendent le retour sur une œuvre déjà consultée instantané.
+      gcTime: 1000 * 60 * 30,
       retry: 2,
       retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
     },

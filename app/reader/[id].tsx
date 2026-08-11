@@ -25,6 +25,7 @@ import { getChapterPages as getWTChapterPages } from '@/lib/api/webtoon';
 import { useDownloadsStore } from '@/lib/store/downloads';
 import { getLocalPages } from '@/lib/utils/downloads';
 import { useLibraryStore } from '@/lib/store/library';
+import { useReadingPositionsStore } from '@/lib/store/readingPositions';
 import { useSettingsStore } from '@/lib/store/settings';
 import { chapterNumber, compareChapters } from '@/lib/utils/chapter';
 import { Typography } from '@/components/ui/Typography';
@@ -360,8 +361,8 @@ export default function ReaderScreen() {
   const savePositionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const chapterIdRef = useRef(id);
   const markChapterRead = useLibraryStore(s => s.markChapterRead);
-  const getReadingPosition = useLibraryStore(s => s.getReadingPosition);
-  const clearReadingPosition = useLibraryStore(s => s.clearReadingPosition);
+  const getReadingPosition = useReadingPositionsStore(s => s.getPosition);
+  const clearReadingPosition = useReadingPositionsStore(s => s.clearPosition);
   const dataSaver = useSettingsStore(s => s.dataSaver);
 
   // Downloaded chapters read from disk — works offline, immune to MangaDex
@@ -463,7 +464,7 @@ export default function ReaderScreen() {
       if (page > 1) {
         savePositionTimer.current = setTimeout(() => {
           const cid = chapterIdRef.current;
-          if (cid) useLibraryStore.getState().saveReadingPosition(cid, page);
+          if (cid) useReadingPositionsStore.getState().savePosition(cid, page);
         }, 1500);
       }
     },

@@ -8,7 +8,6 @@ interface LibraryState {
   entries: LibraryEntry[];
   avatar?: string;
   banner?: string;
-  readingPositions: Record<string, number>; // chapterId → last page (1-based)
   setAvatar: (uri: string) => void;
   setBanner: (uri: string) => void;
   addEntry: (manga: Manga, status: ReadingStatus) => void;
@@ -26,9 +25,6 @@ interface LibraryState {
   updateChapterNote: (mangaId: string, source: string, chapterId: string, note: Partial<ChapterNote>) => void;
   markVolumeRead: (mangaId: string, source: string, chapters: Array<{ id: string; num: number }>) => void;
   unmarkAllRead: (mangaId: string, source: string) => void;
-  saveReadingPosition: (chapterId: string, page: number) => void;
-  getReadingPosition: (chapterId: string) => number | undefined;
-  clearReadingPosition: (chapterId: string) => void;
 }
 
 export const useLibraryStore = create<LibraryState>()(
@@ -37,7 +33,6 @@ export const useLibraryStore = create<LibraryState>()(
       entries: [],
       avatar: undefined,
       banner: undefined,
-      readingPositions: {},
 
       setAvatar: (uri) => set({ avatar: uri }),
       setBanner: (uri) => set({ banner: uri }),
@@ -241,24 +236,6 @@ export const useLibraryStore = create<LibraryState>()(
             return { ...e, readChapterIds: Array.from(ids), chapterData, progress: maxProgress, updatedAt: now };
           }),
         }));
-      },
-
-      saveReadingPosition: (chapterId, page) => {
-        set(state => ({
-          readingPositions: { ...state.readingPositions, [chapterId]: page },
-        }));
-      },
-
-      getReadingPosition: (chapterId) => {
-        return get().readingPositions[chapterId];
-      },
-
-      clearReadingPosition: (chapterId) => {
-        set(state => {
-          const next = { ...state.readingPositions };
-          delete next[chapterId];
-          return { readingPositions: next };
-        });
       },
 
       entriesByStatus: (status) => {

@@ -92,6 +92,12 @@ function bdSubtitleIndex(): BdSubtitleRow[] {
   return _subtitleIndex;
 }
 
+/** Construit les index BD hors du chemin de rendu (cf. warmCatalogues). */
+export function warmBdCatalogue(): void {
+  bdTitleIndex();
+  bdSubtitleIndex();
+}
+
 /**
  * Case-insensitive, accent-insensitive catalogue search.
  * Returns up to `limit` series sorted by match quality (exact > prefix > substring).

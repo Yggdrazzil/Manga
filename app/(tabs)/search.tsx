@@ -7,6 +7,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  InteractionManager,
   Keyboard,
   Pressable,
   ScrollView,
@@ -30,8 +31,8 @@ import {
   type OLBook,
 } from '@/lib/api/openlib';
 import { consolidateBDSeries } from '@/lib/api/bdconsolidate';
-import { searchCatalogue } from '@/lib/catalogue';
-import { searchLocalManga, searchLocalWebtoons } from '@/lib/catalogue/manga';
+import { searchCatalogue, warmBdCatalogue } from '@/lib/catalogue';
+import { searchLocalManga, searchLocalWebtoons, warmCatalogues } from '@/lib/catalogue/manga';
 import { useComicsStore } from '@/lib/store/comics';
 import { useSearchStore } from '@/lib/store/search';
 import { Typography } from '@/components/ui/Typography';
@@ -561,6 +562,17 @@ export default function SearchScreen() {
     const t = setTimeout(() => setDebouncedQuery(query), 450);
     return () => clearTimeout(t);
   }, [query]);
+
+  // Préchauffage des catalogues une fois les animations d'entrée terminées :
+  // le coût est payé pendant que l'utilisateur lit l'écran, pas au moment où
+  // il tape.
+  useEffect(() => {
+    const task = InteractionManager.runAfterInteractions(() => {
+      warmCatalogues();
+      warmBdCatalogue();
+    });
+    return () => task.cancel();
+  }, []);
 
   const { data: results, isLoading, isFetching, isError } = useQuery({
     queryKey: ['unified-search', debouncedQuery, filter],

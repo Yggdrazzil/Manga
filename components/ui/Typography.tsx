@@ -1,6 +1,6 @@
 import React from 'react';
 import { Text, type StyleProp, type TextProps, type TextStyle } from 'react-native';
-import { COLORS, FONTS } from '@/constants/theme';
+import { COLORS, FONTS, themedStyles } from '@/constants/theme';
 
 type TypographyVariant =
   | 'hero'
@@ -20,8 +20,11 @@ interface TypographyProps extends TextProps {
   style?: StyleProp<TextStyle>;
 }
 
-// Function, not module const: COLORS values change with the active theme.
-const getVariantStyles = (): Record<TypographyVariant, TextStyle> => ({
+// themedStyles met le résultat en cache et ne le reconstruit qu'au changement
+// de thème. L'appeler comme une fonction ordinaire rebâtissait les 10 objets de
+// style à CHAQUE rendu de CHAQUE texte de l'app — une pression constante sur le
+// ramasse-miettes pendant le défilement des listes.
+const VARIANT_STYLES = themedStyles((): Record<TypographyVariant, TextStyle> => ({
   hero: {
     fontFamily: FONTS.serifBlack,
     fontSize: 36,
@@ -89,11 +92,11 @@ const getVariantStyles = (): Record<TypographyVariant, TextStyle> => ({
     textTransform: 'uppercase',
     color: COLORS.textInkFaint,
   },
-});
+}));
 
 export function Typography({ variant = 'body', color, style, children, ...rest }: TypographyProps) {
   return (
-    <Text style={[getVariantStyles()[variant], color ? { color } : undefined, style]} {...rest}>
+    <Text style={[VARIANT_STYLES[variant], color ? { color } : undefined, style]} {...rest}>
       {children}
     </Text>
   );
