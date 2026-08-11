@@ -4,6 +4,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useLibraryStore } from '@/lib/store/library';
 import { useComicsStore } from '@/lib/store/comics';
 import type { LibraryEntry, BDSeriesEntry } from '@/lib/types';
+import { parseBackup } from './backupValidation';
 
 interface BackupData {
   version: number;
@@ -59,7 +60,8 @@ export async function importLibrary(): Promise<ImportResult> {
     throw new Error("Fichier invalide — ce n'est pas un fichier JSON.");
   }
 
-  if (!isBackupData(data)) {
+  const parsed = parseBackup(data);
+  if (!parsed) {
     throw new Error('Format de sauvegarde non reconnu. Vérifiez que le fichier vient bien de cette application.');
   }
 
@@ -68,9 +70,9 @@ export async function importLibrary(): Promise<ImportResult> {
 
   let mangaAdded = 0;
   let bdAdded = 0;
-  let skipped = 0;
+  let skipped = parsed.rejected;
 
-  for (const entry of data.entries) {
+  for (const entry of parsed.entries) {
     const existing = libraryStore.getEntry(entry.mangaId, entry.source);
     if (existing) {
       skipped++;
@@ -91,7 +93,7 @@ export async function importLibrary(): Promise<ImportResult> {
     }
   }
 
-  for (const bdEntry of data.bdEntries) {
+  for (const bdEntry of parsed.bdEntries) {
     const existing = comicsStore.getEntry(bdEntry.seriesId);
     if (existing) {
       skipped++;
@@ -107,13 +109,3 @@ export async function importLibrary(): Promise<ImportResult> {
   return { mangaAdded, bdAdded, skipped };
 }
 
-function isBackupData(v: unknown): v is BackupData {
-  if (typeof v !== 'object' || v === null) return false;
-  const d = v as Record<string, unknown>;
-  return (
-    d.version === 1 &&
-    typeof d.exportedAt === 'string' &&
-    Array.isArray(d.entries) &&
-    Array.isArray(d.bdEntries)
-  );
-}
