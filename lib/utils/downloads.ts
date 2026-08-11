@@ -7,8 +7,22 @@ import { useSettingsStore } from '@/lib/store/settings';
 const ROOT_DIR = 'chapter-downloads';
 const CONCURRENCY = 3;
 
+/**
+ * Les identifiants de chapitre viennent de sources distantes et servent de nom
+ * de repertoire. Un « ../ » sortirait de chapter-downloads/ — et ce repertoire
+ * est supprime lors du nettoyage, ce qui pourrait effacer le stockage
+ * applicatif. On n'accepte donc qu'un jeu de caracteres sur : tout le reste est
+ * translitere, et un identifiant qui se viderait est refuse.
+ */
+export function safeDirName(chapterId: string): string {
+  const safe = chapterId.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/^\.+/, '_');
+  return safe.slice(0, 120);
+}
+
 function chapterDir(chapterId: string): Directory {
-  return new Directory(Paths.document, ROOT_DIR, chapterId);
+  const name = safeDirName(chapterId);
+  if (!name) throw new Error('Identifiant de chapitre invalide.');
+  return new Directory(Paths.document, ROOT_DIR, name);
 }
 
 /** Local page URIs for a downloaded chapter, or null if absent/corrupted. */

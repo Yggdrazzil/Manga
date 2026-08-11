@@ -18,6 +18,25 @@ export interface WikidataAlbum {
   frwikiTitle?: string; // Wikipedia FR article name for per-volume synopsis
 }
 
+/**
+ * Echappement d'un litteral SPARQL.
+ *
+ * L'ancienne version n'echappait que le guillemet : un titre terminant par un
+ * antislash echappait alors le guillemet FERMANT et laissait le reste du titre
+ * s'interpreter comme de la requete. Ces titres viennent de sources publiques
+ * et editables (Open Library, Wikidata), donc d'un tiers.
+ * L'antislash doit etre traite EN PREMIER, sinon on echapperait nos propres
+ * echappements. Les sauts de ligne sont retires : un litteral SPARQL entre
+ * guillemets simples ne peut pas en contenir.
+ */
+function sparqlLiteral(value: string): string {
+  return value
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/[\r\n\t]/g, ' ')
+    .slice(0, 300);
+}
+
 async function runSparql(sparql: string): Promise<Array<Record<string, { value: string }>>> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 10_000);
@@ -113,7 +132,7 @@ export interface WikidataSeries {
 
 export async function searchWikidataSeries(seriesTitle: string): Promise<WikidataSeries> {
   // Fast path: exact French label match
-  const safe = seriesTitle.replace(/"/g, '\\"');
+  const safe = sparqlLiteral(seriesTitle);
   const exact = await runSparql(`
 SELECT ?album ?albumLabel ?ordinal ?date ?frwikiTitle ?series WHERE {
   ?series rdfs:label "${safe}"@fr ;
@@ -169,7 +188,7 @@ LIMIT 6
 
 export async function findParentSeriesTitle(albumTitle: string): Promise<string | undefined> {
   // 1. Exact French label match (fast, single query)
-  const safe = albumTitle.replace(/"/g, '\\"');
+  const safe = sparqlLiteral(albumTitle);
   const bindings = await runSparql(`
 SELECT ?seriesLabel WHERE {
   ?album rdfs:label "${safe}"@fr ;
@@ -206,7 +225,7 @@ export async function searchWikidataAlbums(seriesTitle: string): Promise<Wikidat
 }
 
 export async function getWikidataSeriesWikiTitle(seriesTitle: string): Promise<string | undefined> {
-  const safe = seriesTitle.replace(/"/g, '\\"');
+  const safe = sparqlLiteral(seriesTitle);
   const sparql = `
 SELECT ?frwikiTitle WHERE {
   ?series rdfs:label "${safe}"@fr ;

@@ -92,7 +92,9 @@ function normalize(media: AniListMedia): Manga {
     'Viz', 'Azuki', 'Mangamo', 'Comikey', 'INKR', 'Lezhin', 'Piccoma',
   ]);
   const externalLinks = (media.externalLinks ?? [])
-    .filter(l => l.url && READING_SITES.has(l.site))
+    // Le nom du site ne prouve rien : c'est un champ libre d'une base
+    // communautaire. Seule l'URL fait foi, et seulement en https.
+    .filter(l => l.url && READING_SITES.has(l.site) && /^https:\/\//i.test(l.url))
     .map(l => ({ site: l.site, url: l.url }));
 
   return {

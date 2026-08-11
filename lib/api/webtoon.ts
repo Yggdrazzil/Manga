@@ -250,9 +250,22 @@ function urlHash(url: string): string {
 }
 
 export async function getChapterPages(chapterId: string): Promise<string[]> {
+  // L'identifiant est un CHEMIN concatene a l'hote. Il peut arriver d'un deep
+  // link (manga-track://reader/...), donc d'un lien ou d'un QR code tiers :
+  // « .evil.com/x » produirait « https://www.webtoons.com.evil.com/x » et
+  // enverrait nos en-tetes a un hote arbitraire. On exige un chemin absolu, et
+  // on verifie l'hote final.
+  if (!chapterId.startsWith('/')) {
+    throw new Error('Webtoon: identifiant de chapitre invalide.');
+  }
+  const target = `${BASE}${chapterId}`;
+  if (new URL(target).host !== new URL(BASE).host) {
+    throw new Error('Webtoon: identifiant de chapitre invalide.');
+  }
+
   let html: string;
   try {
-    html = await fetchWT(`${BASE}${chapterId}`);
+    html = await fetchWT(target);
   } catch (e) {
     throw new Error(`Webtoon: impossible de charger ce chapitre. ${String(e)}`);
   }

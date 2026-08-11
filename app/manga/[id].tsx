@@ -7,6 +7,7 @@ import { MotiView } from 'moti';
 import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Linking,
   Pressable,
   ScrollView,
@@ -612,7 +613,14 @@ export default function MangaDetailScreen() {
                       style={({ pressed }) => [styles.readLinkChip, pressed && { opacity: 0.7 }]}
                       onPress={() => {
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        Linking.openURL(link.url);
+                        // Ces liens viennent d'AniList, une base que n'importe
+                        // quel compte peut éditer : sans contrôle de schéma, un
+                        // « intent:// » ou un deep link arbitraire serait lancé
+                        // depuis une puce d'apparence légitime.
+                        if (!/^https:\/\//i.test(link.url)) return;
+                        Linking.openURL(link.url).catch(() => {
+                          Alert.alert('Lien indisponible', "Ce lien n'a pas pu être ouvert.");
+                        });
                       }}
                       accessibilityRole="link"
                       accessibilityLabel={`Lire sur ${link.site}`}
