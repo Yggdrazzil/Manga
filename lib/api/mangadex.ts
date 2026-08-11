@@ -500,14 +500,13 @@ async function getChapterFeedMeta(
 ): Promise<Map<string, MangaChapter>> {
   const limit = 100;
   const MAX_PAGES = 20;
+  // MangaDex tolere ~5 requetes/seconde : on parallelise sans depasser.
+  const CONCURRENCY = 4;
   const byNum = new Map<string, MangaChapter>();
+  const preferred = lang[0];
 
-  let offset = 0;
-  let total = Infinity;
-  let pages = 0;
-
-  while (offset < total && pages < MAX_PAGES) {
-    const data = await fetchMD<MDChapterFeedResponse>(`/manga/${mangaId}/feed`, {
+  const fetchPage = (offset: number) =>
+    fetchMD<MDChapterFeedResponse>(`/manga/${mangaId}/feed`, {
       limit,
       offset,
       translatedLanguage: lang,
@@ -516,20 +515,39 @@ async function getChapterFeedMeta(
       contentRating: CONTENT_RATINGS,
     });
 
-    const preferred = lang[0];
+  // L'ordre d'absorption compte : a numero de chapitre egal, la premiere
+  // version rencontree gagne (sauf si une version dans la langue preferee
+  // arrive ensuite). On absorbe donc les pages dans l'ordre, meme si elles
+  // ont ete recuperees en parallele.
+  const absorb = (data: MDChapterFeedResponse) => {
     for (const ch of data.data) {
       const num = ch.attributes.chapter;
       if (!num) continue;
       const existing = byNum.get(num);
-      // Prefer the user's first language when both are returned in one feed
       if (!existing || (existing.translatedLanguage !== preferred && ch.attributes.translatedLanguage === preferred)) {
         byNum.set(num, normalizeChapter(ch));
       }
     }
+  };
 
-    total = data.total;
-    offset += limit;
-    pages += 1;
+  // La premiere page revele le total ; les suivantes partaient une par une,
+  // soit jusqu'a 20 allers-retours enchaines sur une serie longue — le plus
+  // long temps d'attente de l'app. Elles sont desormais recuperees par lots.
+  const first = await fetchPage(0);
+  absorb(first);
+
+  const pageCount = Math.min(Math.ceil((first.total || 0) / limit), MAX_PAGES);
+  const offsets: number[] = [];
+  for (let p = 1; p < pageCount; p++) offsets.push(p * limit);
+
+  for (let i = 0; i < offsets.length; i += CONCURRENCY) {
+    const batch = offsets.slice(i, i + CONCURRENCY);
+    const pages = await Promise.all(
+      batch.map(offset => fetchPage(offset).catch(() => null)),
+    );
+    for (const data of pages) {
+      if (data) absorb(data);
+    }
   }
 
   return byNum;
