@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from '@/lib/utils/haptics';
 import { Image } from 'expo-image';
 import { Directory, Paths } from 'expo-file-system';
+import { PAGE_CACHE_DIRS } from '@/lib/utils/pageCache';
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import { MotiView } from 'moti';
@@ -187,7 +188,7 @@ export default function SettingsScreen() {
       // Les pages de lecture sont écrites hors du cache expo-image (téléchargées
       // et déchiffrées à la main) : sans ça, « Vider le cache » laissait des
       // centaines de Mo de planches sur l'appareil.
-      for (const name of ['webtoon-pages-v2', 'webtoon-pages', 'mangaplus-pages']) {
+      for (const name of PAGE_CACHE_DIRS) {
         try {
           const dir = new Directory(Paths.cache, name);
           if (dir.exists) dir.delete();

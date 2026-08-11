@@ -1,6 +1,7 @@
 import { Directory, File, Paths } from 'expo-file-system';
 import type { Manga, MangaChapter, OngoingStatus, PaginatedResult } from '../types';
 import { logger } from '../utils/logger';
+import { pruneChapterCache } from '../utils/pageCache';
 
 // MANGA Plus by Shueisha — official free reader (One Piece, Jujutsu Kaisen,
 // Chainsaw Man, Spy x Family, …). The web API returns JSON when `format=json`
@@ -458,6 +459,9 @@ export async function getChapterPages(chapterId: string): Promise<string[]> {
     }
   };
   await Promise.all(Array.from({ length: Math.min(4, pages.length) }, worker));
+
+  // Idem Webtoon : cache borné aux chapitres les plus récents.
+  pruneChapterCache(CACHE_DIR);
 
   return out;
 }

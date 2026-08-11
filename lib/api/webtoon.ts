@@ -1,6 +1,7 @@
 import { Directory, File, Paths } from 'expo-file-system';
 import type { Manga, MangaChapter, PaginatedResult } from '../types';
 import { logger } from '../utils/logger';
+import { pruneChapterCache } from '../utils/pageCache';
 
 // Webtoon (LINE Webtoon / NAVER) — official free reader.
 // Tower of God, True Beauty, The God of High School, etc.
@@ -299,6 +300,10 @@ export async function getChapterPages(chapterId: string): Promise<string[]> {
     }
   };
   await Promise.all(Array.from({ length: Math.min(4, imageUrls.length) }, worker));
+
+  // Les planches sont retéléchargeables : on borne le cache aux chapitres les
+  // plus récents plutôt que de le laisser croître indéfiniment.
+  pruneChapterCache(CACHE_DIR);
 
   return out;
 }
