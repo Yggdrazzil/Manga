@@ -661,17 +661,37 @@ export default function MangaDetailScreen() {
             transition={{ type: 'spring', stiffness: 400, damping: 32 }}
             style={[styles.chaptersContent, { paddingBottom: insets.bottom + 88 }]}
           >
-            <ChapterList
-              chapters={displayChapters}
-              entryMangaId={manga.id}
-              source={manga.source}
-              pagesSource={pagesSource}
-              manga={manga}
-              mode="read"
-              activeLang={readLang}
-              availableLangs={detectedReadLangs.length > 1 ? detectedReadLangs : undefined}
-              onLangChange={setReadLang}
-            />
+            {/* La résolution d'une source lisible (MangaDex puis repli
+                MANGA Plus / Webtoon) prend plusieurs secondes : sans état de
+                chargement, l'onglet affichait un panneau vide, sans indicateur
+                ni explication, avant de se remplir — ou de disparaître. */}
+            {displayChapters.length === 0 && (fallbackPending || (chaptersEnabled && chapters == null)) ? (
+              <View style={styles.chaptersPending}>
+                <ActivityIndicator color={COLORS.accentRed} />
+                <Typography variant="body" color={COLORS.textInkMuted} style={styles.chaptersPendingText}>
+                  Recherche d’une source de lecture…
+                </Typography>
+              </View>
+            ) : displayChapters.length === 0 ? (
+              <View style={styles.chaptersPending}>
+                <Ionicons name="cloud-offline-outline" size={40} color={COLORS.textInkMuted} />
+                <Typography variant="body" color={COLORS.textInkMuted} style={styles.chaptersPendingText}>
+                  Aucune source de lecture officielle pour cette œuvre.
+                </Typography>
+              </View>
+            ) : (
+              <ChapterList
+                chapters={displayChapters}
+                entryMangaId={manga.id}
+                source={manga.source}
+                pagesSource={pagesSource}
+                manga={manga}
+                mode="read"
+                activeLang={readLang}
+                availableLangs={detectedReadLangs.length > 1 ? detectedReadLangs : undefined}
+                onLangChange={setReadLang}
+              />
+            )}
           </MotiView>
         )}
       </ScrollView>
@@ -893,6 +913,13 @@ const styles = themedStyles(() => StyleSheet.create({
     paddingTop: SPACING.lg,
     backgroundColor: COLORS.paper,
   },
+  chaptersPending: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.md,
+    paddingVertical: SPACING.xl * 2,
+  },
+  chaptersPendingText: { textAlign: 'center' },
   infoCard: { borderRadius: RADIUS.lg },
   infoGrid: {
     flexDirection: 'row',

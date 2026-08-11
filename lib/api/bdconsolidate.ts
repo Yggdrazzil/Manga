@@ -35,7 +35,24 @@ function findGBMatch(
   gbItems: Awaited<ReturnType<typeof searchGoogleBooksSeries>>,
   tomeNum: number,
   episodeTitle?: string,
+  seriesTitle?: string,
 ) {
+  // Google Books remonte tout ce qui contient le mot cherché : « Aria » rend
+  // le manga homonyme et des ouvrages sans rapport. Sans ce filtre, un livre
+  // dont le titre finit par « - 3 » fournissait la description et la
+  // couverture du tome 3 de la série demandée.
+  const candidates = seriesTitle
+    ? gbItems.filter(it => {
+        const key = normalizeForMatch(seriesTitle);
+        return (
+          normalizeForMatch(it.volumeInfo.title ?? '').includes(key) ||
+          normalizeForMatch(it.volumeInfo.subtitle ?? '').includes(key)
+        );
+      })
+    : gbItems;
+  if (candidates.length === 0) return undefined;
+  gbItems = candidates;
+
   // 1. By explicit volume number in the GB title
   const byNum = gbItems.filter(it => {
     const n = extractVolumeNumber(it.volumeInfo.title ?? '');
@@ -192,7 +209,7 @@ export async function consolidateBDSeries(
 
   // Layer 4 — Google Books (FR descriptions + cover fallback)
   for (const [num, vol] of map) {
-    const match = findGBMatch(gbItems, num, vol.subtitle);
+    const match = findGBMatch(gbItems, num, vol.subtitle, seriesTitle);
     if (!match) continue;
     const info = match.volumeInfo;
     map.set(num, {
@@ -207,7 +224,7 @@ export async function consolidateBDSeries(
   // Ensure every BnF tome appears even if OL/GB had no match
   for (const bnf of bnfTomes) {
     if (!map.has(bnf.num)) {
-      const match = findGBMatch(gbItems, bnf.num, bnf.episode);
+      const match = findGBMatch(gbItems, bnf.num, bnf.episode, seriesTitle);
       map.set(bnf.num, {
         num: bnf.num,
         title: `${seriesTitle} tome ${bnf.num}`,

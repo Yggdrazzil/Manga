@@ -405,7 +405,14 @@ const styles = themedStyles(() => StyleSheet.create({
   },
 
   subTabs: { flexDirection: 'row', gap: SPACING.xl },
-  subTabBtn: { paddingBottom: SPACING.md, paddingTop: SPACING.xs, position: 'relative' },
+  // minHeight 44 : cible tactile minimale (WCAG 2.5.5 / règles du projet).
+  subTabBtn: {
+    paddingBottom: SPACING.md,
+    paddingTop: SPACING.xs,
+    position: 'relative',
+    minHeight: 44,
+    justifyContent: 'center',
+  },
   subTabLabel: { color: COLORS.textInkMuted, fontSize: 13, letterSpacing: 0.8 },
   subTabLabelActive: { color: COLORS.textInk, fontFamily: FONTS.bodyBold },
   subTabLine: { position: 'absolute', bottom: -1, left: 0, right: 0, height: 2, backgroundColor: COLORS.accentRed, borderRadius: 1 },
