@@ -106,6 +106,15 @@ export function SourceFacts({ listing }: { listing: ListingDetail }) {
         </div>
       )}
 
+      {(listing.source_name || listing.fetch_mode) && (
+        <p className="mt-4 border-t border-line pt-3 text-xs text-ink-mute">
+          {listing.source_name && <>Source : {listing.source_name}. </>}
+          {listing.fetch_mode === "rendered" &&
+            "Page reconstituée dans un navigateur (site en JavaScript) — vérifiez la fiche d'origine en cas de doute."}
+          {listing.fetch_mode === "static" && "Page lue directement en HTML."}
+        </p>
+      )}
+
       {(listing.features?.length ?? 0) > 0 && (
         <div className="mt-4">
           <p className="label">Points forts annoncés</p>

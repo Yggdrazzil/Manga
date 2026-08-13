@@ -92,6 +92,106 @@ def harvest_pairs(soup: BeautifulSoup) -> dict[str, str]:
             if label and value and label not in pairs:
                 pairs[label] = value
 
+    pairs.update(_harvest_div_pairs(soup, pairs))
+    return pairs
+
+
+# Class names that mark the label half of a label/value pair. Single-page apps
+# rarely emit tables — they emit two <div>s or <span>s side by side — so a
+# table-only harvester finds nothing on a rendered page.
+_LABEL_CLASS = re.compile(r"(^|[-_ ])(label|term|key|head|title|name|dt)([-_ ]|$)", re.I)
+_VALUE_CLASS = re.compile(r"(^|[-_ ])(value|data|desc|detail|content|body|dd)([-_ ]|$)", re.I)
+
+
+def _harvest_div_pairs(soup: BeautifulSoup, existing: dict[str, str]) -> dict[str, str]:
+    """Collect label/value pairs expressed as adjacent elements."""
+    found: dict[str, str] = {}
+    for node in soup.find_all(class_=_LABEL_CLASS):
+        if node.name in ("th", "dt"):
+            continue  # already harvested with better structure
+        label = _clean_text(node)
+        # Only Japanese field labels are of interest, and they are short.
+        if not label or len(label) > 16 or not re.search(r"[ぁ-んァ-ヶ一-龠]", label):
+            continue
+        if label in existing or label in found:
+            continue
+        sibling = node.find_next_sibling()
+        if sibling is None:
+            continue
+        classes = " ".join(sibling.get("class") or [])
+        if classes and not _VALUE_CLASS.search(classes) and sibling.name not in ("dd", "td"):
+            continue
+        value = _clean_text(sibling)
+        if value and len(value) < 500:
+            found[label] = value
+    return found
+
+
+def extract_json_ld(soup: BeautifulSoup) -> dict[str, str]:
+    """Pull listing facts out of schema.org JSON-LD blocks.
+
+    Property sites that render client-side very often still emit JSON-LD for
+    search engines, which is cleaner and more reliable than their DOM.
+    """
+    pairs: dict[str, str] = {}
+
+    def absorb(node) -> None:
+        if isinstance(node, list):
+            for item in node:
+                absorb(item)
+            return
+        if not isinstance(node, dict):
+            return
+        for key, japanese in (
+            ("name", "建物名"),
+            ("description", "備考"),
+        ):
+            value = node.get(key)
+            if isinstance(value, str) and value.strip() and japanese not in pairs:
+                pairs[japanese] = value.strip()
+
+        offers = node.get("offers")
+        if isinstance(offers, dict):
+            price = offers.get("price")
+            currency = offers.get("priceCurrency", "JPY")
+            if price not in (None, "") and currency in ("JPY", "¥") and "価格" not in pairs:
+                pairs["価格"] = f"{price}円"
+
+        address = node.get("address")
+        if isinstance(address, dict) and "所在地" not in pairs:
+            parts = [
+                address.get(k)
+                for k in ("addressRegion", "addressLocality", "streetAddress")
+                if isinstance(address.get(k), str)
+            ]
+            if parts:
+                pairs["所在地"] = "".join(parts)
+        elif isinstance(address, str) and "所在地" not in pairs:
+            pairs["所在地"] = address
+
+        size = node.get("floorSize")
+        if isinstance(size, dict) and "建物面積" not in pairs:
+            value = size.get("value")
+            if value not in (None, ""):
+                pairs["建物面積"] = f"{value}㎡"
+
+        for key, japanese in (("numberOfRooms", "間取り"), ("yearBuilt", "築年")):
+            value = node.get(key)
+            if value not in (None, "") and japanese not in pairs:
+                pairs[japanese] = str(value)
+
+        for nested in ("mainEntity", "itemOffered", "@graph"):
+            if nested in node:
+                absorb(node[nested])
+
+    for script in soup.find_all("script", type="application/ld+json"):
+        raw = script.string or script.get_text()
+        if not raw:
+            continue
+        try:
+            absorb(json.loads(raw))
+        except (ValueError, TypeError):
+            continue
     return pairs
 
 
@@ -273,6 +373,9 @@ def extract_listing(html: str, base_url: str = "", adapter: str | None = None) -
     adapter = adapter or detect_adapter(base_url)
     soup = BeautifulSoup(html, "html.parser")
     pairs = harvest_pairs(soup)
+    # The page's own markup wins; JSON-LD fills what it did not express.
+    for label, value in extract_json_ld(soup).items():
+        pairs.setdefault(label, value)
 
     normalized = normalize_raw_fields(pairs)
 

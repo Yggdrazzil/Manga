@@ -203,7 +203,9 @@ def run_ingest(
 
     for index_url in source_index_urls or []:
         _sleep_between(urlsplit(index_url).netloc, last_seen, request_delay)
-        html = fetcher.fetch_html(index_url)
+        html, mode = fetcher.fetch_html_smart(index_url)
+        if mode == "rendered":
+            logger.info("%s required JavaScript rendering", index_url)
         if not html:
             continue
         links = discover_detail_urls(html, index_url)

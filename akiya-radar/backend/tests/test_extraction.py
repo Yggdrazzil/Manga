@@ -186,3 +186,73 @@ def test_four_column_spec_tables_yield_every_pair():
     fields = extract_listing_fields(html)
     assert fields["price_yen"] == Decimal(3_800_000)
     assert fields["floor_plan"] == "5DK"
+
+
+# ---- markup shapes that only appear once JavaScript has run ----
+
+
+JSON_LD_SPA = """
+<html><head>
+<script type="application/ld+json">{"@context":"https://schema.org",
+"@type":"SingleFamilyResidence","name":"高山市 町家 5DK","description":"古民家。要修繕。",
+"address":{"@type":"PostalAddress","addressRegion":"岐阜県","addressLocality":"高山市",
+"streetAddress":"上一之町"},
+"floorSize":{"@type":"QuantitativeValue","value":142.7},"yearBuilt":1954,
+"offers":{"@type":"Offer","price":3200000,"priceCurrency":"JPY"}}</script></head>
+<body><div id="app">
+  <div class="row">
+    <span class="spec-label">土地面積</span><span class="spec-value">245.8㎡</span>
+  </div>
+  <div class="row">
+    <span class="spec-label">間取り</span><span class="spec-value">5DK</span>
+  </div>
+  <div class="row">
+    <span class="spec-label">交通</span>
+    <span class="spec-value">JR高山本線 高山駅 / 徒歩15分</span>
+  </div>
+</div></body></html>
+"""
+
+
+def test_json_ld_fills_what_the_dom_does_not_say():
+    fields = extract_listing(JSON_LD_SPA, base_url="https://example.jp/b/9").fields
+    assert fields["price_yen"] == Decimal(3_200_000)
+    assert fields["address_text"] == "岐阜県高山市上一之町"
+    assert fields["building_area_m2"] == Decimal("142.7")
+    assert fields["build_year"] == 1954
+    assert fields["property_type"] == "machiya"
+
+
+def test_label_value_divs_are_harvested_when_there_is_no_table():
+    fields = extract_listing(JSON_LD_SPA, base_url="https://example.jp/b/9").fields
+    assert fields["land_area_m2"] == Decimal("245.8")
+    assert fields["floor_plan"] == "5DK"
+    assert fields["station_name"] == "高山駅"
+    assert fields["station_walk_minutes"] == 15
+
+
+def test_page_markup_wins_over_json_ld():
+    """The visible page is the source of truth; JSON-LD only fills gaps."""
+    html = JSON_LD_SPA.replace(
+        '<div id="app">',
+        '<div id="app"><table><tr><th>価格</th><td>150万円</td></tr></table>',
+    )
+    fields = extract_listing(html, base_url="https://example.jp/b/9").fields
+    assert fields["price_yen"] == Decimal(1_500_000)
+
+
+def test_malformed_json_ld_is_ignored():
+    html = '<html><head><script type="application/ld+json">{not json</script></head>' \
+           "<body><table><tr><th>価格</th><td>380万円</td></tr></table></body></html>"
+    fields = extract_listing(html, base_url="https://example.jp/b/1").fields
+    assert fields["price_yen"] == Decimal(3_800_000)
+
+
+def test_non_japanese_labels_are_not_mistaken_for_fields():
+    html = """<html><body><div id="app">
+      <div><span class="label">Share on Twitter</span><span class="value">click</span></div>
+      <div><span class="label">価格</span><span class="value">280万円</span></div>
+    </div></body></html>"""
+    result = extract_listing(html, base_url="https://example.jp/b/2")
+    assert result.fields["price_yen"] == Decimal(2_800_000)
+    assert "Share on Twitter" not in result.raw_fields

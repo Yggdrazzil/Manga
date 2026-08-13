@@ -458,6 +458,28 @@ systemctl restart caddy
 
 ---
 
+## Les sites en JavaScript
+
+Certaines sources (家いちば notamment) ne fonctionnent qu'avec JavaScript : la
+page reçue est vide, le contenu n'apparaît qu'une fois le code exécuté par un
+navigateur. L'application sait le faire, mais c'est **beaucoup plus lent**
+(quelques secondes par annonce au lieu de quelques dizaines de millisecondes).
+
+- Dans le **Catalogue**, ces sources portent l'étiquette « navigateur requis ».
+- Sur une fiche, la mention « page reconstituée dans un navigateur » indique que
+  l'annonce vient d'un site de ce type. Ces sites changent souvent de structure :
+  en cas de doute sur un chiffre, ouvrez la fiche d'origine.
+- En mode serveur, installez le navigateur une fois : `python -m playwright
+  install chromium` dans le conteneur backend (ou `docker compose exec backend
+  python -m playwright install chromium`). Sans lui, ces sources sont simplement
+  ignorées, rien d'autre ne change.
+
+**Ce que l'application ne fait pas** : contourner une protection anti-robot.
+Un site qui refuse explicitement les robots (LIFULL HOME'S répond 403) reste
+consultable à la main, jamais collecté automatiquement.
+
+---
+
 ## Règles de bonne conduite
 
 L'application respecte `robots.txt`, s'identifie clairement, espace ses

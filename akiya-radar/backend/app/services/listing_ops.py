@@ -369,7 +369,9 @@ def refresh_listing(db: Session, listing: Listing) -> dict:
     jamais supprimée — notes, historique et score restent consultables. Une
     erreur réseau ne change jamais le statut (unknown ≠ gone).
     """
-    outcome, html = fetcher.fetch_page(listing.source_url)
+    outcome, html, mode = fetcher.fetch_page_smart(
+        listing.source_url, prefer_render=listing.fetch_mode == "rendered"
+    )
     result = {
         "outcome": outcome,
         "status_before": listing.listing_status,
@@ -380,6 +382,7 @@ def refresh_listing(db: Session, listing: Listing) -> dict:
         listing.listing_status = "gone"
     elif outcome == "ok" and html:
         listing.last_seen_at = datetime.now(UTC)
+        listing.fetch_mode = mode
         for keyword, status in _STATUS_KEYWORDS:
             if keyword in html:
                 listing.listing_status = status
@@ -388,7 +391,7 @@ def refresh_listing(db: Session, listing: Listing) -> dict:
             listing.listing_status = "active"
 
         try:
-            extracted = extraction.extract_listing_fields(html, base_url=listing.source_url)
+            extracted = extraction.extract_listing(html, base_url=listing.source_url).fields
         except Exception:  # noqa: BLE001 — refresh must never break on parse
             extracted = {}
         new_price = extracted.get("price_yen")

@@ -24,6 +24,9 @@ dependencies = [
     # Reads a single pixel out of the national hazard-map raster tiles, which
     # is the only way to get a point-level flood/tsunami/landslide answer.
     "pillow>=11",
+    # Renders JavaScript for sources that serve an empty app shell. Rendering
+    # only — the stealth fetchers it also ships stay unused.
+    "scrapling[fetchers]>=0.4",
 ]
 
 [project.optional-dependencies]

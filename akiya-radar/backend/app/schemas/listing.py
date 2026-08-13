@@ -201,6 +201,7 @@ class ListingDetail(ListingSummary):
     utilities: list[str] | None = None
     station_line: str | None = None
     elevation_m: Decimal | None = None
+    fetch_mode: str | None = None
     field_provenance: dict | None = None
     first_seen_at: datetime | None = None
     last_seen_at: datetime | None = None

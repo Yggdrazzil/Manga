@@ -30,6 +30,7 @@ const entry = (over: Partial<CatalogEntry> = {}): CatalogEntry => ({
   crawlable: true,
   scope: "municipal",
   notes_fr: null,
+  requires_js: false,
   registered: false,
   ...over,
 });

@@ -143,11 +143,34 @@ embarque donc un catalogue construit depuis deux annuaires officiels
 | [Réseau アットホーム 空き家バンク](https://www.akiya-athome.jp/) | 842 | Un sous-domaine par commune, **gabarit identique** → extraction structurée fiable |
 | [LIFULL HOME'S 空き家バンク](https://www.homes.co.jp/akiyabank/) | national | Consultation manuelle : le site répond 403 aux robots |
 | Portails **préfectoraux** (ふくい空き家情報バンク, 北海道空き家情報バンク, Re:BARAKI…) | 10 | Un site, plusieurs communes — le meilleur rapport couverture/effort |
-| [家いちば](https://www.ieichiba.com/) | national | Ventes entre particuliers, souvent absentes des banques municipales. Annonces en JavaScript → import par URL |
+| [家いちば](https://www.ieichiba.com/) | national | Ventes entre particuliers, souvent absentes des banques municipales. Site en JavaScript → collecté via rendu navigateur |
 
 Couverture : **47 préfectures**. La page **Catalogue** permet de filtrer par
 préfecture, de ne garder que les sources structurées, et de les enregistrer en
 un clic. Le crawl reste **opt-in par source**.
+
+### Sites en JavaScript
+
+Une part croissante des sources sert une coquille HTML vide dont le contenu
+n'existe qu'après exécution du JavaScript (家いちば est une application Nuxt).
+`services/dynamic_fetcher.py` les charge dans un vrai navigateur via
+[Scrapling](https://github.com/D4Vinci/Scrapling), et le DOM rendu repart dans
+le même pipeline d'extraction que les autres sources.
+
+- **Escalade, jamais par défaut** : une requête HTTP simple d'abord ; le
+  navigateur ne démarre que si la réponse est une coquille vide (détection par
+  marqueur de framework *et* corps sans texte), ou si la source est connue comme
+  telle (`requires_js`). Un lancement de navigateur coûte ~100× un GET.
+- **Rendu uniquement, pas de contournement.** Scrapling embarque aussi des
+  fetchers furtifs conçus pour passer pour un visiteur humain : ils restent
+  inutilisés. Le référent Google factice qu'il envoie par défaut est désactivé,
+  robots.txt est respecté à l'identique, et le user-agent reste identifiable.
+  Un site qui répond 403 aux robots (LIFULL HOME'S) reste hors périmètre.
+- Le mode retenu par fiche (`static` / `rendered`) est stocké et affiché.
+
+Sur du markup de SPA, l'extraction ne peut plus compter sur des tableaux : elle
+lit aussi le **JSON-LD schema.org** (souvent présent pour le référencement) et
+les paires libellé/valeur en `<div>`/`<span>` adjacents.
 
 ### Données hétérogènes → une seule forme
 

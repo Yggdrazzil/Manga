@@ -154,11 +154,12 @@ NATIONAL: list[dict] = [
         "url": "https://www.ieichiba.com/",
         "prefecture": None,
         "municipality": None,
-        "crawlable": False,
+        "crawlable": True,
+        "requires_js": True,
         "notes_fr": (
             "Biens ruraux proposés directement par leurs propriétaires, souvent "
-            "absents des banques municipales. Les annonces sont chargées en "
-            "JavaScript : consultation manuelle puis « Importer une URL »."
+            "absents des banques municipales. Site en JavaScript (Nuxt) : la "
+            "collecte passe par un navigateur, donc plus lente."
         ),
     },
     {

@@ -116,6 +116,7 @@ export interface CatalogEntry {
   crawlable: boolean;
   scope: string;
   notes_fr: string | null;
+  requires_js: boolean;
   registered: boolean;
 }
 
@@ -177,6 +178,8 @@ export interface ListingDetail extends ListingSummary {
   price_text_original: string | null;
   address_text: string | null;
   source_key: string | null;
+  /** Human name of the source, present in the serverless dataset. */
+  source_name?: string | null;
   zoning: string | null;
   structure: string | null;
   land_rights: string | null;
@@ -186,6 +189,8 @@ export interface ListingDetail extends ListingSummary {
   utilities: string[] | null;
   station_line: string | null;
   elevation_m: number | null;
+  /** "static" (plain HTTP) or "rendered" (the page needed JavaScript). */
+  fetch_mode: string | null;
   field_provenance: Record<string, Provenance> | null;
   first_seen_at: string | null;
   last_seen_at: string | null;

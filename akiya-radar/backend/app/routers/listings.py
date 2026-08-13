@@ -360,15 +360,22 @@ def import_url(payload: ImportUrlRequest, db: Session = Depends(get_db)) -> Impo
 
     fetched = False
     fields_filled: list[str] = []
-    html = fetcher.fetch_html(url)
-    if html:
+    # Sources that ship an empty app shell are re-fetched through a browser.
+    outcome, html, mode = fetcher.fetch_page_smart(url)
+    if outcome == "ok" and html:
         fetched = True
+        listing.fetch_mode = mode
         try:
-            extracted = extraction.extract_listing_fields(html, base_url=url)
+            extracted = extraction.extract_listing(html, base_url=url)
         except Exception:  # noqa: BLE001 — extraction must never break import
             extracted = {}
         fields_filled = listing_ops.apply_extracted(listing, extracted)
-    listing.raw_json = {"import": "manual", "fetched": fetched, "fields_filled": fields_filled}
+    listing.raw_json = {
+        "import": "manual",
+        "fetched": fetched,
+        "fetch_mode": mode,
+        "fields_filled": fields_filled,
+    }
 
     listing_ops.enrich_listing(db, listing)
     duplicates = listing_ops.find_possible_duplicates(db, listing)

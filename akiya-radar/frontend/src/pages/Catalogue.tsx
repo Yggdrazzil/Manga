@@ -296,6 +296,14 @@ function CatalogRow({
           ) : (
             <span className="chip border-line text-ink-mute">site municipal</span>
           )}
+          {entry.requires_js && (
+            <span
+              className="chip border-vermilion/30 bg-vermilion-soft text-vermilion"
+              title="Site en JavaScript : la collecte passe par un navigateur, donc plus lente"
+            >
+              navigateur requis
+            </span>
+          )}
           {entry.registered && (
             <span className="chip border-indigo/40 bg-indigo/10 text-indigo">déjà ajoutée</span>
           )}

@@ -13,7 +13,11 @@ dependencies = [
     "lxml>=5.3",
 ]
 
+
 [project.optional-dependencies]
+# JavaScript rendering for index pages that are single-page apps. Optional:
+# without it those sources are simply skipped, nothing else changes.
+render = ["scrapling[fetchers]>=0.4"]
 dev = [
     "pytest>=8.3",
     "ruff>=0.8",

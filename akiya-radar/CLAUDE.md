@@ -27,7 +27,7 @@ akiya-radar/
   provenance (libellé + texte japonais) conservée par champ, score de
   complétude 0-100. `extraction.py` orchestre récolte → normalisation →
   complétude, avec des adapters par gabarit de source.
-- **Catalogue** : `catalog.py` + `app/data/source_catalog.json` — 2 159 banques
+- **Catalogue** : `catalog.py` + `app/data/source_catalog.json` — 2 174 banques
   d'akiya officielles (47 préfectures), généré par
   `scripts/build_source_catalog.py` depuis l'annuaire MLIT et le réseau At Home.
   Régénérer après une évolution des annuaires, jamais à la main.
@@ -37,6 +37,9 @@ akiya-radar/
   GSI), `osm.py` (gare la plus proche, miroirs Overpass en cascade), `mlit.py`
   (prix de transaction XIT001, clé gratuite via MLIT_API_KEY). Tous
   best-effort : jamais d'exception propagée, l'app fonctionne sans réseau.
+- **Rendu JavaScript** : `dynamic_fetcher.py` (Scrapling) pour les sources qui
+  servent une coquille vide. Escalade uniquement — HTTP simple d'abord,
+  navigateur si la page est vide ou si la source est marquée `requires_js`.
 - **Ne jamais confondre « aucun risque » et « risque non vérifié »** : les
   labels `none` et `unknown` sont distincts de bout en bout (service, API, UI).
 - **backend/app/routers/** : un router par domaine (listings, sources, notes,
@@ -59,7 +62,10 @@ akiya-radar/
 1. Respecter robots.txt et les CGU.
 2. Limiter la fréquence ; user-agent clair (`AkiyaRadarBot/0.1`).
 3. Gérer les erreurs **par source** : une source qui échoue ne bloque pas le job.
-4. Jamais de contournement anti-bot, captcha, proxy rotation.
+4. Jamais de contournement anti-bot, captcha, proxy rotation. Le rendu
+   JavaScript (`services/dynamic_fetcher.py`, Scrapling) est autorisé — c'est
+   exécuter la page, pas déjouer une protection ; les fetchers furtifs de
+   Scrapling et son référent Google factice restent désactivés.
 5. Pas de scraping de plateformes payantes.
 6. Historiser prix et statuts ; dédupliquer sans fusion automatique incertaine.
 7. MVP : fixtures HTML + import manuel uniquement, pas de crawl massif.

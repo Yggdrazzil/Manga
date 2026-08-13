@@ -37,6 +37,8 @@ class CatalogEntry:
     crawlable: bool
     muni_code: str | None = None
     notes_fr: str | None = None
+    # The site serves an empty app shell; ingestion must render JavaScript.
+    requires_js: bool = False
     # "national" (whole country) | "prefectural" (one portal, many communes)
     # | "municipal" (a single town)
     scope: str = "municipal"
@@ -53,6 +55,7 @@ class CatalogEntry:
             "crawlable": self.crawlable,
             "muni_code": self.muni_code,
             "notes_fr": self.notes_fr,
+            "requires_js": self.requires_js,
             "scope": self.scope,
         }
 
@@ -81,6 +84,7 @@ def load_catalog() -> tuple[CatalogEntry, ...]:
                 adapter=raw.get("adapter", "generic"),
                 crawlable=bool(raw.get("crawlable", False)),
                 notes_fr=raw.get("notes_fr"),
+                requires_js=bool(raw.get("requires_js", False)),
                 scope="national",
             )
         )
@@ -97,6 +101,7 @@ def load_catalog() -> tuple[CatalogEntry, ...]:
                 adapter=raw.get("adapter", "generic"),
                 crawlable=bool(raw.get("crawlable", True)),
                 muni_code=raw.get("muni_code"),
+                requires_js=bool(raw.get("requires_js", False)),
                 scope=raw.get("scope", "municipal"),
             )
         )

@@ -73,7 +73,7 @@ def test_import_url_fetches_and_extracts(client, monkeypatch):
       <div class="comment">雨漏りあり。シロアリ被害。</div>
     </body></html>
     """
-    monkeypatch.setattr(fetcher, "fetch_html", lambda url: html)
+    monkeypatch.setattr(fetcher, "fetch_page", lambda url: ("ok", html))
 
     resp = client.post("/listings/import-url", json={"url": "https://akiya.example.jp/x"})
     assert resp.status_code == 201
@@ -93,7 +93,7 @@ def test_import_url_fetches_and_extracts(client, monkeypatch):
 def test_import_surfaces_possible_duplicate(client, monkeypatch):
     import app.services.fetcher as fetcher
 
-    monkeypatch.setattr(fetcher, "fetch_html", lambda url: None)
+    monkeypatch.setattr(fetcher, "fetch_page", lambda url: ("error", None))
     client.post(
         "/listings",
         json={
@@ -362,7 +362,7 @@ def test_import_extracts_photos(client, monkeypatch):
 
     html = """<html><head><meta property="og:image" content="/p/main.jpg"></head>
     <body><h1>物件X</h1><img src="/p/2.jpg"></body></html>"""
-    monkeypatch.setattr(fetcher, "fetch_html", lambda url: html)
+    monkeypatch.setattr(fetcher, "fetch_page", lambda url: ("ok", html))
     out = client.post("/listings/import-url", json={"url": "https://photo.example.jp/b/1"}).json()
     photos = out["listing"]["photo_urls"]
     assert photos == [

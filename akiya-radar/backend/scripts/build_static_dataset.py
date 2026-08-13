@@ -113,7 +113,8 @@ def _stable_id(url: str) -> str:
 
 def build_listing(url: str, entry: catalog.CatalogEntry | None) -> dict | None:
     """Fetch one listing page and produce a fully enriched record."""
-    outcome, html = fetcher.fetch_page(url)
+    # Renders JavaScript only when the plain fetch comes back as an app shell.
+    outcome, html, fetch_mode = fetcher.fetch_page_smart(url)
     if outcome != "ok" or not html:
         logger.info("  skip %s (%s)", url, outcome)
         return None
@@ -145,6 +146,7 @@ def build_listing(url: str, entry: catalog.CatalogEntry | None) -> dict | None:
         "created_at": now,
         "updated_at": now,
         "data_completeness": result.completeness,
+        "fetch_mode": fetch_mode,
         "field_provenance": result.provenance,
         "notes": [],
         "tasks": [],
@@ -291,7 +293,9 @@ def main() -> None:
     for entry in sources:
         logger.info("· %s (%s)", entry.name, entry.url)
         time.sleep(REQUEST_DELAY_SECONDS)
-        index_html = fetcher.fetch_html(entry.url)
+        _, index_html, index_mode = fetcher.fetch_page_smart(entry.url)
+        if index_mode == "rendered":
+            logger.info("  index required JavaScript rendering")
         if not index_html:
             logger.info("  index unreachable or disallowed — skipped")
             per_source.append({"key": entry.key, "name": entry.name, "listings": 0})

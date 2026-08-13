@@ -40,12 +40,13 @@ def test_search_is_width_and_case_insensitive():
     assert lower
 
 
-def test_national_platforms_are_not_marked_crawlable():
-    national = [e for e in catalog.load_catalog() if e.scope == "national"]
-    assert national
-    # LIFULL answers 403 to robots and At Home's portal is a directory, not a
-    # listing index — neither may be handed to the crawler.
-    assert not any(e.crawlable for e in national)
+def test_platforms_that_refuse_robots_are_never_crawlable():
+    by_key = {e.key: e for e in catalog.load_catalog() if e.scope == "national"}
+    assert by_key
+    # LIFULL answers 403 to robots; At Home's portal and the MLIT directory are
+    # link directories, not listing indexes. None may be handed to the crawler.
+    for key in ("lifull-national", "athome-national", "mlit-directory"):
+        assert by_key[key].crawlable is False
 
 
 def test_get_returns_none_for_unknown_key():
@@ -74,9 +75,17 @@ def test_broadest_scope_ranks_first():
     assert scopes == sorted(scopes, key=lambda s: order[s])
 
 
-def test_ieichiba_is_listed_but_never_crawled():
+def test_ieichiba_is_crawlable_but_flagged_as_needing_a_browser():
     entry = catalog.get("ieichiba")
     assert entry is not None
-    # Its listings are rendered in JavaScript — crawling would yield nothing.
-    assert entry.crawlable is False
+    # Its listings only exist after its JavaScript runs, so ingestion has to
+    # render the page; the flag is what tells the pipeline (and the user) that.
+    assert entry.crawlable is True
+    assert entry.requires_js is True
     assert entry.notes_fr and "JavaScript" in entry.notes_fr
+
+
+def test_only_known_spa_sources_are_flagged_for_rendering():
+    """Rendering is the exception — most akiya banks are plain HTML."""
+    flagged = [e for e in catalog.load_catalog() if e.requires_js]
+    assert 0 < len(flagged) < 20

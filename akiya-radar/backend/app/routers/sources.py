@@ -25,6 +25,7 @@ class CatalogEntryOut(BaseModel):
     crawlable: bool
     scope: str
     notes_fr: str | None = None
+    requires_js: bool = False
     registered: bool = False
 
 

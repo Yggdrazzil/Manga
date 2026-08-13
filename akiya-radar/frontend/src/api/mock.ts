@@ -177,6 +177,7 @@ function base(
     station_walk_minutes: null,
     station_distance_km: null,
     data_completeness: null,
+    fetch_mode: "static",
     zoning: null,
     structure: null,
     land_rights: null,
@@ -544,6 +545,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": null,
     "adapter": "generic",
     "crawlable": false,
+    "requires_js": false,
     "scope": "national",
     "notes_fr": "Biens ruraux proposés directement par leurs propriétaires, souvent absents des banques municipales. Les annonces sont chargées en JavaScript : consultation manuelle puis « Importer une URL ».",
     "registered": false
@@ -557,6 +559,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": null,
     "adapter": "generic",
     "crawlable": false,
+    "requires_js": false,
     "scope": "national",
     "notes_fr": "Portail national de la mobilité résidentielle : utile pour découvrir les dispositifs d'aide commune par commune.",
     "registered": false
@@ -570,6 +573,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": null,
     "adapter": "generic",
     "crawlable": false,
+    "requires_js": false,
     "scope": "national",
     "notes_fr": "Annuaire gouvernemental de toutes les banques d'akiya municipales. Sert de référence : c'est la source de ce catalogue.",
     "registered": false
@@ -583,6 +587,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": null,
     "adapter": "generic",
     "crawlable": false,
+    "requires_js": false,
     "scope": "national",
     "notes_fr": "Portail national. Les fiches exploitables sont sur les sites communaux dédiés (un sous-domaine par commune), pré-enregistrés ici.",
     "registered": false
@@ -596,6 +601,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": null,
     "adapter": "generic",
     "crawlable": false,
+    "requires_js": false,
     "scope": "national",
     "notes_fr": "Consultation manuelle uniquement : le site renvoie 403 aux robots. Utilisez « Importer une URL » pour récupérer une fiche précise.",
     "registered": false
@@ -609,6 +615,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "三笠市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -622,6 +629,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "上川郡新得町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -635,6 +643,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "上川郡東神楽町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -648,6 +657,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": null,
     "adapter": "generic",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -661,6 +671,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": null,
     "adapter": "generic",
     "crawlable": false,
+    "requires_js": false,
     "scope": "prefectural",
     "notes_fr": null,
     "registered": false
@@ -674,6 +685,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "いわき市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -687,6 +699,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "二本松市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -700,6 +713,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "伊達市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -713,6 +727,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": null,
     "adapter": "generic",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -726,6 +741,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "ふじみ野市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -739,6 +755,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "三郷市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -752,6 +769,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "上尾市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -765,6 +783,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "ときがわ町",
     "adapter": "generic",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -778,6 +797,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "佐倉市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -791,6 +811,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "八千代市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -804,6 +825,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "八街市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -817,6 +839,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "いすみ市",
     "adapter": "generic",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -830,6 +853,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "上水内郡信濃町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -843,6 +867,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "上水内郡飯綱町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -856,6 +881,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "上田市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -869,6 +895,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": null,
     "adapter": "generic",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -882,6 +909,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "たつの市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -895,6 +923,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "三木市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -908,6 +937,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "三田市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -921,6 +951,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": null,
     "adapter": "generic",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -934,6 +965,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "三井郡大刀洗町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -947,6 +979,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "三潴郡大木町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -960,6 +993,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "中間市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -973,6 +1007,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": null,
     "adapter": "generic",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -986,6 +1021,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "つくばみらい市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -999,6 +1035,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "つくば市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1012,6 +1049,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "ひたちなか市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1025,6 +1063,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": null,
     "adapter": "generic",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1038,6 +1077,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": null,
     "adapter": "generic",
     "crawlable": false,
+    "requires_js": false,
     "scope": "prefectural",
     "notes_fr": null,
     "registered": false
@@ -1051,6 +1091,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "いちき串木野市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1064,6 +1105,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "伊佐市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1077,6 +1119,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "出水市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1090,6 +1133,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "いちき串木野市",
     "adapter": "generic",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1103,6 +1147,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "不破郡垂井町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1116,6 +1161,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "不破郡関ケ原町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1129,6 +1175,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "中津川市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1142,6 +1189,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": null,
     "adapter": "generic",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1155,6 +1203,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "一関市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1168,6 +1217,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "上閉伊郡大槌町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1181,6 +1231,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "下閉伊郡山田町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1194,6 +1245,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": null,
     "adapter": "generic",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1207,6 +1259,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "上益城郡御船町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1220,6 +1273,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "八代市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1233,6 +1287,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "合志市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1246,6 +1301,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": null,
     "adapter": "generic",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1259,6 +1315,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "つがる市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1272,6 +1329,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "むつ市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1285,6 +1343,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "三戸郡三戸町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1298,6 +1357,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "おいらせ町",
     "adapter": "generic",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1311,6 +1371,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": null,
     "adapter": "generic",
     "crawlable": true,
+    "requires_js": false,
     "scope": "prefectural",
     "notes_fr": null,
     "registered": false
@@ -1324,6 +1385,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "さくら市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1337,6 +1399,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "下都賀郡壬生町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1350,6 +1413,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "下都賀郡野木町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1363,6 +1427,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "さくら市",
     "adapter": "generic",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1376,6 +1441,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "三島郡出雲崎町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1389,6 +1455,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "三条市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1402,6 +1469,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "上越市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1415,6 +1483,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": null,
     "adapter": "generic",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1428,6 +1497,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "小牧市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1441,6 +1511,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "日進市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1454,6 +1525,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "春日井市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1467,6 +1539,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "みよし市",
     "adapter": "generic",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1480,6 +1553,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "尾花沢市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1493,6 +1567,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "山形市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1506,6 +1581,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "最上郡最上町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1519,6 +1595,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "三川町",
     "adapter": "generic",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1532,6 +1609,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "五條市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1545,6 +1623,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "北葛城郡上牧町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1558,6 +1637,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "北葛城郡広陵町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1571,6 +1651,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "三郷町",
     "adapter": "generic",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1584,6 +1665,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "にかほ市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1597,6 +1679,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "仙北郡美郷町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1610,6 +1693,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "北秋田市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1623,6 +1707,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": null,
     "adapter": "generic",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1636,6 +1721,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": null,
     "adapter": "generic",
     "crawlable": false,
+    "requires_js": false,
     "scope": "prefectural",
     "notes_fr": null,
     "registered": false
@@ -1649,6 +1735,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "南国市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1662,6 +1749,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "吾川郡いの町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1675,6 +1763,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "土佐清水市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1688,6 +1777,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "いの町",
     "adapter": "generic",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1701,6 +1791,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "八尾市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1714,6 +1805,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "吹田市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1727,6 +1819,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "和泉市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1740,6 +1833,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": null,
     "adapter": "generic",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1753,6 +1847,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": null,
     "adapter": "generic",
     "crawlable": false,
+    "requires_js": false,
     "scope": "prefectural",
     "notes_fr": null,
     "registered": false
@@ -1766,6 +1861,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "久米郡久米南町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1779,6 +1875,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "久米郡美咲町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1792,6 +1889,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "井原市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1805,6 +1903,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "久米南町",
     "adapter": "generic",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1818,6 +1917,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "亘理郡亘理町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1831,6 +1931,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "亘理郡山元町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1844,6 +1945,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "伊具郡丸森町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1857,6 +1959,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": null,
     "adapter": "generic",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1870,6 +1973,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "三島市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1883,6 +1987,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "下田市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1896,6 +2001,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "伊豆市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1909,6 +2015,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": null,
     "adapter": "generic",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1922,6 +2029,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "三重郡朝日町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1935,6 +2043,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "亀山市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1948,6 +2057,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "伊賀市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1961,6 +2071,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "亀山市",
     "adapter": "generic",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1974,6 +2085,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "えびの市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -1987,6 +2099,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "串間市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2000,6 +2113,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "児湯郡川南町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2013,6 +2127,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": null,
     "adapter": "generic",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2026,6 +2141,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "三浦市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2039,6 +2155,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "中郡大磯町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2052,6 +2169,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "伊勢原市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2065,6 +2183,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "三浦市",
     "adapter": "generic",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2078,6 +2197,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": null,
     "adapter": "generic",
     "crawlable": true,
+    "requires_js": false,
     "scope": "prefectural",
     "notes_fr": null,
     "registered": false
@@ -2091,6 +2211,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "あわら市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2104,6 +2225,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "三方上中郡若狭町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2117,6 +2239,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "三方郡美浜町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2130,6 +2253,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": null,
     "adapter": "generic",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2143,6 +2267,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "みどり市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2156,6 +2281,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "伊勢崎市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2169,6 +2295,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "佐波郡玉村町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2182,6 +2309,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": null,
     "adapter": "generic",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2195,6 +2323,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "三養基郡みやき町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2208,6 +2337,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "三養基郡基山町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2221,6 +2351,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "伊万里市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2234,6 +2365,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": null,
     "adapter": "generic",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2247,6 +2379,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "上野原市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2260,6 +2393,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "中央市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2273,6 +2407,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "北杜市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2286,6 +2421,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "上野原市",
     "adapter": "generic",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2299,6 +2435,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "大津市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2312,6 +2449,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "守山市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2325,6 +2463,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "彦根市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2338,6 +2477,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": null,
     "adapter": "generic",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2351,6 +2491,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "今治市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2364,6 +2505,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "伊予市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2377,6 +2519,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "伊予郡松前町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2390,6 +2533,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": null,
     "adapter": "generic",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2403,6 +2547,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "倉吉市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2416,6 +2561,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "八頭郡八頭町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2429,6 +2575,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "八頭郡智頭町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2442,6 +2589,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": null,
     "adapter": "generic",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2455,6 +2603,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": null,
     "adapter": "generic",
     "crawlable": false,
+    "requires_js": false,
     "scope": "prefectural",
     "notes_fr": null,
     "registered": false
@@ -2468,6 +2617,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "三原市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2481,6 +2631,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "三次市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2494,6 +2645,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "安芸郡坂町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2507,6 +2659,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": null,
     "adapter": "generic",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2520,6 +2673,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": null,
     "adapter": "generic",
     "crawlable": false,
+    "requires_js": false,
     "scope": "prefectural",
     "notes_fr": null,
     "registered": false
@@ -2533,6 +2687,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "中津市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2546,6 +2701,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "佐伯市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2559,6 +2715,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "別府市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2572,6 +2729,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "中津市",
     "adapter": "generic",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2585,6 +2743,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "久世郡久御山町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2598,6 +2757,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "亀岡市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2611,6 +2771,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "京都市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2624,6 +2785,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "与謝野町",
     "adapter": "generic",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2637,6 +2799,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "五島市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2650,6 +2813,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "佐世保市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2663,6 +2827,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "北松浦郡小値賀町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2676,6 +2841,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "五島市",
     "adapter": "generic",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2689,6 +2855,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "下関市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2702,6 +2869,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "周南市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2715,6 +2883,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "山口市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2728,6 +2897,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": null,
     "adapter": "generic",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2741,6 +2911,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "下新川郡入善町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2754,6 +2925,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "下新川郡朝日町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2767,6 +2939,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "中新川郡上市町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2780,6 +2953,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": null,
     "adapter": "generic",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2793,6 +2967,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "加賀市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2806,6 +2981,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "小松市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2819,6 +2995,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "珠洲市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2832,6 +3009,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": null,
     "adapter": "generic",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2845,6 +3023,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": null,
     "adapter": "generic",
     "crawlable": false,
+    "requires_js": false,
     "scope": "prefectural",
     "notes_fr": null,
     "registered": false
@@ -2858,6 +3037,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "仁多郡奥出雲町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2871,6 +3051,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "松江市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2884,6 +3065,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "邑智郡邑南町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2897,6 +3079,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": null,
     "adapter": "generic",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2910,6 +3093,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "三好市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2923,6 +3107,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "三好郡東みよし町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2936,6 +3121,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "勝浦郡勝浦町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2949,6 +3135,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": null,
     "adapter": "generic",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2962,6 +3149,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": null,
     "adapter": "generic",
     "crawlable": false,
+    "requires_js": false,
     "scope": "prefectural",
     "notes_fr": null,
     "registered": false
@@ -2975,6 +3163,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "伊都郡かつらぎ町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -2988,6 +3177,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "伊都郡九度山町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -3001,6 +3191,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "和歌山市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -3014,6 +3205,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": null,
     "adapter": "generic",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -3027,6 +3219,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "国分寺市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -3040,6 +3233,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "東久留米市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -3053,6 +3247,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "狛江市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -3066,6 +3261,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "八丈町",
     "adapter": "generic",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -3079,6 +3275,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "さぬき市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -3092,6 +3289,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "仲多度郡まんのう町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -3105,6 +3303,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "仲多度郡多度津町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -3118,6 +3317,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": null,
     "adapter": "generic",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -3131,6 +3331,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "島尻郡久米島町",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -3144,6 +3345,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "沖縄市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -3157,6 +3359,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": "石垣市",
     "adapter": "athome_municipal",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false
@@ -3170,6 +3373,7 @@ const CATALOG: CatalogEntry[] = [
     "municipality": null,
     "adapter": "generic",
     "crawlable": true,
+    "requires_js": false,
     "scope": "municipal",
     "notes_fr": null,
     "registered": false

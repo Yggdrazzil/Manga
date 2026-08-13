@@ -33,11 +33,18 @@ def client(engine, monkeypatch):
 
     # Disable real HTTP calls for API tests by default; tests that exercise
     # these paths re-patch the functions via their own monkeypatch.
+    import app.services.dynamic_fetcher as dynamic_fetcher
     import app.services.fetcher as fetcher
     import app.services.geocoding as geocoding
     import app.services.hazard as hazard
+    import app.services.hazard_tiles as hazard_tiles
 
+    # Every fetch entry point is stubbed, not just the convenience wrapper:
+    # fetch_page_smart escalates to a real browser otherwise.
     monkeypatch.setattr(fetcher, "fetch_html", lambda url: None)
+    monkeypatch.setattr(fetcher, "fetch_page", lambda url: ("error", None))
+    monkeypatch.setattr(dynamic_fetcher, "fetch_rendered", lambda url, **kw: ("disabled", None))
+    monkeypatch.setattr(hazard_tiles, "fetch_hazard_tiles", lambda lat, lon, **kw: None)
     monkeypatch.setattr(geocoding, "geocode", lambda address: None)
     monkeypatch.setattr(hazard, "fetch_seismic_hazard", lambda lat, lon: None)
 

@@ -113,6 +113,9 @@ class Listing(UUIDMixin, TimestampMixin, Base):
     # 0-100: how much of the comparable core this listing actually has. Lets the
     # UI say "fiche incomplète" instead of rendering convincing blanks.
     data_completeness: Mapped[int | None] = mapped_column(Integer)
+    # "static" (plain HTTP) or "rendered" (the page needed JavaScript). Explains
+    # why a source is slow, and flags listings whose markup may shift.
+    fetch_mode: Mapped[str | None] = mapped_column(Text)
     # {field: {label, text}} — the original Japanese label and text behind every
     # normalised value, so nothing the app shows is unattributable.
     field_provenance: Mapped[dict | None] = mapped_column(JSONB)

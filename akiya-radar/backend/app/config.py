@@ -34,6 +34,14 @@ class Settings(BaseSettings):
     import_fetch_enabled: bool = True
     import_fetch_timeout: float = 8.0
 
+    # JavaScript rendering (Scrapling) for sources that serve an empty app
+    # shell. Used as an escalation, never as the default path: a browser launch
+    # costs ~100× an HTTP GET. Rendering only — no anti-bot circumvention.
+    dynamic_fetch_enabled: bool = True
+    dynamic_fetch_timeout: float = 45.0
+    # Reuse an existing browser instead of downloading one (also AKIYA_BROWSER_PATH).
+    browser_executable_path: str = ""
+
     # Public-data enrichment. GSI geocoding and J-SHIS seismic hazard are free,
     # key-less government APIs; MLIT transaction prices need a free API key
     # (https://www.reinfolib.mlit.go.jp/api/request/). All are best-effort.
