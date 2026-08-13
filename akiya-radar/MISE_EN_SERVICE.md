@@ -4,14 +4,128 @@ Guide pas-à-pas pour rendre le site opérationnel et le faire récupérer
 automatiquement les annonces des banques d'akiya japonaises.
 
 **Aucune connaissance en programmation n'est nécessaire.** Vous allez copier des
-commandes et les coller dans un terminal. Comptez **45 minutes** la première fois.
+commandes et les coller dans un terminal.
+
+---
+
+## Deux façons de faire tourner l'application
+
+| | **Mode autonome** (sans serveur) | **Mode serveur** |
+|---|---|---|
+| **Coût** | **0 €** | ~4,50 €/mois |
+| **Installation** | 15 min, tout sur GitHub | 45 min, un VPS à louer |
+| **Collecte automatique** | ✅ tous les matins | ✅ tous les matins |
+| **Risques naturels, altitude, géocodage** | ✅ | ✅ |
+| **Taux de change du jour** | ✅ | ✅ |
+| **Notes, favoris, statuts** | dans **votre navigateur** (un seul appareil) | en base, accessible partout |
+| **Importer une URL trouvée ailleurs** | ❌ | ✅ |
+| **Choisir les communes depuis l'interface** | ❌ (fichier de config) | ✅ page Catalogue |
+| **Comparables de prix MLIT** | ❌ | ✅ |
+
+**Lequel choisir ?** Commencez par le **mode autonome** : c'est gratuit,
+réversible, et suffisant pour consulter un catalogue et suivre des biens. Passez
+au mode serveur le jour où vous voulez importer des annonces trouvées ailleurs
+ou retrouver vos notes sur plusieurs appareils.
+
+- Mode autonome → **[section A](#a--mode-autonome-sans-serveur-0)**, 15 minutes.
+- Mode serveur → **[section B](#b--mode-serveur)**, 45 minutes.
+
+---
+
+# A · Mode autonome (sans serveur, 0 €)
+
+Le principe : **GitHub fait tout le travail**. Chaque matin, il visite les
+banques d'akiya que vous avez choisies, en extrait les annonces, les enrichit,
+et publie un site web statique. Votre navigateur télécharge ce site et n'a
+besoin d'aucun serveur derrière.
+
+> Vos données personnelles (favoris, notes, statuts, tâches) restent **dans
+> votre navigateur**. Elles ne partent nulle part — mais elles sont liées à cet
+> appareil et à ce navigateur. Pensez à les exporter de temps en temps.
+
+## A1 — Activer les pages GitHub
+
+1. Sur votre dépôt GitHub : **Settings** → **Pages**.
+2. **Source** : choisissez **GitHub Actions**.
+
+## A2 — Choisir les communes
+
+1. **Settings** → **Secrets and variables** → **Actions** → onglet **Variables**.
+2. **New repository variable** :
+   - **Name** : `AKIYA_STATIC_SOURCES`
+   - **Value** : les clés du catalogue, séparées par des virgules.
+     Par exemple : `athome-18202,athome-32528,athome-44206`
+
+**Où trouver ces clés ?** Elles suivent toutes le même format :
+`athome-` + le code à 5 chiffres de la commune. Quelques exemples :
+
+| Commune | Clé |
+|---|---|
+| 敦賀市 (Tsuruga, Fukui) | `athome-18202` |
+| 福井市 (Fukui) | `athome-18201` |
+| 隠岐の島町 (Oki, Shimane) | `athome-32528` |
+| 由布市 (Yufu, Ōita) | `athome-44213` |
+| 函館市 (Hakodate) | `athome-01202` |
+
+Pour trouver une autre commune, ouvrez le fichier
+`akiya-radar/backend/app/data/source_catalog.json` sur GitHub et utilisez la
+recherche du navigateur (Ctrl+F) avec le nom japonais de la commune.
+
+> **Variante plus simple** : au lieu de `AKIYA_STATIC_SOURCES`, créez la
+> variable `AKIYA_STATIC_PREFECTURE` avec une préfecture entière (par exemple
+> `福井県`). Toutes ses communes structurées seront collectées.
+
+## A3 — Lancer la première publication
+
+Onglet **Actions** → **« Akiya — site autonome (sans serveur) »** →
+**Run workflow**.
+
+Comptez 5 à 15 minutes selon le nombre de communes (l'application attend 1,5 s
+entre deux requêtes vers un même site, par correction). À la fin, votre site est
+en ligne à l'adresse indiquée dans l'onglet **Pages** — typiquement :
+
+```
+https://VOTRE-NOM.github.io/manga/
+```
+
+Ensuite, la collecte se relance **toute seule chaque matin**.
+
+## A4 — Sauvegarder vos notes
+
+Vos annotations vivent dans le navigateur. Pour les mettre à l'abri, ouvrez la
+console du navigateur (F12 → *Console*) et tapez :
+
+```js
+copy(localStorage.getItem("akiya.local-state.v1"))
+```
+
+Collez le résultat dans un fichier texte que vous conservez. Pour restaurer sur
+un autre appareil :
+
+```js
+localStorage.setItem("akiya.local-state.v1", `COLLEZ_ICI_LE_CONTENU`)
+```
+
+## A5 — Tester en local (facultatif)
+
+```bash
+cd akiya-radar/backend && pip install .
+python scripts/build_static_dataset.py --sources athome-32528 --limit-per-source 10
+cd ../frontend && npm ci && VITE_DATA_MODE=static npm run dev
+```
+
+---
+
+# B · Mode serveur
+
+Comptez **45 minutes** la première fois.
 
 ---
 
 ## Ce que vous allez obtenir
 
 - Un site accessible depuis votre navigateur, où que vous soyez.
-- Une base de **2 159 banques d'akiya officielles** (les 47 préfectures), dans
+- Une base de **2 174 banques d'akiya officielles** (les 47 préfectures), dans
   laquelle vous choisissez les communes à surveiller.
 - Une collecte **automatique tous les matins** des nouvelles annonces.
 - Pour chaque bien : prix en yens **et** en euros au taux du jour, surface,
@@ -20,20 +134,20 @@ commandes et les coller dans un terminal. Comptez **45 minutes** la première fo
 
 ---
 
-## Étape 0 — Comprendre le principe (2 minutes)
+## B0 — Comprendre le principe (2 minutes)
 
 Il n'existe **aucune API publique** qui livrerait les akiya du Japon entier.
 Chaque commune publie ses biens sur son propre site.
 
 Akiya Radar fait donc ceci :
 
-1. Il connaît l'adresse des 2 159 sites officiels (annuaire du ministère
+1. Il connaît l'adresse des 2 174 sites officiels (annuaire du ministère
    japonais MLIT + réseau At Home).
 2. Vous choisissez les communes qui vous intéressent.
 3. Chaque matin, il visite ces sites, lit les annonces, les traduit en données
    comparables, et les enrichit avec les données publiques japonaises.
 
-> **Important** : parmi ces 2 159 sources, **842 sont « structurées »** — elles
+> **Important** : parmi ces 2 174 sources, **842 sont « structurées »** — elles
 > partagent un même gabarit de page, donc l'application en extrait une fiche
 > complète automatiquement. Les autres sont des sites municipaux artisanaux :
 > l'extraction y est partielle et il faut parfois compléter à la main.
@@ -41,7 +155,7 @@ Akiya Radar fait donc ceci :
 
 ---
 
-## Étape 1 — Louer un petit serveur (15 minutes)
+## B1 — Louer un petit serveur (15 minutes)
 
 Le site doit tourner sur une machine allumée en permanence. Un serveur
 d'entrée de gamme suffit largement.
@@ -75,7 +189,7 @@ Vous êtes maintenant « dans » le serveur : tout ce que vous taperez s'y exéc
 
 ---
 
-## Étape 2 — Installer les outils (5 minutes)
+## B2 — Installer les outils (5 minutes)
 
 Copiez-collez ce bloc entier, puis appuyez sur Entrée :
 
@@ -94,7 +208,7 @@ Vous devez voir une ligne du type `Docker version 27.x`.
 
 ---
 
-## Étape 3 — Installer Akiya Radar (5 minutes)
+## B3 — Installer Akiya Radar (5 minutes)
 
 ```bash
 git clone https://github.com/Yggdrazzil/manga.git
@@ -151,7 +265,7 @@ Les trois services (`postgres`, `backend`, `frontend`) doivent être `running`.
 
 ---
 
-## Étape 4 — Ouvrir le site
+## B4 — Ouvrir le site
 
 Dans votre navigateur : **`http://VOTRE_IP:5173`**
 
@@ -163,7 +277,7 @@ Vous arrivez sur le tableau de bord, avec quelques annonces de démonstration.
 
 ---
 
-## Étape 5 — Choisir les communes à surveiller (10 minutes)
+## B5 — Choisir les communes à surveiller (10 minutes)
 
 C'est l'étape qui transforme la démo en vrai catalogue.
 
@@ -187,7 +301,7 @@ d'une source à tout moment en cliquant sur la pastille « activé / désactivé
 
 ---
 
-## Étape 6 — Lancer la collecte automatique (10 minutes)
+## B6 — Lancer la collecte automatique (10 minutes)
 
 La collecte tourne sur GitHub, gratuitement, tous les matins à 6 h heure du
 Japon.
@@ -216,7 +330,7 @@ cd /root/manga/akiya-radar
 
 ---
 
-## Étape 7 (optionnelle) — Les comparables de prix
+## B7 (optionnelle) — Les comparables de prix
 
 Pour afficher les prix de transactions réelles à côté de chaque bien, il faut
 une clé API **gratuite** du ministère japonais :
@@ -251,6 +365,19 @@ fonctionne **sans aucune clé**.
 | Vérifier les risques naturels d'un bien | Fiche du bien → **« Vérifier les risques »** |
 | Ajouter des communes | **Catalogue** |
 | Sauvegarder une recherche | **Recherches** |
+
+### Les prix en euros
+
+Les yens sont la seule valeur publiée par les sources, donc la seule stockée.
+La conversion est faite **au moment de l'affichage**, au taux du jour récupéré
+automatiquement (BCE via Frankfurter, avec un second fournisseur en secours).
+Un bien collecté il y a six mois affiche donc le prix d'aujourd'hui, pas celui
+du jour de sa découverte.
+
+Vous pouvez changer la devise dans **Réglages** (EUR, USD, ou yens seuls) : tous
+les prix de l'application suivent immédiatement. Si aucun fournisseur n'est
+joignable, l'application le signale par la mention « taux indicatif » plutôt que
+de faire passer un taux figé pour le taux du jour.
 
 ### Comprendre la « complétude »
 

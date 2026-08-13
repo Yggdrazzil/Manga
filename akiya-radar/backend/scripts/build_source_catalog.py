@@ -122,7 +122,59 @@ def parse_athome_government(html: str) -> list[dict]:
     return entries
 
 
+# Prefecture-level portals that aggregate several municipalities in one site.
+# They sit between the national platforms and the individual town pages: one
+# URL, many communes. Only entries verified reachable are listed, and those the
+# MLIT directory already carries are skipped automatically at merge time.
+PREFECTURAL: list[dict] = [
+    ("北海道", "北海道空き家情報バンク", "https://www.hokkaido-akiya.com/", True),
+    ("岩手県", "いわてイーハトー部に入ろう！", "https://iju.pref.iwate.jp/", False),
+    ("秋田県", "あきた暮らし はじめの一歩", "https://www.a-iju.jp/live/akiya/", True),
+    ("福島県", "ふくしまぐらし。", "https://www.fukushima-iju.jp/", False),
+    ("茨城県", "Re:BARAKI 移住・定住", "https://iju-ibaraki.jp/residence/", True),
+    ("栃木県", "栃木県空き家バンクガイド", "https://www.tochitaku.or.jp/akiya/index.html", True),
+    ("新潟県", "新潟県 空き家情報検索システム", "https://niigatakurashi.com/akiya-search/", True),
+    ("石川県", "いしかわ 空き家情報ナビ", "https://iju.ishikawa.jp/akiya/", True),
+    ("福井県", "ふくい空き家情報バンク", "https://akiya.pref.fukui.lg.jp/", True),
+    ("和歌山県", "わかやま定住サポート", "https://www.wakayamagurashi.jp/", False),
+    ("島根県", "くらしまねっと", "https://www.kurashimanet.jp/", False),
+    ("岡山県", "おかやま晴れの国ぐらし", "https://www.okayama-iju.jp/", False),
+    ("広島県", "ひろしま暮らし", "https://www.hiroshima-hirobiro.jp/", False),
+    ("高知県", "高知家で暮らす。", "https://kochi-iju.jp/", False),
+    ("大分県", "おおいた暮らし", "https://www.iju-oita.jp/", False),
+    ("鹿児島県", "かごしまで暮らす", "https://www.kagoshima-iju.jp/", False),
+]
+
 NATIONAL: list[dict] = [
+    {
+        "key": "ieichiba",
+        "name": "家いちば",
+        "name_fr": "Ieichiba — petites annonces entre particuliers",
+        "source_type": "other",
+        "url": "https://www.ieichiba.com/",
+        "prefecture": None,
+        "municipality": None,
+        "crawlable": False,
+        "notes_fr": (
+            "Biens ruraux proposés directement par leurs propriétaires, souvent "
+            "absents des banques municipales. Les annonces sont chargées en "
+            "JavaScript : consultation manuelle puis « Importer une URL »."
+        ),
+    },
+    {
+        "key": "join-akiyabank",
+        "name": "ニッポン移住・交流ナビ JOIN — 地域の空き家",
+        "name_fr": "JOIN — portail national migration & akiya",
+        "source_type": "public_dataset",
+        "url": "https://www.iju-join.jp/akiyabank/",
+        "prefecture": None,
+        "municipality": None,
+        "crawlable": False,
+        "notes_fr": (
+            "Portail national de la mobilité résidentielle : utile pour "
+            "découvrir les dispositifs d'aide commune par commune."
+        ),
+    },
     {
         "key": "mlit-directory",
         "name": "国土交通省 — 空き家バンク リンク集",
@@ -178,7 +230,29 @@ def main() -> None:
     print(f"  → {len(athome_rows)} At Home municipalities")
 
     athome_hosts = {r["url"] for r in athome_rows}
+    mlit_urls = {r["url"].rstrip("/") for r in mlit_rows}
     municipal: list[dict] = []
+
+    # Prefecture portals first — one of them covers many communes at once.
+    added_prefectural = 0
+    for prefecture, name, url, crawlable in PREFECTURAL:
+        if url.rstrip("/") in mlit_urls:
+            continue  # the MLIT directory already lists it
+        municipal.append(
+            {
+                "key": "pref-" + re.sub(r"[^a-z0-9]+", "-", url.lower())[:50].strip("-"),
+                "name": name,
+                "source_type": "public_dataset",
+                "url": url,
+                "prefecture": prefecture,
+                "municipality": None,
+                "adapter": "generic",
+                "crawlable": crawlable,
+                "scope": "prefectural",
+            }
+        )
+        added_prefectural += 1
+    print(f"  → {added_prefectural} prefecture-level portals added")
 
     for row in athome_rows:
         municipal.append(
@@ -221,11 +295,13 @@ def main() -> None:
         seen_urls.add(url)
         if entry.get("key") is None:
             entry["key"] = "muni-" + re.sub(r"[^a-z0-9]+", "-", url.lower())[:60].strip("-")
+        entry.setdefault("scope", "municipal")
         deduped.append(entry)
 
     deduped.sort(
         key=lambda e: (
             PREFECTURE_CODES.get(e["prefecture"] or "", "99"),
+            e.get("scope") != "prefectural",
             e["municipality"] or "",
             e["name"],
         )

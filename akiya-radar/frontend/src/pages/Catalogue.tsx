@@ -86,8 +86,9 @@ export function Catalogue() {
           {totals.sources > 0 ? (
             <>
               <strong>{totals.sources.toLocaleString("fr-FR")}</strong> banques d'akiya
-              officielles, recensées depuis l'annuaire du ministère japonais (MLIT) et
-              le réseau At Home, sur les 47 préfectures. Les{" "}
+              officielles réparties sur les 47 préfectures, recensées depuis l'annuaire
+              du ministère japonais (MLIT) et le réseau At Home, plus les portails
+              nationaux. Les{" "}
               <strong>{totals.structured.toLocaleString("fr-FR")}</strong> sources
               « structurées » partagent un même gabarit : ce sont celles qui
               remplissent une fiche complète automatiquement.
@@ -267,6 +268,7 @@ function CatalogRow({
   onToggle: () => void;
 }) {
   const structured = entry.adapter === STRUCTURED;
+  const prefectural = entry.scope === "prefectural";
 
   return (
     <li
@@ -285,7 +287,11 @@ function CatalogRow({
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <p className="truncate font-bold">{entry.name}</p>
-          {structured ? (
+          {entry.scope === "national" ? (
+            <span className="chip border-indigo/40 bg-indigo/5 text-indigo">portail national</span>
+          ) : prefectural ? (
+            <span className="chip border-gold/40 bg-gold/10 text-gold">portail préfectoral</span>
+          ) : structured ? (
             <span className="chip border-moss/40 bg-moss/10 text-moss">structurée</span>
           ) : (
             <span className="chip border-line text-ink-mute">site municipal</span>

@@ -6,11 +6,14 @@ import {
   saveSettings,
   type UserSettings,
 } from "@/lib/settings";
+import { notifySettingsChanged, useCurrency } from "@/lib/useCurrency";
 
 export function Settings() {
   const [settings, setSettings] = useState<UserSettings>(loadSettings);
   const [saved, setSaved] = useState(false);
   const [regionInput, setRegionInput] = useState("");
+
+  const money = useCurrency();
 
   const update = (patch: Partial<UserSettings>) => {
     setSettings((s) => ({ ...s, ...patch }));
@@ -19,6 +22,9 @@ export function Settings() {
 
   const persist = () => {
     saveSettings(settings);
+    // Prices are converted at display time, so every mounted view has to
+    // hear about a currency change rather than wait for a reload.
+    notifySettingsChanged();
     setSaved(true);
   };
 
@@ -104,6 +110,15 @@ export function Settings() {
               <option value="USD">USD ($)</option>
               <option value="JPY">JPY (¥)</option>
             </select>
+            <p className="mt-1 text-xs text-ink-mute">
+              {money.currency === "JPY"
+                ? "Les prix sont affichés en yens uniquement."
+                : money.isFallback
+                  ? "Taux de repli : aucun fournisseur de change joignable pour l'instant."
+                  : `1 ¥ = ${money.info.rate.toFixed(5)} ${money.currency} — taux du ${
+                      money.info.date ?? "jour"
+                    }, actualisé automatiquement.`}
+            </p>
           </div>
           <div>
             <label className="label" htmlFor="trans">Traduction (info serveur)</label>

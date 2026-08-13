@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 
 import {
   fmtArea,
-  fmtEur,
   fmtPricePerM2,
   fmtRent,
   fmtStation,
@@ -14,6 +13,7 @@ import {
   severityRank,
 } from "@/lib/format";
 import { latestScore, type ListingSummary } from "@/lib/types";
+import { useCurrency } from "@/lib/useCurrency";
 
 import { CompletenessMeter } from "./CompletenessMeter";
 import { FlagBadge } from "./FlagBadge";
@@ -27,6 +27,7 @@ interface Props {
 }
 
 export function ListingCard({ listing, onToggleFavorite }: Props) {
+  const money = useCurrency();
   const score = latestScore(listing);
   const title = listing.title_original ?? listing.title_fr ?? "Annonce sans titre";
   const flags = [...listing.flags].sort(
@@ -121,7 +122,11 @@ export function ListingCard({ listing, onToggleFavorite }: Props) {
           ) : (
             <>
               <span className="font-mono text-xl font-semibold">{fmtYen(listing.price_yen)}</span>
-              <span className="text-sm text-ink-mute">{fmtEur(listing.price_eur)}</span>
+              {money.format(listing.price_yen) && (
+                <span className="text-sm text-ink-mute">
+                  ≈ {money.format(listing.price_yen)}
+                </span>
+              )}
             </>
           )}
           {unitPrice !== null && (

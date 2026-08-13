@@ -536,8 +536,34 @@ const SOURCES: Source[] = [
 // source_catalog.json) so the preview browses genuine akiya-bank sources.
 const CATALOG: CatalogEntry[] = [
   {
+    "key": "ieichiba",
+    "name": "Ieichiba — petites annonces entre particuliers",
+    "source_type": "other",
+    "url": "https://www.ieichiba.com/",
+    "prefecture": null,
+    "municipality": null,
+    "adapter": "generic",
+    "crawlable": false,
+    "scope": "national",
+    "notes_fr": "Biens ruraux proposés directement par leurs propriétaires, souvent absents des banques municipales. Les annonces sont chargées en JavaScript : consultation manuelle puis « Importer une URL ».",
+    "registered": false
+  },
+  {
+    "key": "join-akiyabank",
+    "name": "JOIN — portail national migration & akiya",
+    "source_type": "public_dataset",
+    "url": "https://www.iju-join.jp/akiyabank/",
+    "prefecture": null,
+    "municipality": null,
+    "adapter": "generic",
+    "crawlable": false,
+    "scope": "national",
+    "notes_fr": "Portail national de la mobilité résidentielle : utile pour découvrir les dispositifs d'aide commune par commune.",
+    "registered": false
+  },
+  {
     "key": "mlit-directory",
-    "name": "国土交通省 — 空き家バンク リンク集",
+    "name": "Répertoire officiel MLIT des banques d'akiya",
     "source_type": "public_dataset",
     "url": "https://www.mlit.go.jp/totikensangyo/const/akiyabank_link.html",
     "prefecture": null,
@@ -550,7 +576,7 @@ const CATALOG: CatalogEntry[] = [
   },
   {
     "key": "athome-national",
-    "name": "アットホーム 空き家バンク（全国）",
+    "name": "At Home — banque d'akiya nationale",
     "source_type": "athome_akiya_bank",
     "url": "https://www.akiya-athome.jp/",
     "prefecture": null,
@@ -563,7 +589,7 @@ const CATALOG: CatalogEntry[] = [
   },
   {
     "key": "lifull-national",
-    "name": "LIFULL HOME'S 空き家バンク",
+    "name": "LIFULL HOME'S — banque d'akiya nationale",
     "source_type": "lifull_akiya_bank",
     "url": "https://www.homes.co.jp/akiyabank/",
     "prefecture": null,
@@ -623,6 +649,19 @@ const CATALOG: CatalogEntry[] = [
     "adapter": "generic",
     "crawlable": true,
     "scope": "municipal",
+    "notes_fr": null,
+    "registered": false
+  },
+  {
+    "key": "pref-https-www-fukushima-iju-jp",
+    "name": "ふくしまぐらし。",
+    "source_type": "public_dataset",
+    "url": "https://www.fukushima-iju.jp/",
+    "prefecture": "福島県",
+    "municipality": null,
+    "adapter": "generic",
+    "crawlable": false,
+    "scope": "prefectural",
     "notes_fr": null,
     "registered": false
   },
@@ -991,6 +1030,19 @@ const CATALOG: CatalogEntry[] = [
     "registered": false
   },
   {
+    "key": "pref-https-www-kagoshima-iju-jp",
+    "name": "かごしまで暮らす",
+    "source_type": "public_dataset",
+    "url": "https://www.kagoshima-iju.jp/",
+    "prefecture": "鹿児島県",
+    "municipality": null,
+    "adapter": "generic",
+    "crawlable": false,
+    "scope": "prefectural",
+    "notes_fr": null,
+    "registered": false
+  },
+  {
     "key": "athome-46219",
     "name": "いちき串木野市 空き家バンク（アットホーム）",
     "source_type": "athome_akiya_bank",
@@ -1251,6 +1303,71 @@ const CATALOG: CatalogEntry[] = [
     "registered": false
   },
   {
+    "key": "pref-https-www-tochitaku-or-jp-akiya-index-html",
+    "name": "栃木県空き家バンクガイド",
+    "source_type": "public_dataset",
+    "url": "https://www.tochitaku.or.jp/akiya/index.html",
+    "prefecture": "栃木県",
+    "municipality": null,
+    "adapter": "generic",
+    "crawlable": true,
+    "scope": "prefectural",
+    "notes_fr": null,
+    "registered": false
+  },
+  {
+    "key": "athome-09214",
+    "name": "さくら市 空き家バンク（アットホーム）",
+    "source_type": "athome_akiya_bank",
+    "url": "https://sakura-c09214.akiya-athome.jp/",
+    "prefecture": "栃木県",
+    "municipality": "さくら市",
+    "adapter": "athome_municipal",
+    "crawlable": true,
+    "scope": "municipal",
+    "notes_fr": null,
+    "registered": false
+  },
+  {
+    "key": "athome-09361",
+    "name": "下都賀郡壬生町 空き家バンク（アットホーム）",
+    "source_type": "athome_akiya_bank",
+    "url": "https://mibu-t09361.akiya-athome.jp/",
+    "prefecture": "栃木県",
+    "municipality": "下都賀郡壬生町",
+    "adapter": "athome_municipal",
+    "crawlable": true,
+    "scope": "municipal",
+    "notes_fr": null,
+    "registered": false
+  },
+  {
+    "key": "athome-09364",
+    "name": "下都賀郡野木町 空き家バンク（アットホーム）",
+    "source_type": "athome_akiya_bank",
+    "url": "https://nogi-t09364.akiya-athome.jp/",
+    "prefecture": "栃木県",
+    "municipality": "下都賀郡野木町",
+    "adapter": "athome_municipal",
+    "crawlable": true,
+    "scope": "municipal",
+    "notes_fr": null,
+    "registered": false
+  },
+  {
+    "key": "muni-http-sakura-ijyu-jp-akiya-bank",
+    "name": "さくら市空き家等情報バンク",
+    "source_type": "municipal_akiya_bank",
+    "url": "http://sakura-ijyu.jp/akiya-bank/",
+    "prefecture": "栃木県",
+    "municipality": "さくら市",
+    "adapter": "generic",
+    "crawlable": true,
+    "scope": "municipal",
+    "notes_fr": null,
+    "registered": false
+  },
+  {
     "key": "athome-15405",
     "name": "三島郡出雲崎町 空き家バンク（アットホーム）",
     "source_type": "athome_akiya_bank",
@@ -1348,58 +1465,6 @@ const CATALOG: CatalogEntry[] = [
     "url": "https://www.city.aichi-miyoshi.lg.jp/toshi_k/akiya/akiyatop.html",
     "prefecture": "愛知県",
     "municipality": "みよし市",
-    "adapter": "generic",
-    "crawlable": true,
-    "scope": "municipal",
-    "notes_fr": null,
-    "registered": false
-  },
-  {
-    "key": "athome-09214",
-    "name": "さくら市 空き家バンク（アットホーム）",
-    "source_type": "athome_akiya_bank",
-    "url": "https://sakura-c09214.akiya-athome.jp/",
-    "prefecture": "栃木県",
-    "municipality": "さくら市",
-    "adapter": "athome_municipal",
-    "crawlable": true,
-    "scope": "municipal",
-    "notes_fr": null,
-    "registered": false
-  },
-  {
-    "key": "athome-09361",
-    "name": "下都賀郡壬生町 空き家バンク（アットホーム）",
-    "source_type": "athome_akiya_bank",
-    "url": "https://mibu-t09361.akiya-athome.jp/",
-    "prefecture": "栃木県",
-    "municipality": "下都賀郡壬生町",
-    "adapter": "athome_municipal",
-    "crawlable": true,
-    "scope": "municipal",
-    "notes_fr": null,
-    "registered": false
-  },
-  {
-    "key": "athome-09364",
-    "name": "下都賀郡野木町 空き家バンク（アットホーム）",
-    "source_type": "athome_akiya_bank",
-    "url": "https://nogi-t09364.akiya-athome.jp/",
-    "prefecture": "栃木県",
-    "municipality": "下都賀郡野木町",
-    "adapter": "athome_municipal",
-    "crawlable": true,
-    "scope": "municipal",
-    "notes_fr": null,
-    "registered": false
-  },
-  {
-    "key": "muni-http-sakura-ijyu-jp-akiya-bank",
-    "name": "さくら市空き家等情報バンク",
-    "source_type": "municipal_akiya_bank",
-    "url": "http://sakura-ijyu.jp/akiya-bank/",
-    "prefecture": "栃木県",
-    "municipality": "さくら市",
     "adapter": "generic",
     "crawlable": true,
     "scope": "municipal",
@@ -1563,54 +1628,15 @@ const CATALOG: CatalogEntry[] = [
     "registered": false
   },
   {
-    "key": "athome-27212",
-    "name": "八尾市 空き家バンク（アットホーム）",
-    "source_type": "athome_akiya_bank",
-    "url": "https://yao-c27212.akiya-athome.jp/",
-    "prefecture": "大阪府",
-    "municipality": "八尾市",
-    "adapter": "athome_municipal",
-    "crawlable": true,
-    "scope": "municipal",
-    "notes_fr": null,
-    "registered": false
-  },
-  {
-    "key": "athome-27205",
-    "name": "吹田市 空き家バンク（アットホーム）",
-    "source_type": "athome_akiya_bank",
-    "url": "https://suita-c27205.akiya-athome.jp/",
-    "prefecture": "大阪府",
-    "municipality": "吹田市",
-    "adapter": "athome_municipal",
-    "crawlable": true,
-    "scope": "municipal",
-    "notes_fr": null,
-    "registered": false
-  },
-  {
-    "key": "athome-27219",
-    "name": "和泉市 空き家バンク（アットホーム）",
-    "source_type": "athome_akiya_bank",
-    "url": "https://izumi-c27219.akiya-athome.jp/",
-    "prefecture": "大阪府",
-    "municipality": "和泉市",
-    "adapter": "athome_municipal",
-    "crawlable": true,
-    "scope": "municipal",
-    "notes_fr": null,
-    "registered": false
-  },
-  {
-    "key": "muni-http-bank-osaka-sumai-refo-com",
-    "name": "大阪版・空家バンク",
-    "source_type": "municipal_akiya_bank",
-    "url": "http://bank.osaka-sumai-refo.com/",
-    "prefecture": "大阪府",
+    "key": "pref-https-kochi-iju-jp",
+    "name": "高知家で暮らす。",
+    "source_type": "public_dataset",
+    "url": "https://kochi-iju.jp/",
+    "prefecture": "高知県",
     "municipality": null,
     "adapter": "generic",
-    "crawlable": true,
-    "scope": "municipal",
+    "crawlable": false,
+    "scope": "prefectural",
     "notes_fr": null,
     "registered": false
   },
@@ -1663,6 +1689,71 @@ const CATALOG: CatalogEntry[] = [
     "adapter": "generic",
     "crawlable": true,
     "scope": "municipal",
+    "notes_fr": null,
+    "registered": false
+  },
+  {
+    "key": "athome-27212",
+    "name": "八尾市 空き家バンク（アットホーム）",
+    "source_type": "athome_akiya_bank",
+    "url": "https://yao-c27212.akiya-athome.jp/",
+    "prefecture": "大阪府",
+    "municipality": "八尾市",
+    "adapter": "athome_municipal",
+    "crawlable": true,
+    "scope": "municipal",
+    "notes_fr": null,
+    "registered": false
+  },
+  {
+    "key": "athome-27205",
+    "name": "吹田市 空き家バンク（アットホーム）",
+    "source_type": "athome_akiya_bank",
+    "url": "https://suita-c27205.akiya-athome.jp/",
+    "prefecture": "大阪府",
+    "municipality": "吹田市",
+    "adapter": "athome_municipal",
+    "crawlable": true,
+    "scope": "municipal",
+    "notes_fr": null,
+    "registered": false
+  },
+  {
+    "key": "athome-27219",
+    "name": "和泉市 空き家バンク（アットホーム）",
+    "source_type": "athome_akiya_bank",
+    "url": "https://izumi-c27219.akiya-athome.jp/",
+    "prefecture": "大阪府",
+    "municipality": "和泉市",
+    "adapter": "athome_municipal",
+    "crawlable": true,
+    "scope": "municipal",
+    "notes_fr": null,
+    "registered": false
+  },
+  {
+    "key": "muni-http-bank-osaka-sumai-refo-com",
+    "name": "大阪版・空家バンク",
+    "source_type": "municipal_akiya_bank",
+    "url": "http://bank.osaka-sumai-refo.com/",
+    "prefecture": "大阪府",
+    "municipality": null,
+    "adapter": "generic",
+    "crawlable": true,
+    "scope": "municipal",
+    "notes_fr": null,
+    "registered": false
+  },
+  {
+    "key": "pref-https-www-okayama-iju-jp",
+    "name": "おかやま晴れの国ぐらし",
+    "source_type": "public_dataset",
+    "url": "https://www.okayama-iju.jp/",
+    "prefecture": "岡山県",
+    "municipality": null,
+    "adapter": "generic",
+    "crawlable": false,
+    "scope": "prefectural",
     "notes_fr": null,
     "registered": false
   },
@@ -1979,54 +2070,15 @@ const CATALOG: CatalogEntry[] = [
     "registered": false
   },
   {
-    "key": "athome-10212",
-    "name": "みどり市 空き家バンク（アットホーム）",
-    "source_type": "athome_akiya_bank",
-    "url": "https://midori-c10212.akiya-athome.jp/",
-    "prefecture": "群馬県",
-    "municipality": "みどり市",
-    "adapter": "athome_municipal",
-    "crawlable": true,
-    "scope": "municipal",
-    "notes_fr": null,
-    "registered": false
-  },
-  {
-    "key": "athome-10204",
-    "name": "伊勢崎市 空き家バンク（アットホーム）",
-    "source_type": "athome_akiya_bank",
-    "url": "https://isesaki-c10204.akiya-athome.jp/",
-    "prefecture": "群馬県",
-    "municipality": "伊勢崎市",
-    "adapter": "athome_municipal",
-    "crawlable": true,
-    "scope": "municipal",
-    "notes_fr": null,
-    "registered": false
-  },
-  {
-    "key": "athome-10464",
-    "name": "佐波郡玉村町 空き家バンク（アットホーム）",
-    "source_type": "athome_akiya_bank",
-    "url": "https://tamamura-t10464.akiya-athome.jp/",
-    "prefecture": "群馬県",
-    "municipality": "佐波郡玉村町",
-    "adapter": "athome_municipal",
-    "crawlable": true,
-    "scope": "municipal",
-    "notes_fr": null,
-    "registered": false
-  },
-  {
-    "key": "muni-https-www-pref-gunma-jp-04-bi0100004-html",
-    "name": "空き家関連情報（群馬県ホームページ）",
-    "source_type": "municipal_akiya_bank",
-    "url": "https://www.pref.gunma.jp/04/bi0100004.html",
-    "prefecture": "群馬県",
+    "key": "pref-https-akiya-pref-fukui-lg-jp",
+    "name": "ふくい空き家情報バンク",
+    "source_type": "public_dataset",
+    "url": "https://akiya.pref.fukui.lg.jp/",
+    "prefecture": "福井県",
     "municipality": null,
     "adapter": "generic",
     "crawlable": true,
-    "scope": "municipal",
+    "scope": "prefectural",
     "notes_fr": null,
     "registered": false
   },
@@ -2075,6 +2127,58 @@ const CATALOG: CatalogEntry[] = [
     "source_type": "municipal_akiya_bank",
     "url": "http://info.pref.fukui.jp/kentiku/banku/",
     "prefecture": "福井県",
+    "municipality": null,
+    "adapter": "generic",
+    "crawlable": true,
+    "scope": "municipal",
+    "notes_fr": null,
+    "registered": false
+  },
+  {
+    "key": "athome-10212",
+    "name": "みどり市 空き家バンク（アットホーム）",
+    "source_type": "athome_akiya_bank",
+    "url": "https://midori-c10212.akiya-athome.jp/",
+    "prefecture": "群馬県",
+    "municipality": "みどり市",
+    "adapter": "athome_municipal",
+    "crawlable": true,
+    "scope": "municipal",
+    "notes_fr": null,
+    "registered": false
+  },
+  {
+    "key": "athome-10204",
+    "name": "伊勢崎市 空き家バンク（アットホーム）",
+    "source_type": "athome_akiya_bank",
+    "url": "https://isesaki-c10204.akiya-athome.jp/",
+    "prefecture": "群馬県",
+    "municipality": "伊勢崎市",
+    "adapter": "athome_municipal",
+    "crawlable": true,
+    "scope": "municipal",
+    "notes_fr": null,
+    "registered": false
+  },
+  {
+    "key": "athome-10464",
+    "name": "佐波郡玉村町 空き家バンク（アットホーム）",
+    "source_type": "athome_akiya_bank",
+    "url": "https://tamamura-t10464.akiya-athome.jp/",
+    "prefecture": "群馬県",
+    "municipality": "佐波郡玉村町",
+    "adapter": "athome_municipal",
+    "crawlable": true,
+    "scope": "municipal",
+    "notes_fr": null,
+    "registered": false
+  },
+  {
+    "key": "muni-https-www-pref-gunma-jp-04-bi0100004-html",
+    "name": "空き家関連情報（群馬県ホームページ）",
+    "source_type": "municipal_akiya_bank",
+    "url": "https://www.pref.gunma.jp/04/bi0100004.html",
+    "prefecture": "群馬県",
     "municipality": null,
     "adapter": "generic",
     "crawlable": true,
@@ -2343,54 +2447,15 @@ const CATALOG: CatalogEntry[] = [
     "registered": false
   },
   {
-    "key": "athome-26322",
-    "name": "久世郡久御山町 空き家バンク（アットホーム）",
-    "source_type": "athome_akiya_bank",
-    "url": "https://kumiyama-t26322.akiya-athome.jp/",
-    "prefecture": "京都府",
-    "municipality": "久世郡久御山町",
-    "adapter": "athome_municipal",
-    "crawlable": true,
-    "scope": "municipal",
-    "notes_fr": null,
-    "registered": false
-  },
-  {
-    "key": "athome-26206",
-    "name": "亀岡市 空き家バンク（アットホーム）",
-    "source_type": "athome_akiya_bank",
-    "url": "https://kameo-c26206.akiya-athome.jp/",
-    "prefecture": "京都府",
-    "municipality": "亀岡市",
-    "adapter": "athome_municipal",
-    "crawlable": true,
-    "scope": "municipal",
-    "notes_fr": null,
-    "registered": false
-  },
-  {
-    "key": "athome-26100",
-    "name": "京都市 空き家バンク（アットホーム）",
-    "source_type": "athome_akiya_bank",
-    "url": "https://kyoto-c26100.akiya-athome.jp/",
-    "prefecture": "京都府",
-    "municipality": "京都市",
-    "adapter": "athome_municipal",
-    "crawlable": true,
-    "scope": "municipal",
-    "notes_fr": null,
-    "registered": false
-  },
-  {
-    "key": "muni-http-kyotohokuburenkei-jp-akiyasearch-kubun-buyrent-city-yos",
-    "name": "京都府北部UIターンプロジェクト　たんたんターン",
-    "source_type": "municipal_akiya_bank",
-    "url": "http://kyotohokuburenkei.jp/akiyasearch/?kubun=buyrent&city=yosano",
-    "prefecture": "京都府",
-    "municipality": "与謝野町",
+    "key": "pref-https-www-hiroshima-hirobiro-jp",
+    "name": "ひろしま暮らし",
+    "source_type": "public_dataset",
+    "url": "https://www.hiroshima-hirobiro.jp/",
+    "prefecture": "広島県",
+    "municipality": null,
     "adapter": "generic",
-    "crawlable": true,
-    "scope": "municipal",
+    "crawlable": false,
+    "scope": "prefectural",
     "notes_fr": null,
     "registered": false
   },
@@ -2447,54 +2512,15 @@ const CATALOG: CatalogEntry[] = [
     "registered": false
   },
   {
-    "key": "athome-42211",
-    "name": "五島市 空き家バンク（アットホーム）",
-    "source_type": "athome_akiya_bank",
-    "url": "https://goto-c42211.akiya-athome.jp/",
-    "prefecture": "長崎県",
-    "municipality": "五島市",
-    "adapter": "athome_municipal",
-    "crawlable": true,
-    "scope": "municipal",
-    "notes_fr": null,
-    "registered": false
-  },
-  {
-    "key": "athome-42202",
-    "name": "佐世保市 空き家バンク（アットホーム）",
-    "source_type": "athome_akiya_bank",
-    "url": "https://sasebo-c42202.akiya-athome.jp/",
-    "prefecture": "長崎県",
-    "municipality": "佐世保市",
-    "adapter": "athome_municipal",
-    "crawlable": true,
-    "scope": "municipal",
-    "notes_fr": null,
-    "registered": false
-  },
-  {
-    "key": "athome-42383",
-    "name": "北松浦郡小値賀町 空き家バンク（アットホーム）",
-    "source_type": "athome_akiya_bank",
-    "url": "https://ojika-t42383.akiya-athome.jp/",
-    "prefecture": "長崎県",
-    "municipality": "北松浦郡小値賀町",
-    "adapter": "athome_municipal",
-    "crawlable": true,
-    "scope": "municipal",
-    "notes_fr": null,
-    "registered": false
-  },
-  {
-    "key": "muni-https-www-city-goto-nagasaki-jp-iju-li-050-010-index-html",
-    "name": "五島市空き家バンク",
-    "source_type": "municipal_akiya_bank",
-    "url": "https://www.city.goto.nagasaki.jp/iju/li/050/010/index.html",
-    "prefecture": "長崎県",
-    "municipality": "五島市",
+    "key": "pref-https-www-iju-oita-jp",
+    "name": "おおいた暮らし",
+    "source_type": "public_dataset",
+    "url": "https://www.iju-oita.jp/",
+    "prefecture": "大分県",
+    "municipality": null,
     "adapter": "generic",
-    "crawlable": true,
-    "scope": "municipal",
+    "crawlable": false,
+    "scope": "prefectural",
     "notes_fr": null,
     "registered": false
   },
@@ -2544,6 +2570,110 @@ const CATALOG: CatalogEntry[] = [
     "url": "https://iju.city-nakatsu.com",
     "prefecture": "大分県",
     "municipality": "中津市",
+    "adapter": "generic",
+    "crawlable": true,
+    "scope": "municipal",
+    "notes_fr": null,
+    "registered": false
+  },
+  {
+    "key": "athome-26322",
+    "name": "久世郡久御山町 空き家バンク（アットホーム）",
+    "source_type": "athome_akiya_bank",
+    "url": "https://kumiyama-t26322.akiya-athome.jp/",
+    "prefecture": "京都府",
+    "municipality": "久世郡久御山町",
+    "adapter": "athome_municipal",
+    "crawlable": true,
+    "scope": "municipal",
+    "notes_fr": null,
+    "registered": false
+  },
+  {
+    "key": "athome-26206",
+    "name": "亀岡市 空き家バンク（アットホーム）",
+    "source_type": "athome_akiya_bank",
+    "url": "https://kameo-c26206.akiya-athome.jp/",
+    "prefecture": "京都府",
+    "municipality": "亀岡市",
+    "adapter": "athome_municipal",
+    "crawlable": true,
+    "scope": "municipal",
+    "notes_fr": null,
+    "registered": false
+  },
+  {
+    "key": "athome-26100",
+    "name": "京都市 空き家バンク（アットホーム）",
+    "source_type": "athome_akiya_bank",
+    "url": "https://kyoto-c26100.akiya-athome.jp/",
+    "prefecture": "京都府",
+    "municipality": "京都市",
+    "adapter": "athome_municipal",
+    "crawlable": true,
+    "scope": "municipal",
+    "notes_fr": null,
+    "registered": false
+  },
+  {
+    "key": "muni-http-kyotohokuburenkei-jp-akiyasearch-kubun-buyrent-city-yos",
+    "name": "京都府北部UIターンプロジェクト　たんたんターン",
+    "source_type": "municipal_akiya_bank",
+    "url": "http://kyotohokuburenkei.jp/akiyasearch/?kubun=buyrent&city=yosano",
+    "prefecture": "京都府",
+    "municipality": "与謝野町",
+    "adapter": "generic",
+    "crawlable": true,
+    "scope": "municipal",
+    "notes_fr": null,
+    "registered": false
+  },
+  {
+    "key": "athome-42211",
+    "name": "五島市 空き家バンク（アットホーム）",
+    "source_type": "athome_akiya_bank",
+    "url": "https://goto-c42211.akiya-athome.jp/",
+    "prefecture": "長崎県",
+    "municipality": "五島市",
+    "adapter": "athome_municipal",
+    "crawlable": true,
+    "scope": "municipal",
+    "notes_fr": null,
+    "registered": false
+  },
+  {
+    "key": "athome-42202",
+    "name": "佐世保市 空き家バンク（アットホーム）",
+    "source_type": "athome_akiya_bank",
+    "url": "https://sasebo-c42202.akiya-athome.jp/",
+    "prefecture": "長崎県",
+    "municipality": "佐世保市",
+    "adapter": "athome_municipal",
+    "crawlable": true,
+    "scope": "municipal",
+    "notes_fr": null,
+    "registered": false
+  },
+  {
+    "key": "athome-42383",
+    "name": "北松浦郡小値賀町 空き家バンク（アットホーム）",
+    "source_type": "athome_akiya_bank",
+    "url": "https://ojika-t42383.akiya-athome.jp/",
+    "prefecture": "長崎県",
+    "municipality": "北松浦郡小値賀町",
+    "adapter": "athome_municipal",
+    "crawlable": true,
+    "scope": "municipal",
+    "notes_fr": null,
+    "registered": false
+  },
+  {
+    "key": "muni-https-www-city-goto-nagasaki-jp-iju-li-050-010-index-html",
+    "name": "五島市空き家バンク",
+    "source_type": "municipal_akiya_bank",
+    "url": "https://www.city.goto.nagasaki.jp/iju/li/050/010/index.html",
+    "prefecture": "長崎県",
+    "municipality": "五島市",
     "adapter": "generic",
     "crawlable": true,
     "scope": "municipal",
@@ -2707,6 +2837,19 @@ const CATALOG: CatalogEntry[] = [
     "registered": false
   },
   {
+    "key": "pref-https-www-kurashimanet-jp",
+    "name": "くらしまねっと",
+    "source_type": "public_dataset",
+    "url": "https://www.kurashimanet.jp/",
+    "prefecture": "島根県",
+    "municipality": null,
+    "adapter": "generic",
+    "crawlable": false,
+    "scope": "prefectural",
+    "notes_fr": null,
+    "registered": false
+  },
+  {
     "key": "athome-32343",
     "name": "仁多郡奥出雲町 空き家バンク（アットホーム）",
     "source_type": "athome_akiya_bank",
@@ -2807,6 +2950,19 @@ const CATALOG: CatalogEntry[] = [
     "adapter": "generic",
     "crawlable": true,
     "scope": "municipal",
+    "notes_fr": null,
+    "registered": false
+  },
+  {
+    "key": "pref-https-www-wakayamagurashi-jp",
+    "name": "わかやま定住サポート",
+    "source_type": "public_dataset",
+    "url": "https://www.wakayamagurashi.jp/",
+    "prefecture": "和歌山県",
+    "municipality": null,
+    "adapter": "generic",
+    "crawlable": false,
+    "scope": "prefectural",
     "notes_fr": null,
     "registered": false
   },
@@ -3028,7 +3184,7 @@ const CATALOG_PREFECTURES: CatalogPrefecture[] = [
   },
   {
     "prefecture": "福島県",
-    "total": 86,
+    "total": 87,
     "structured": 37
   },
   {
@@ -3063,7 +3219,7 @@ const CATALOG_PREFECTURES: CatalogPrefecture[] = [
   },
   {
     "prefecture": "鹿児島県",
-    "total": 63,
+    "total": 64,
     "structured": 30
   },
   {
@@ -3087,6 +3243,11 @@ const CATALOG_PREFECTURES: CatalogPrefecture[] = [
     "structured": 29
   },
   {
+    "prefecture": "栃木県",
+    "total": 51,
+    "structured": 23
+  },
+  {
     "prefecture": "新潟県",
     "total": 51,
     "structured": 22
@@ -3095,11 +3256,6 @@ const CATALOG_PREFECTURES: CatalogPrefecture[] = [
     "prefecture": "愛知県",
     "total": 51,
     "structured": 11
-  },
-  {
-    "prefecture": "栃木県",
-    "total": 50,
-    "structured": 23
   },
   {
     "prefecture": "山形県",
@@ -3117,18 +3273,18 @@ const CATALOG_PREFECTURES: CatalogPrefecture[] = [
     "structured": 18
   },
   {
+    "prefecture": "高知県",
+    "total": 44,
+    "structured": 12
+  },
+  {
     "prefecture": "大阪府",
     "total": 43,
     "structured": 16
   },
   {
-    "prefecture": "高知県",
-    "total": 43,
-    "structured": 12
-  },
-  {
     "prefecture": "岡山県",
-    "total": 42,
+    "total": 43,
     "structured": 17
   },
   {
@@ -3157,14 +3313,14 @@ const CATALOG_PREFECTURES: CatalogPrefecture[] = [
     "structured": 20
   },
   {
+    "prefecture": "福井県",
+    "total": 38,
+    "structured": 16
+  },
+  {
     "prefecture": "群馬県",
     "total": 37,
     "structured": 17
-  },
-  {
-    "prefecture": "福井県",
-    "total": 37,
-    "structured": 16
   },
   {
     "prefecture": "佐賀県",
@@ -3192,24 +3348,24 @@ const CATALOG_PREFECTURES: CatalogPrefecture[] = [
     "structured": 10
   },
   {
+    "prefecture": "広島県",
+    "total": 33,
+    "structured": 9
+  },
+  {
+    "prefecture": "大分県",
+    "total": 33,
+    "structured": 15
+  },
+  {
     "prefecture": "京都府",
     "total": 32,
     "structured": 12
   },
   {
-    "prefecture": "広島県",
-    "total": 32,
-    "structured": 9
-  },
-  {
     "prefecture": "長崎県",
     "total": 32,
     "structured": 16
-  },
-  {
-    "prefecture": "大分県",
-    "total": 32,
-    "structured": 15
   },
   {
     "prefecture": "山口県",
@@ -3228,7 +3384,7 @@ const CATALOG_PREFECTURES: CatalogPrefecture[] = [
   },
   {
     "prefecture": "島根県",
-    "total": 24,
+    "total": 25,
     "structured": 7
   },
   {
@@ -3238,7 +3394,7 @@ const CATALOG_PREFECTURES: CatalogPrefecture[] = [
   },
   {
     "prefecture": "和歌山県",
-    "total": 22,
+    "total": 23,
     "structured": 14
   },
   {

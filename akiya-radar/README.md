@@ -9,6 +9,17 @@ payante, sans Supabase, sans LLM payant obligatoire.
 
 **Mise en production pas-à-pas (sans savoir coder) : [MISE_EN_SERVICE.md](MISE_EN_SERVICE.md).**
 
+Deux modes de fonctionnement :
+
+- **Autonome (0 €)** — `VITE_DATA_MODE=static`. Aucun serveur, aucune base : la
+  collecte tourne dans GitHub Actions, le résultat est un JSON servi par GitHub
+  Pages, et les données personnelles vivent dans le navigateur. Possible parce
+  que toutes les API publiques japonaises utilisées envoient
+  `Access-Control-Allow-Origin: *` — seule la collecte, qu'un navigateur ne peut
+  pas faire lui-même, a besoin de la CI.
+- **Serveur** — FastAPI + PostgreSQL/PostGIS : import par URL, catalogue
+  interactif, comparables MLIT, données partagées entre appareils.
+
 ## Stack
 
 | Couche    | Technologies |
@@ -119,7 +130,7 @@ python -m worker     # mode idle MVP (pas de crawl réel)
 *inverse* GSI — un point qui ne résout pas vers une adresse japonaise (mer,
 hors Japon) est rejeté. Plus de marqueurs dans l'eau.
 
-## Catalogue de sources (2 159 banques d'akiya réelles)
+## Catalogue de sources (2 174 banques d'akiya réelles)
 
 Il n'existe **aucune API publique** listant les akiya du Japon. L'application
 embarque donc un catalogue construit depuis deux annuaires officiels
@@ -131,6 +142,8 @@ embarque donc un catalogue construit depuis deux annuaires officiels
 | [Annuaire MLIT 空き家バンク リンク集](https://www.mlit.go.jp/totikensangyo/const/akiyabank_link.html) | ~1 300 | Sites municipaux officiels, une commune = une page, mise en forme libre |
 | [Réseau アットホーム 空き家バンク](https://www.akiya-athome.jp/) | 842 | Un sous-domaine par commune, **gabarit identique** → extraction structurée fiable |
 | [LIFULL HOME'S 空き家バンク](https://www.homes.co.jp/akiyabank/) | national | Consultation manuelle : le site répond 403 aux robots |
+| Portails **préfectoraux** (ふくい空き家情報バンク, 北海道空き家情報バンク, Re:BARAKI…) | 10 | Un site, plusieurs communes — le meilleur rapport couverture/effort |
+| [家いちば](https://www.ieichiba.com/) | national | Ventes entre particuliers, souvent absentes des banques municipales. Annonces en JavaScript → import par URL |
 
 Couverture : **47 préfectures**. La page **Catalogue** permet de filtrer par
 préfecture, de ne garder que les sources structurées, et de les enregistrer en

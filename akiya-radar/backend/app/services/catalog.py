@@ -37,7 +37,9 @@ class CatalogEntry:
     crawlable: bool
     muni_code: str | None = None
     notes_fr: str | None = None
-    scope: str = "municipal"  # "municipal" | "national"
+    # "national" (whole country) | "prefectural" (one portal, many communes)
+    # | "municipal" (a single town)
+    scope: str = "municipal"
 
     def to_dict(self) -> dict:
         return {
@@ -95,10 +97,13 @@ def load_catalog() -> tuple[CatalogEntry, ...]:
                 adapter=raw.get("adapter", "generic"),
                 crawlable=bool(raw.get("crawlable", True)),
                 muni_code=raw.get("muni_code"),
-                scope="municipal",
+                scope=raw.get("scope", "municipal"),
             )
         )
     return tuple(entries)
+
+
+_SCOPE_ORDER = {"national": 0, "prefectural": 1, "municipal": 2}
 
 
 def search(
@@ -129,7 +134,11 @@ def search(
             )
         ]
 
-    entries.sort(key=lambda e: (e.scope != "national", e.adapter != "athome_municipal"))
+    # Broadest coverage first (a prefecture portal beats one town), then the
+    # sources that yield structured listings.
+    entries.sort(
+        key=lambda e: (_SCOPE_ORDER.get(e.scope, 3), e.adapter != "athome_municipal")
+    )
     return entries[offset : offset + limit], len(entries)
 
 

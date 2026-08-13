@@ -1,0 +1,106 @@
+name: Akiya — site autonome (sans serveur)
+
+# Reconstruit le jeu de données puis publie le site sur GitHub Pages.
+# Aucun serveur, aucune base : la collecte tourne ici, le site produit est
+# statique et les données personnelles restent dans le navigateur.
+#
+# Prérequis (une seule fois) : Settings → Pages → Source = "GitHub Actions",
+# puis définir la variable AKIYA_STATIC_SOURCES (Settings → Secrets and
+# variables → Actions → Variables) avec les clés du catalogue à collecter,
+# par exemple : athome-18202,athome-32528,athome-44206
+#
+# Sans cette variable, le job s'arrête proprement sans rien publier.
+
+on:
+  schedule:
+    # 21:00 UTC = 06:00 JST.
+    - cron: "0 21 * * *"
+  workflow_dispatch:
+    inputs:
+      sources:
+        description: "Clés du catalogue (séparées par des virgules)"
+        required: false
+      prefecture:
+        description: "Ou une préfecture entière (ex. 福井県)"
+        required: false
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: akiya-static-site
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    outputs:
+      built: ${{ steps.dataset.outputs.built }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: akiya-radar/frontend/package-lock.json
+
+      - name: Install backend (services d'extraction et d'enrichissement)
+        working-directory: akiya-radar/backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install .
+
+      - name: Collecter et enrichir les annonces
+        id: dataset
+        working-directory: akiya-radar/backend
+        env:
+          SOURCES: ${{ github.event.inputs.sources || vars.AKIYA_STATIC_SOURCES }}
+          PREFECTURE: ${{ github.event.inputs.prefecture || vars.AKIYA_STATIC_PREFECTURE }}
+          LIMIT: ${{ vars.AKIYA_STATIC_LIMIT || '40' }}
+        run: |
+          if [ -z "$SOURCES" ] && [ -z "$PREFECTURE" ]; then
+            echo "::notice::Ni AKIYA_STATIC_SOURCES ni AKIYA_STATIC_PREFECTURE — rien à publier."
+            echo "built=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          ARGS=""
+          [ -n "$SOURCES" ] && ARGS="$ARGS --sources $SOURCES"
+          [ -n "$PREFECTURE" ] && ARGS="$ARGS --prefecture $PREFECTURE --structured-only"
+          python scripts/build_static_dataset.py $ARGS --limit-per-source "$LIMIT"
+          echo "built=true" >> "$GITHUB_OUTPUT"
+
+      - name: Construire le site
+        if: steps.dataset.outputs.built == 'true'
+        working-directory: akiya-radar/frontend
+        env:
+          VITE_DATA_MODE: static
+          # Le site est servi depuis /<repo>/ sur GitHub Pages.
+          BASE_PATH: /${{ github.event.repository.name }}/
+        run: |
+          npm ci
+          npm run build -- --base "$BASE_PATH" --outDir dist-static
+
+      - name: Préparer l'artefact Pages
+        if: steps.dataset.outputs.built == 'true'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: akiya-radar/frontend/dist-static
+
+  deploy:
+    needs: build
+    if: needs.build.outputs.built == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4

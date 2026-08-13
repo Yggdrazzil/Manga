@@ -57,3 +57,26 @@ def test_get_returns_none_for_unknown_key():
 def test_adapter_is_chosen_from_the_url():
     assert catalog.adapter_for_url("https://fukui-c18201.akiya-athome.jp/x") == "athome_municipal"
     assert catalog.adapter_for_url("https://www.city.otaru.lg.jp/akiya/") == "generic"
+
+
+def test_prefectural_portals_are_a_distinct_tier():
+    """One portal covering a whole prefecture is worth more than one town."""
+    prefectural = [e for e in catalog.load_catalog() if e.scope == "prefectural"]
+    assert prefectural
+    assert all(e.prefecture for e in prefectural)
+    assert all(e.municipality is None for e in prefectural)
+
+
+def test_broadest_scope_ranks_first():
+    page, _ = catalog.search(prefecture="福井県", limit=20)
+    scopes = [e.scope for e in page]
+    order = {"national": 0, "prefectural": 1, "municipal": 2}
+    assert scopes == sorted(scopes, key=lambda s: order[s])
+
+
+def test_ieichiba_is_listed_but_never_crawled():
+    entry = catalog.get("ieichiba")
+    assert entry is not None
+    # Its listings are rendered in JavaScript — crawling would yield nothing.
+    assert entry.crawlable is False
+    assert entry.notes_fr and "JavaScript" in entry.notes_fr

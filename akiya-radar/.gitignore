@@ -21,3 +21,9 @@ dist/
 # TS build cache
 *.tsbuildinfo
 dist-preview/
+dist-static/
+
+# Jeu de données collecté (mode autonome). Volontairement non versionné :
+# le committer reviendrait à republier les annonces des sources, ce que ce
+# projet ne fait pas. Il est régénéré à chaque build par la CI.
+frontend/public/data/

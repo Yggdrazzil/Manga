@@ -19,7 +19,6 @@ import {
   accuracyLabel,
   fmtArea,
   fmtElevation,
-  fmtEur,
   fmtPricePerM2,
   fmtYen,
   pricePerM2,
@@ -27,6 +26,7 @@ import {
   severityRank,
 } from "@/lib/format";
 import { latestScore, PERSONAL_STATUSES, PERSONAL_STATUS_LABELS } from "@/lib/types";
+import { useCurrency } from "@/lib/useCurrency";
 
 const SCORE_PARTS: { key: string; label: string; max: number }[] = [
   { key: "price_score", label: "Prix / valeur", max: 20 },
@@ -39,6 +39,7 @@ const SCORE_PARTS: { key: string; label: string; max: number }[] = [
 
 export function ListingDetailPage() {
   const { id = "" } = useParams();
+  const money = useCurrency();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { data: listing, isLoading, error, refetch } = useQuery({
@@ -268,7 +269,19 @@ export function ListingDetailPage() {
           <section className="panel p-5">
             <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
               <span className="font-mono text-2xl font-bold sm:text-3xl">{fmtYen(listing.price_yen)}</span>
-              <span className="text-ink-mute">{fmtEur(listing.price_eur)}</span>
+              {money.format(listing.price_yen) && (
+                <span
+                  className="text-ink-mute"
+                  title={
+                    money.isFallback
+                      ? "Taux de repli — aucun fournisseur joignable"
+                      : `Taux du ${money.info.date ?? "jour"} (${money.info.source})`
+                  }
+                >
+                  ≈ {money.format(listing.price_yen)}
+                  {money.isFallback && " (taux indicatif)"}
+                </span>
+              )}
             </div>
             {listing.price_text_original && (
               <p className="mt-1 text-sm text-ink-mute">

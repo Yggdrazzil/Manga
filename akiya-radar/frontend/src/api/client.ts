@@ -17,6 +17,7 @@ import type {
 } from "@/lib/types";
 
 import { createMockApi } from "./mock";
+import { createStaticApi } from "./staticData";
 
 const BASE = import.meta.env.VITE_API_BASE_URL ?? "/api";
 
@@ -172,10 +173,26 @@ const realApi = {
     request<void>(`/saved-searches/${id}`, { method: "DELETE" }),
 };
 
-// In preview builds (VITE_MOCK=1) the app runs fully client-side on mock data.
-export const api: typeof realApi =
-  import.meta.env.VITE_MOCK === "1"
-    ? (createMockApi() as unknown as typeof realApi)
-    : realApi;
+/**
+ * Which backend the app talks to.
+ *
+ * - `VITE_MOCK=1` — self-contained preview on fabricated data.
+ * - `VITE_DATA_MODE=static` — no server at all: a JSON dataset rebuilt by CI,
+ *   with the user's own state kept in the browser.
+ * - default — the FastAPI backend.
+ */
+function selectApi(): typeof realApi {
+  if (import.meta.env.VITE_MOCK === "1") {
+    return createMockApi() as unknown as typeof realApi;
+  }
+  if (import.meta.env.VITE_DATA_MODE === "static") {
+    return createStaticApi() as unknown as typeof realApi;
+  }
+  return realApi;
+}
+
+export const IS_STATIC_MODE = import.meta.env.VITE_DATA_MODE === "static";
+
+export const api: typeof realApi = selectApi();
 
 export { ApiError };

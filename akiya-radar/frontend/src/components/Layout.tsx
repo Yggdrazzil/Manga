@@ -1,13 +1,17 @@
 import { NavLink, Outlet } from "react-router-dom";
 
+import { IS_STATIC_MODE } from "@/api/client";
+
+// `serverOnly` entries depend on the API: registering sources and importing
+// an arbitrary URL cannot work from a page with no backend.
 const NAV = [
   { to: "/dashboard", label: "Tableau de bord", jp: "盤" },
   { to: "/listings", label: "Annonces", jp: "件" },
   { to: "/map", label: "Carte", jp: "図" },
-  { to: "/import", label: "Importer", jp: "入" },
-  { to: "/catalogue", label: "Catalogue", jp: "録" },
+  { to: "/import", label: "Importer", jp: "入", serverOnly: true },
+  { to: "/catalogue", label: "Catalogue", jp: "録", serverOnly: true },
   { to: "/sources", label: "Sources", jp: "源" },
-  { to: "/saved-searches", label: "Recherches", jp: "探" },
+  { to: "/saved-searches", label: "Recherches", jp: "探", serverOnly: true },
   { to: "/settings", label: "Réglages", jp: "設" },
 ];
 
@@ -25,13 +29,13 @@ export function Layout() {
                 Akiya Radar
               </span>
               <span className="mt-0.5 text-[10px] uppercase tracking-[0.3em] text-ink-mute">
-                cockpit immobilier · japon
+                {IS_STATIC_MODE ? "cockpit · mode autonome" : "cockpit immobilier · japon"}
               </span>
             </span>
           </NavLink>
           <nav aria-label="Navigation principale">
             <ul className="flex flex-wrap gap-1">
-              {NAV.map((item) => (
+              {NAV.filter((item) => !(IS_STATIC_MODE && item.serverOnly)).map((item) => (
                 <li key={item.to}>
                   <NavLink
                     to={item.to}
