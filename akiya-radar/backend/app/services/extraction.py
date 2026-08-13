@@ -1,154 +1,329 @@
-"""Generic extraction of listing fields from fetched HTML.
+"""Turn a fetched listing page into canonical, comparable fields.
 
-Japanese akiya/agency pages commonly expose facts as label/value tables
-(``<table><tr><th>価格</th><td>…</td></tr>``) or definition lists. This parser
-pulls those pairs plus a title and free-text description, then types them with
-the shared parsers. It is deliberately tolerant: unknown layouts yield an empty
-dict and the import simply keeps its editable stub.
+The pipeline is the same for every source, which is what keeps ~2 000 wildly
+different sites renderable by one set of UI components:
+
+1. **Harvest** raw ``{label: value}`` pairs plus title/description/photos. This
+   is layout-driven (tables, definition lists) and deliberately tolerant.
+2. **Normalise** those pairs into canonical typed fields via
+   :mod:`app.services.normalize` — closed vocabularies, real ``Decimal``
+   prices, provenance for every field.
+3. **Score completeness** so the UI can distinguish "cheap" from "we barely
+   know anything about this one".
+
+Source-specific quirks live in small adapters rather than in the shared path:
+an unknown layout still yields whatever the generic pass could find, never an
+exception (règle : un import ne doit jamais échouer complètement).
 """
 
 from __future__ import annotations
 
+import json
 import re
+from dataclasses import dataclass, field
 from urllib.parse import urljoin, urlsplit
 
 from bs4 import BeautifulSoup
 
-from app.services.parsing import (
-    parse_area_m2,
-    parse_build_year,
-    parse_floor_plan,
-    parse_price_yen,
+from app.services.normalize import (
+    NormalizedListing,
+    classify_property_type,
+    classify_transaction_type,
+    completeness_score,
+    normalize_raw_fields,
 )
 
-_LABELS = {
-    "価格": "price",
-    "所在地": "address",
-    "住所": "address",
-    "土地面積": "land_area",
-    "敷地面積": "land_area",
-    "建物面積": "building_area",
-    "延床面積": "building_area",
-    "間取り": "floor_plan",
-    "築年": "build_year",
-    "築年月": "build_year",
-    "建築年": "build_year",
-}
-
-_PREF_RE = re.compile(r"(北海道|(?:京都|大阪)府|.{2,3}県|東京都)")
-
-
-def _store(fields: dict[str, str], label: str, value: str) -> None:
-    for jp, key in _LABELS.items():
-        if jp in label and key not in fields:
-            fields[key] = value
-            return
-
-
-def _split_address(address: str) -> tuple[str | None, str | None]:
-    pref_match = _PREF_RE.search(address)
-    if not pref_match:
-        return None, None
-    prefecture = pref_match.group(1)
-    rest = address[address.find(prefecture) + len(prefecture):]
-    city_match = re.match(r"(.+?[市区町村])", rest)
-    city = city_match.group(1) if city_match else None
-    return prefecture, city
-
+MAX_PHOTOS = 12
 
 # Filename fragments that are almost never property photos.
-_PHOTO_EXCLUDE = re.compile(r"logo|icon|banner|btn|button|spacer|arrow|bullet|header|footer", re.I)
-_PHOTO_EXT = re.compile(r"\.(jpe?g|png|webp)(\?|$)", re.I)
-MAX_PHOTOS = 10
+_PHOTO_EXCLUDE = re.compile(
+    r"logo|icon|banner|btn|button|spacer|arrow|bullet|header|footer|sprite|blank|noimage",
+    re.I,
+)
+_PHOTO_EXT = re.compile(r"\.(jpe?g|png|webp|avif)(\?|$)", re.I)
+# Dedicated image hosts serve extension-less URLs (At Home's img.akiya-athome.jp
+# uses an opaque ``?v=`` token). Rejecting those cost us every photo on the
+# largest structured source, so the host itself is treated as the signal.
+_PHOTO_HOST = re.compile(r"^(img|imgs|image|images|photo|photos|media|cdn|static)\d*\.", re.I)
+
+_TITLE_NOISE = re.compile(r"\s*[-|｜]\s*(物件詳細|トップページ).*$")
+
+
+@dataclass
+class ExtractionResult:
+    """Canonical fields plus everything needed to explain where they came from."""
+
+    fields: dict = field(default_factory=dict)
+    provenance: dict[str, dict[str, str]] = field(default_factory=dict)
+    raw_fields: dict[str, str] = field(default_factory=dict)
+    completeness: int = 0
+    adapter: str = "generic"
+
+    def get(self, key: str, default=None):
+        return self.fields.get(key, default)
+
+
+def _clean_text(node) -> str:
+    return re.sub(r"\s+", " ", node.get_text(" ", strip=True)).strip()
+
+
+def harvest_pairs(soup: BeautifulSoup) -> dict[str, str]:
+    """Collect ``{label: value}`` from tables and definition lists.
+
+    Later occurrences never overwrite earlier ones: listing pages usually put
+    the summary table first and repeat fields in a denser spec table below.
+    """
+    pairs: dict[str, str] = {}
+
+    for row in soup.select("table tr"):
+        cells = row.find_all(["th", "td"])
+        # Walk cells pairwise so 4-column spec tables (label|value|label|value)
+        # yield both pairs instead of only the first.
+        for index in range(0, len(cells) - 1, 2):
+            label = _clean_text(cells[index])
+            value = _clean_text(cells[index + 1])
+            if label and value and label not in pairs:
+                pairs[label] = value
+
+    for dt in soup.select("dl dt"):
+        dd = dt.find_next_sibling("dd")
+        if dd:
+            label, value = _clean_text(dt), _clean_text(dd)
+            if label and value and label not in pairs:
+                pairs[label] = value
+
+    return pairs
 
 
 def extract_photos(soup: BeautifulSoup, base_url: str) -> list[str]:
-    """Collect likely property-photo URLs (og:image first, then content <img>)."""
+    """Collect likely property-photo URLs (og:image first, then content images)."""
     urls: list[str] = []
     seen: set[str] = set()
 
-    def add(src: str | None) -> None:
-        if not src or src.startswith("data:") or len(urls) >= MAX_PHOTOS:
+    def add(src: str | None, trusted: bool = False) -> None:
+        if not src or len(urls) >= MAX_PHOTOS:
             return
-        absolute = urljoin(base_url, src.strip())
+        candidate = src.strip()
+        if candidate.startswith("data:"):
+            return
+        # Protocol-relative sources ("//img.example.jp/x") resolve against the
+        # page's scheme; urljoin handles that once the base is absolute.
+        absolute = urljoin(base_url or "https://", candidate)
         parts = urlsplit(absolute)
-        if parts.scheme not in ("http", "https"):
+        if parts.scheme not in ("http", "https") or not parts.netloc:
             return
-        if not _PHOTO_EXT.search(absolute) or _PHOTO_EXCLUDE.search(absolute):
+        if _PHOTO_EXCLUDE.search(absolute):
+            return
+        if not trusted and not _PHOTO_EXT.search(absolute) and not _PHOTO_HOST.search(parts.netloc):
             return
         if absolute not in seen:
             seen.add(absolute)
             urls.append(absolute)
 
     for meta in soup.select('meta[property="og:image"], meta[name="og:image"]'):
-        add(meta.get("content"))
+        add(meta.get("content"), trusted=True)
     for img in soup.find_all("img"):
-        add(img.get("src") or img.get("data-src"))
+        add(img.get("src") or img.get("data-src") or img.get("data-original"))
     return urls
 
 
-def extract_listing_fields(html: str, base_url: str = "") -> dict:
-    """Return a dict of typed listing fields extracted from ``html``.
+def _extract_title(soup: BeautifulSoup) -> str | None:
+    for selector in ("h1", "h2"):
+        node = soup.find(selector)
+        if node and _clean_text(node):
+            return _clean_text(node)[:300]
+    if soup.title and soup.title.get_text(strip=True):
+        return _TITLE_NOISE.sub("", _clean_text(soup.title))[:300]
+    return None
 
-    Only keys with a confidently-parsed value are included, so callers can
-    merge them without clobbering existing data.
+
+def _extract_description(soup: BeautifulSoup, pairs: dict[str, str]) -> str | None:
+    """Prefer the source's own remarks field, then a description-ish block."""
+    for label in ("備考", "物件の特徴", "コメント", "PRポイント", "紹介文"):
+        value = pairs.get(label)
+        if value and len(value) > 4:
+            return value[:4000]
+    node = soup.find(class_=re.compile("desc|comment|note|remark|catch|pr-", re.I))
+    if node:
+        text = _clean_text(node)
+        if len(text) > 8:
+            return text[:4000]
+    meta = soup.select_one('meta[name="description"], meta[property="og:description"]')
+    if meta and meta.get("content"):
+        return str(meta["content"])[:4000]
+    return None
+
+
+_PREF_RE = re.compile(r"(東京都|北海道|(?:京都|大阪)府|(?:神奈川|和歌山|鹿児島)県|.{2}県)")
+# 郡 is a rural county, not a municipality: 島根県隠岐郡隠岐の島町 must resolve to
+# 隠岐の島町, not 隠岐郡. The county prefix is therefore consumed and discarded.
+_CITY_RE = re.compile(r"^(?:.{1,6}郡)?(.{1,8}?[市区町村])")
+
+
+def split_address(address: str) -> tuple[str | None, str | None]:
+    """Split a Japanese address into ``(prefecture, municipality)``."""
+    if not address:
+        return None, None
+    pref_match = _PREF_RE.search(address)
+    if not pref_match:
+        return None, None
+    prefecture = pref_match.group(1)
+    rest = address[pref_match.end() :]
+    city_match = _CITY_RE.match(rest.strip())
+    return prefecture, city_match.group(1) if city_match else None
+
+
+# --- source adapters --------------------------------------------------------
+
+
+# The At Home template ships its gallery as a JS array literal rather than
+# <img> tags — the only <img> elements on the page are municipal banners, so
+# scraping the DOM yields a town logo where the house should be.
+_ATHOME_GALLERY_RE = re.compile(
+    r"image_tile_carousel_image_s\s*=\s*(\[.*?\])\s*;", re.S
+)
+# Floor plans are genuinely useful but must not become the cover photo.
+_ATHOME_PLAN_HINT = re.compile(r"間取|平面図")
+
+
+def _athome_gallery(html: str, base_url: str) -> list[str]:
+    """Pull full-size photo URLs out of the At Home carousel payload."""
+    match = _ATHOME_GALLERY_RE.search(html)
+    if not match:
+        return []
+    try:
+        items = json.loads(match.group(1))
+    except (ValueError, TypeError):
+        return []
+
+    photos: list[tuple[int, str]] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        url = item.get("image_url_fullsize") or item.get("image_url_thumbnail")
+        if not url:
+            continue
+        absolute = urljoin(base_url or "https://", str(url))
+        if not absolute.startswith(("http://", "https://")):
+            continue
+        rank = 1 if _ATHOME_PLAN_HINT.search(str(item.get("title", ""))) else 0
+        photos.append((rank, absolute))
+
+    photos.sort(key=lambda p: p[0])
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for _, url in photos:
+        if url not in seen:
+            seen.add(url)
+            ordered.append(url)
+    return ordered[:MAX_PHOTOS]
+
+
+def _athome_adapter(
+    soup: BeautifulSoup, html: str, base_url: str, result: NormalizedListing
+) -> None:
+    """At Home municipal template (``*.akiya-athome.jp``).
+
+    Identical across the 842 municipalities it hosts, so its quirks are worth
+    handling precisely: the gallery lives in JavaScript, the building name
+    carries the source's own reference, and 現況「空」 confirms the property is
+    genuinely vacant rather than merely listed.
     """
+    gallery = _athome_gallery(html, base_url)
+    if gallery:
+        result.fields["photo_urls"] = gallery
+        result.provenance["photo_urls"] = {
+            "label": "galerie",
+            "text": f"{len(gallery)} image(s) (carrousel At Home)",
+        }
+    else:
+        # Only banners were found — better no photo than a town logo.
+        result.fields.pop("photo_urls", None)
+        result.provenance.pop("photo_urls", None)
+
+    raw = result.raw_fields
+    building_name = raw.get("建物名") or raw.get("建物名・部屋番号")
+    if building_name:
+        reference = re.search(r"[（(]([0-9A-Za-z\-]{4,})[)）]", building_name)
+        if reference:
+            result.record("external_id", reference.group(1), "建物名", building_name)
+
+    state = raw.get("現況")
+    if state and "空" in state:
+        result.fields.setdefault("listing_status", "active")
+
+
+ADAPTERS = {"athome_municipal": _athome_adapter}
+
+
+def detect_adapter(url: str) -> str:
+    if ".akiya-athome.jp" in (url or ""):
+        return "athome_municipal"
+    return "generic"
+
+
+# --- public entry point -----------------------------------------------------
+
+
+def extract_listing(html: str, base_url: str = "", adapter: str | None = None) -> ExtractionResult:
+    """Full harvest → normalise → score pipeline for one listing page."""
     if not html:
-        return {}
+        return ExtractionResult()
+
+    adapter = adapter or detect_adapter(base_url)
     soup = BeautifulSoup(html, "html.parser")
-    raw: dict[str, str] = {}
+    pairs = harvest_pairs(soup)
 
-    for row in soup.select("table tr"):
-        label_cell = row.find(["th", "td"])
-        value_cell = label_cell.find_next_sibling(["td", "th"]) if label_cell else None
-        if label_cell and value_cell:
-            _store(raw, label_cell.get_text(strip=True), value_cell.get_text(strip=True))
+    normalized = normalize_raw_fields(pairs)
 
-    for dt in soup.select("dl dt"):
-        dd = dt.find_next_sibling("dd")
-        if dd:
-            _store(raw, dt.get_text(strip=True), dd.get_text(strip=True))
-
-    title_el = soup.find(["h1", "h2"]) or soup.find("title")
-    desc_el = soup.find(class_=re.compile("desc|comment|note|備考", re.I))
-
-    result: dict = {}
-    if title_el:
-        result["title_original"] = title_el.get_text(strip=True)
-    if desc_el:
-        result["description_original"] = desc_el.get_text(" ", strip=True)
-
-    if raw.get("price"):
-        result["price_text_original"] = raw["price"]
-        price = parse_price_yen(raw["price"])
-        if price is not None:
-            result["price_yen"] = price
-    if raw.get("address"):
-        result["address_text"] = raw["address"]
-        prefecture, city = _split_address(raw["address"])
-        if prefecture:
-            result["prefecture"] = prefecture
-        if city:
-            result["city"] = city
-    if raw.get("land_area"):
-        area = parse_area_m2(raw["land_area"])
-        if area is not None:
-            result["land_area_m2"] = area
-    if raw.get("building_area"):
-        area = parse_area_m2(raw["building_area"])
-        if area is not None:
-            result["building_area_m2"] = area
-    if raw.get("floor_plan"):
-        plan = parse_floor_plan(raw["floor_plan"]) or raw["floor_plan"]
-        result["floor_plan"] = plan
-    if raw.get("build_year"):
-        year = parse_build_year(raw["build_year"])
-        if year is not None:
-            result["build_year"] = year
+    title = _extract_title(soup)
+    if title:
+        normalized.record("title_original", title, "title", title)
+    description = _extract_description(soup, pairs)
+    if description:
+        normalized.record("description_original", description, "備考", description)
 
     photos = extract_photos(soup, base_url)
     if photos:
-        result["photo_urls"] = photos
+        normalized.record("photo_urls", photos, "img", f"{len(photos)} image(s)")
 
-    result["_raw_fields"] = raw
-    return result
+    if hook := ADAPTERS.get(adapter):
+        hook(soup, html, base_url, normalized)
+
+    # Prefecture/city are derived, not read: the address is the single source of
+    # truth so a mislabelled column can't put a listing in the wrong region.
+    address = normalized.fields.get("address_text")
+    if address:
+        prefecture, city = split_address(address)
+        if prefecture:
+            normalized.record("prefecture", prefecture, "所在地", address)
+        if city:
+            normalized.record("city", city, "所在地", address)
+
+    # Fall back to the title when the source has no explicit type column.
+    if "property_type" not in normalized.fields:
+        inferred = classify_property_type(title, description)
+        if inferred:
+            normalized.record("property_type", inferred, "titre", title or "")
+    if "transaction_type" not in normalized.fields:
+        inferred_tx = classify_transaction_type(title, base_url)
+        if inferred_tx != "unknown":
+            normalized.record("transaction_type", inferred_tx, "titre", title or "")
+
+    return ExtractionResult(
+        fields=normalized.fields,
+        provenance=normalized.provenance,
+        raw_fields=normalized.raw_fields,
+        completeness=completeness_score(normalized.fields),
+        adapter=adapter,
+    )
+
+
+def extract_listing_fields(html: str, base_url: str = "") -> dict:
+    """Backwards-compatible dict view of :func:`extract_listing`."""
+    result = extract_listing(html, base_url=base_url)
+    if not result.fields and not result.raw_fields:
+        return {}
+    fields = dict(result.fields)
+    fields["_raw_fields"] = result.raw_fields
+    return fields

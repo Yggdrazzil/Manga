@@ -12,7 +12,10 @@ class ListingNote(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "listing_notes"
 
     listing_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("listings.id", ondelete="CASCADE"), nullable=False
+        UUID(as_uuid=True),
+        ForeignKey("listings.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     note: Mapped[str] = mapped_column(Text, nullable=False)
 

@@ -1,4 +1,6 @@
 import type {
+  CatalogPrefecture,
+  CatalogResponse,
   CompsResult,
   RefreshResult,
   StationResult,
@@ -132,6 +134,29 @@ const realApi = {
   sources: () => request<Source[]>("/sources"),
   createSource: (body: Record<string, unknown>) =>
     request<Source>("/sources", { method: "POST", body: JSON.stringify(body) }),
+  updateSource: (id: string, body: Record<string, unknown>) =>
+    request<Source>(`/sources/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+  deleteSource: (id: string) => request<void>(`/sources/${id}`, { method: "DELETE" }),
+
+  catalog: (params: {
+    query?: string;
+    prefecture?: string;
+    adapter?: string;
+    limit?: number;
+    offset?: number;
+  }) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== "") qs.set(k, String(v));
+    });
+    return request<CatalogResponse>(`/sources/catalog?${qs.toString()}`);
+  },
+  catalogPrefectures: () => request<CatalogPrefecture[]>("/sources/catalog/prefectures"),
+  catalogAdd: (keys: string[], crawlEnabled: boolean) =>
+    request<{ added: Source[]; skipped: string[] }>("/sources/catalog/add", {
+      method: "POST",
+      body: JSON.stringify({ keys, crawl_enabled: crawlEnabled }),
+    }),
 
   savedSearches: () => request<SavedSearch[]>("/saved-searches"),
   createSavedSearch: (body: Record<string, unknown>) =>

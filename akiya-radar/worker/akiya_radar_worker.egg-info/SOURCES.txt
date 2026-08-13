@@ -6,10 +6,13 @@ akiya_radar_worker.egg-info/requires.txt
 akiya_radar_worker.egg-info/top_level.txt
 tests/test_adapters.py
 tests/test_dedupe.py
+tests/test_ingest.py
 tests/test_parsing.py
 worker/__init__.py
 worker/__main__.py
 worker/dedupe.py
+worker/fetcher.py
+worker/ingest.py
 worker/models.py
 worker/parsing.py
 worker/runner.py

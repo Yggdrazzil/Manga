@@ -126,3 +126,57 @@ def test_run_refresh_counts_outcomes(monkeypatch):
     assert summary.gone == 1
     assert summary.price_changes == 1
     assert summary.errors == 1
+
+
+def test_per_source_limit_caps_a_runaway_index(monkeypatch):
+    """One misparsed index page must not flood a whole run."""
+    from worker import ingest as ing
+
+    many = "".join(f'<a href="/bukken/detail/{i}">x</a>' for i in range(400))
+    monkeypatch.setattr(ing.fetcher, "fetch_html", lambda url: many)
+    imported: list[str] = []
+    monkeypatch.setattr(
+        ing, "_import_one", lambda api, url, token: imported.append(url) or "created"
+    )
+
+    summary = ing.run_ingest(
+        "http://api", None, ["https://akiya.example.jp/"],
+        per_source_limit=25, request_delay=0,
+    )
+    assert summary.discovered == 25
+    assert len(imported) == 25
+
+
+def test_requests_to_the_same_host_are_paced(monkeypatch):
+    from worker import ingest as ing
+
+    slept: list[float] = []
+    monkeypatch.setattr(ing.time, "sleep", slept.append)
+    clock = iter([0.0] * 40)
+    monkeypatch.setattr(ing.time, "monotonic", lambda: next(clock, 0.0))
+    monkeypatch.setattr(ing.fetcher, "fetch_html", lambda url: "")
+    monkeypatch.setattr(ing, "_import_one", lambda *a: "created")
+
+    ing.run_ingest(
+        "http://api", None, [],
+        watch_urls=["https://a.example.jp/1", "https://a.example.jp/2"],
+        request_delay=2.0,
+    )
+    # Second hit on the same host waits; a different host would not.
+    assert slept and slept[0] > 0
+
+
+def test_pacing_is_per_host(monkeypatch):
+    from worker import ingest as ing
+
+    slept: list[float] = []
+    monkeypatch.setattr(ing.time, "sleep", slept.append)
+    monkeypatch.setattr(ing.time, "monotonic", lambda: 0.0)
+    monkeypatch.setattr(ing, "_import_one", lambda *a: "created")
+
+    ing.run_ingest(
+        "http://api", None, [],
+        watch_urls=["https://a.example.jp/1", "https://b.example.jp/1"],
+        request_delay=2.0,
+    )
+    assert slept == []

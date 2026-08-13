@@ -19,13 +19,16 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60 * 24 * 7
 
-    # Pluggable provider switches — all default to mock so the MVP has no paid deps.
-    exchange_rate_provider: str = "mock"
+    # Pluggable provider switches. Translation stays mock (no paid deps), but
+    # the exchange rate is live by default: it is free, key-less and a stale
+    # hard-coded rate silently misprices every listing in euros.
+    exchange_rate_provider: str = "live"  # "live" | "static"
     translation_provider: str = "mock"
     llm_provider: str = "mock"
 
-    # Static fallback rate used by the mock exchange provider (EUR per 1 JPY).
-    jpy_to_eur_rate: float = 0.0060
+    # Offline fallback only (EUR per 1 JPY) — refreshed value, used when every
+    # live provider is unreachable.
+    jpy_to_eur_rate: float = 0.0055
 
     # Manual-import URL fetching (robots-respecting, best-effort, never fatal).
     import_fetch_enabled: bool = True

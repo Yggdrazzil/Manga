@@ -9,11 +9,22 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
 from app.models import HazardScore, Listing, ListingFlag, ListingScore, PriceHistory
-from app.services import dedupe, extraction, fetcher, geocoding, hazard, red_flags, scoring
+from app.services import (
+    dedupe,
+    elevation,
+    extraction,
+    fetcher,
+    geocoding,
+    hazard,
+    hazard_tiles,
+    normalize,
+    red_flags,
+    scoring,
+)
 from app.services.providers import (
     get_exchange_rate_provider,
     get_summary_provider,
@@ -26,6 +37,7 @@ _EXTRACTABLE_FIELDS = (
     "description_original",
     "price_text_original",
     "price_yen",
+    "rent_yen_month",
     "prefecture",
     "city",
     "address_text",
@@ -34,6 +46,20 @@ _EXTRACTABLE_FIELDS = (
     "floor_plan",
     "build_year",
     "photo_urls",
+    "property_type",
+    "transaction_type",
+    "external_id",
+    "zoning",
+    "structure",
+    "land_rights",
+    "parking",
+    "current_state",
+    "features",
+    "utilities",
+    "station_name",
+    "station_line",
+    "station_walk_minutes",
+    "station_distance_km",
 )
 
 
@@ -93,7 +119,15 @@ def latest_hazard_dict(db: Session, listing: Listing) -> dict | None:
     ).scalar_one_or_none()
     if row is None:
         return None
-    return {"earthquake_risk": row.earthquake_risk, "source_name": row.source_name}
+    return {
+        "earthquake_risk": row.earthquake_risk,
+        "flood_risk": row.flood_risk,
+        "tsunami_risk": row.tsunami_risk,
+        "storm_surge_risk": row.storm_surge_risk,
+        "landslide_risk": row.landslide_risk,
+        "elevation_m": float(listing.elevation_m) if listing.elevation_m is not None else None,
+        "source_name": row.source_name,
+    }
 
 
 def compute_and_store_score(
@@ -136,22 +170,60 @@ def geocode_listing(db: Session, listing: Listing, force: bool = False) -> bool:
     return True
 
 
-def enrich_hazard(db: Session, listing: Listing) -> HazardScore | None:
-    """Fetch real J-SHIS seismic hazard for the listing's coordinates."""
-    result = hazard.fetch_seismic_hazard(listing.lat, listing.lon)
+def enrich_elevation(listing: Listing) -> bool:
+    """Fill ground elevation from GSI. Returns True when updated."""
+    result = elevation.fetch_elevation(listing.lat, listing.lon)
     if result is None:
+        return False
+    listing.elevation_m = Decimal(str(result.metres))
+    return True
+
+
+def enrich_hazard(db: Session, listing: Listing) -> HazardScore | None:
+    """Combine J-SHIS seismic hazard with the Hazard Map Portal water/land layers.
+
+    Seismic data alone left flood, tsunami and landslide permanently empty,
+    which the UI could not distinguish from "no risk". Both sources are queried
+    and merged into one row; whichever half is unavailable stays ``None`` rather
+    than being reported as safe.
+    """
+    seismic = hazard.fetch_seismic_hazard(listing.lat, listing.lon)
+    tiles = hazard_tiles.fetch_hazard_tiles(listing.lat, listing.lon)
+    if seismic is None and tiles is None:
         return None
-    row = HazardScore(
-        earthquake_risk=result.risk_label,
-        source_name=result.source_name,
-        raw_json={
-            "T30_I50_PS": result.prob_shindo5_upper_30y,
-            "T30_I60_PS": result.prob_shindo6_lower_30y,
-            **result.raw,
-        },
-    )
+
+    raw: dict = {}
+    source_names: list[str] = []
+    row = HazardScore()
+
+    if seismic is not None:
+        row.earthquake_risk = seismic.risk_label
+        raw["seismic"] = {
+            "T30_I50_PS": seismic.prob_shindo5_upper_30y,
+            "T30_I60_PS": seismic.prob_shindo6_lower_30y,
+            **seismic.raw,
+        }
+        source_names.append(seismic.source_name)
+
+    if tiles is not None:
+        flood = tiles.worst("flood")
+        tsunami = tiles.worst("tsunami")
+        surge = tiles.worst("storm_surge")
+        landslide = tiles.worst(
+            "landslide_debris", "landslide_steep", "landslide_slide"
+        )
+        row.flood_risk = flood.risk if flood else None
+        row.tsunami_risk = tsunami.risk if tsunami else None
+        row.storm_surge_risk = surge.risk if surge else None
+        row.landslide_risk = landslide.risk if landslide else None
+        raw["tiles"] = tiles.to_json()
+        source_names.append(tiles.source_name)
+
+    row.source_name = " + ".join(source_names) or None
+    row.raw_json = raw
     # Append through the relationship so the in-memory collection stays in sync.
     listing.hazard_scores.append(row)
+    enrich_elevation(listing)
     db.flush()
     compute_and_store_score(db, listing)
     return row
@@ -166,22 +238,82 @@ def update_price_eur(listing: Listing) -> None:
 def apply_extracted(listing: Listing, extracted: dict) -> list[str]:
     """Fill empty listing fields from extracted HTML data (never overwrite).
 
-    Returns the names of the fields that were actually filled.
+    Accepts either an :class:`~app.services.extraction.ExtractionResult` or a
+    plain dict. Returns the names of the fields that were actually filled.
     """
+    fields = getattr(extracted, "fields", extracted) or {}
     filled: list[str] = []
     for field in _EXTRACTABLE_FIELDS:
-        value = extracted.get(field)
-        if value in (None, ""):
+        value = fields.get(field)
+        if value in (None, "", []):
             continue
-        if getattr(listing, field) in (None, ""):
+        if getattr(listing, field) in (None, "", []):
             setattr(listing, field, value)
             filled.append(field)
+
+    provenance = getattr(extracted, "provenance", None)
+    if provenance:
+        listing.field_provenance = {**(listing.field_provenance or {}), **provenance}
+    if (status := fields.get("listing_status")) and listing.listing_status in (None, "unknown"):
+        listing.listing_status = status
+
+    refresh_completeness(listing)
     return filled
+
+
+def refresh_completeness(listing: Listing) -> int:
+    """Recompute the 0-100 completeness of the comparable core."""
+    listing.data_completeness = normalize.completeness_score(
+        {
+            "price_yen": listing.price_yen,
+            "address_text": listing.address_text,
+            "land_area_m2": listing.land_area_m2,
+            "building_area_m2": listing.building_area_m2,
+            "build_year": listing.build_year,
+            "floor_plan": listing.floor_plan,
+            "property_type": listing.property_type,
+            "photo_urls": listing.photo_urls,
+            "description_original": listing.description_original,
+        }
+    )
+    return listing.data_completeness
+
+
+# A duplicate is always in the same municipality, or within a few hundred
+# metres, or at the same price. Comparing against every row in the table made
+# each import O(total listings) — untenable once the catalogue feeds thousands.
+_DUPLICATE_CANDIDATE_LIMIT = 400
+
+
+def _duplicate_candidates(db: Session, listing: Listing) -> list[Listing]:
+    """Narrow the comparison set to plausibly-related listings."""
+    conditions = []
+    if listing.city:
+        conditions.append(Listing.city == listing.city)
+    if listing.prefecture:
+        conditions.append(Listing.prefecture == listing.prefecture)
+    if listing.price_yen is not None:
+        conditions.append(Listing.price_yen == listing.price_yen)
+    if listing.external_id:
+        conditions.append(Listing.external_id == listing.external_id)
+    if listing.lat is not None and listing.lon is not None:
+        delta = Decimal("0.01")  # ~1 km, comfortably wider than any real match
+        conditions.append(
+            and_(
+                Listing.lat.between(listing.lat - delta, listing.lat + delta),
+                Listing.lon.between(listing.lon - delta, listing.lon + delta),
+            )
+        )
+
+    stmt = select(Listing).where(Listing.id != listing.id)
+    if conditions:
+        stmt = stmt.where(or_(*conditions))
+    return list(db.execute(stmt.limit(_DUPLICATE_CANDIDATE_LIMIT)).scalars())
 
 
 def find_possible_duplicates(db: Session, listing: Listing) -> list[dict]:
     """Surface possible duplicates of ``listing`` without ever auto-merging."""
-    others = db.execute(select(Listing).where(Listing.id != listing.id)).scalars().all()
+    others = _duplicate_candidates(db, listing)
     if not others:
         return []
     candidate = listing_to_dict(listing)
@@ -298,6 +430,7 @@ def enrich_listing(db: Session, listing: Listing, prefs: dict | None = None) -> 
         )
 
     detect_and_store_flags(db, listing)
+    refresh_completeness(listing)
     compute_and_store_score(db, listing, prefs=prefs)
     db.flush()
     return listing

@@ -43,6 +43,43 @@ body {
   .panel {
     @apply rounded-xl2 border border-line bg-surface shadow-soft;
   }
+  /* Staggered page entrance: children reveal in reading order. One
+     orchestrated arrival beats a dozen scattered micro-animations. */
+  .stagger > * {
+    @apply animate-reveal-up;
+  }
+  .stagger > *:nth-child(1) { animation-delay: 0ms; }
+  .stagger > *:nth-child(2) { animation-delay: 60ms; }
+  .stagger > *:nth-child(3) { animation-delay: 120ms; }
+  .stagger > *:nth-child(4) { animation-delay: 180ms; }
+  .stagger > *:nth-child(5) { animation-delay: 240ms; }
+  .stagger > *:nth-child(6) { animation-delay: 300ms; }
+  .stagger > *:nth-child(n + 7) { animation-delay: 360ms; }
+
+  /* Sweeping highlight used by every skeleton. */
+  .shimmer {
+    @apply relative overflow-hidden bg-paper-2;
+  }
+  .shimmer::after {
+    @apply absolute inset-0 animate-shimmer;
+    content: "";
+    transform: translateX(-100%);
+    background-image: linear-gradient(
+      90deg,
+      transparent,
+      theme("colors.surface" / 70%),
+      transparent
+    );
+  }
+
+  /* Section rule with an inked left cap — the recurring divider motif. */
+  .rule {
+    @apply relative h-px w-full origin-left bg-line;
+  }
+  .rule::before {
+    @apply absolute -top-px left-0 h-[3px] w-10 bg-vermilion;
+    content: "";
+  }
   .panel-sm {
     @apply rounded-lg border border-line bg-surface shadow-soft;
   }
@@ -105,6 +142,15 @@ a {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
+  }
+  /* Entrances animate opacity/transform from 0 — with animation effectively
+     removed, the end state has to be asserted or content stays invisible. */
+  .stagger > *,
+  .animate-reveal-up,
+  .animate-fade-in,
+  .animate-scale-in {
+    opacity: 1 !important;
+    transform: none !important;
   }
 }
 

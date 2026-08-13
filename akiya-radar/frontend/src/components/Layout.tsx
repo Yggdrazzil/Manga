@@ -5,6 +5,7 @@ const NAV = [
   { to: "/listings", label: "Annonces", jp: "件" },
   { to: "/map", label: "Carte", jp: "図" },
   { to: "/import", label: "Importer", jp: "入" },
+  { to: "/catalogue", label: "Catalogue", jp: "録" },
   { to: "/sources", label: "Sources", jp: "源" },
   { to: "/saved-searches", label: "Recherches", jp: "探" },
   { to: "/settings", label: "Réglages", jp: "設" },

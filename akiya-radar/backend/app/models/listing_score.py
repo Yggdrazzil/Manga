@@ -13,7 +13,10 @@ class ListingScore(UUIDMixin, Base):
     __tablename__ = "listing_scores"
 
     listing_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("listings.id", ondelete="CASCADE"), nullable=False
+        UUID(as_uuid=True),
+        ForeignKey("listings.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     total_score: Mapped[int | None] = mapped_column(Integer)
     price_score: Mapped[int | None] = mapped_column(Integer)

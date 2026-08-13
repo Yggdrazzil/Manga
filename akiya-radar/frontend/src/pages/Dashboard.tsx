@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 
 import { api } from "@/api/client";
-import { ErrorState, Spinner } from "@/components/feedback";
+import { ErrorState, ListingGridSkeleton, Skeleton } from "@/components/feedback";
 import { ListingCard } from "@/components/ListingCard";
 
 const STAT_DEFS: { key: keyof StatMap; label: string; jp: string; accent: string }[] = [
@@ -29,22 +29,29 @@ export function Dashboard() {
     queryFn: api.dashboard,
   });
 
-  if (isLoading) return <Spinner label="Chargement du cockpit" />;
+  if (isLoading) {
+    return (
+      <div className="space-y-8">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          {Array.from({ length: 6 }, (_, i) => (
+            <Skeleton key={i} className="h-24 rounded-xl2" />
+          ))}
+        </div>
+        <ListingGridSkeleton count={3} />
+      </div>
+    );
+  }
   if (error) return <ErrorState message={(error as Error).message} onRetry={refetch} />;
   if (!data) return null;
 
   return (
     <div className="space-y-8">
       <section>
-        <h1 className="font-display text-3xl font-extrabold">Tableau de bord</h1>
+        <h1 className="font-display text-hero font-extrabold">Tableau de bord</h1>
         <p className="text-ink-soft">Vue d'ensemble de votre recherche d'akiya.</p>
-        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          {STAT_DEFS.map((s, i) => (
-            <div
-              key={s.key}
-              className="panel animate-reveal-up p-4"
-              style={{ animationDelay: `${i * 60}ms` }}
-            >
+        <div className="stagger mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          {STAT_DEFS.map((s) => (
+            <div key={s.key} className="panel p-4">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold uppercase tracking-wider text-ink-mute">
                   {s.label}

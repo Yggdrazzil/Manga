@@ -21,10 +21,24 @@ akiya-radar/
 
 - **backend/app/services/** : `red_flags.py`, `scoring.py`, `parsing.py`,
   `dedupe.py`, `providers.py`, `listing_ops.py` — logique pure, testée.
-- **Données publiques réelles** : `geocoding.py` (GSI, gratuit sans clé),
-  `hazard.py` (J-SHIS sismique, gratuit sans clé), `mlit.py` (prix de
-  transaction XIT001, clé gratuite via MLIT_API_KEY). Tous best-effort :
-  jamais d'exception propagée, l'app fonctionne sans réseau.
+- **Normalisation** : `normalize.py` est le **point unique** où les données
+  hétérogènes (~2 000 sites, libellés et formats différents) deviennent
+  canoniques. Vocabulaires fermés, loyer jamais mélangé au prix de vente,
+  provenance (libellé + texte japonais) conservée par champ, score de
+  complétude 0-100. `extraction.py` orchestre récolte → normalisation →
+  complétude, avec des adapters par gabarit de source.
+- **Catalogue** : `catalog.py` + `app/data/source_catalog.json` — 2 159 banques
+  d'akiya officielles (47 préfectures), généré par
+  `scripts/build_source_catalog.py` depuis l'annuaire MLIT et le réseau At Home.
+  Régénérer après une évolution des annuaires, jamais à la main.
+- **Données publiques réelles** : `geocoding.py` (GSI), `hazard.py` (J-SHIS
+  sismique), `hazard_tiles.py` (cartes officielles inondation/tsunami/
+  submersion/glissement par échantillonnage de tuiles), `elevation.py` (DEM
+  GSI), `osm.py` (gare la plus proche, miroirs Overpass en cascade), `mlit.py`
+  (prix de transaction XIT001, clé gratuite via MLIT_API_KEY). Tous
+  best-effort : jamais d'exception propagée, l'app fonctionne sans réseau.
+- **Ne jamais confondre « aucun risque » et « risque non vérifié »** : les
+  labels `none` et `unknown` sont distincts de bout en bout (service, API, UI).
 - **backend/app/routers/** : un router par domaine (listings, sources, notes,
   tasks, saved_searches, dashboard, auth, health).
 - **worker/worker/adapters/** : `SourceAdapter` + adapters (generic municipal,

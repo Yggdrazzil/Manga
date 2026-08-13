@@ -11,8 +11,9 @@ fresh database already has this column — the guard makes both paths work.
 from collections.abc import Sequence
 
 import sqlalchemy as sa
-from alembic import op
 from sqlalchemy.dialects.postgresql import JSONB
+
+from alembic import op
 
 revision: str = "0002_photo_urls"
 down_revision: str | None = "0001_initial"

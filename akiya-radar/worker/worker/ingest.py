@@ -21,6 +21,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+import time
 from dataclasses import dataclass, field
 from urllib.parse import urljoin, urlsplit
 
@@ -38,6 +39,13 @@ logger = logging.getLogger("akiya.worker.ingest")
 # Matched against the URL *path* (not the host, which often contains "akiya").
 _DETAIL_HINTS = ("bukken", "property", "detail", "estate", "物件", "kominka")
 _DETAIL_RE = re.compile(r"/\d{2,}")
+
+# A municipal akiya bank rarely lists more than a few dozen properties; a much
+# larger number means the index page linked something else (an archive, a
+# calendar). Capping keeps one misparsed page from flooding the run.
+DEFAULT_PER_SOURCE_LIMIT = 150
+# Seconds between two requests to the same host.
+DEFAULT_REQUEST_DELAY = 1.5
 
 
 @dataclass
@@ -163,20 +171,50 @@ def run_refresh(api_base: str, token: str | None, summary: IngestSummary) -> Non
             summary.price_changes += 1
 
 
+def _sleep_between(host: str, last_seen: dict[str, float], delay: float) -> None:
+    """Keep at least ``delay`` seconds between two hits on the same host.
+
+    A single municipal akiya bank is often a small shared-hosting site. Pacing
+    is per-host, so crawling many sources stays fast overall while no single
+    site sees a burst (règle : limiter la fréquence).
+    """
+    if delay <= 0:
+        return
+    previous = last_seen.get(host)
+    now = time.monotonic()
+    if previous is not None:
+        remaining = delay - (now - previous)
+        if remaining > 0:
+            time.sleep(remaining)
+    last_seen[host] = time.monotonic()
+
+
 def run_ingest(
     api_base: str,
     token: str | None = None,
     source_index_urls: list[str] | None = None,
     watch_urls: list[str] | None = None,
+    per_source_limit: int = DEFAULT_PER_SOURCE_LIMIT,
+    request_delay: float = DEFAULT_REQUEST_DELAY,
 ) -> IngestSummary:
     summary = IngestSummary()
     detail_urls: list[str] = list(watch_urls or [])
+    last_seen: dict[str, float] = {}
 
     for index_url in source_index_urls or []:
+        _sleep_between(urlsplit(index_url).netloc, last_seen, request_delay)
         html = fetcher.fetch_html(index_url)
         if not html:
             continue
         links = discover_detail_urls(html, index_url)
+        if per_source_limit and len(links) > per_source_limit:
+            logger.info(
+                "%s exposed %d links — capping at %d for this run",
+                index_url,
+                len(links),
+                per_source_limit,
+            )
+            links = links[:per_source_limit]
         logger.info("discovered %d detail link(s) from %s", len(links), index_url)
         detail_urls.extend(links)
 
@@ -185,6 +223,8 @@ def run_ingest(
     summary.discovered = len(detail_urls)
 
     for url in detail_urls:
+        # The backend does the fetching, so pace on the *listing's* host.
+        _sleep_between(urlsplit(url).netloc, last_seen, request_delay)
         outcome = _import_one(api_base, url, token)
         if outcome == "created":
             summary.created += 1
@@ -215,7 +255,14 @@ def main() -> None:
         len(index_urls),
         len(watch_urls),
     )
-    summary = run_ingest(api_base, token, index_urls, watch_urls)
+    summary = run_ingest(
+        api_base,
+        token,
+        index_urls,
+        watch_urls,
+        per_source_limit=int(os.environ.get("AKIYA_PER_SOURCE_LIMIT", DEFAULT_PER_SOURCE_LIMIT)),
+        request_delay=float(os.environ.get("AKIYA_REQUEST_DELAY", DEFAULT_REQUEST_DELAY)),
+    )
     if os.environ.get("AKIYA_REFRESH", "true").lower() != "false":
         run_refresh(api_base, token, summary)
     logger.info("ingest finished: %s", summary.as_dict())

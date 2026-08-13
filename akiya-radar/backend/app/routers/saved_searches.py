@@ -105,7 +105,9 @@ def run_saved_search(
 ) -> list[Listing]:
     search = _get_or_404(db, search_id)
     stmt = select(Listing).options(
-        selectinload(Listing.flags), selectinload(Listing.scores)
+        selectinload(Listing.flags),
+        selectinload(Listing.scores),
+        selectinload(Listing.hazard_scores),
     )
     stmt = apply_criteria(stmt, search.criteria_json or {})
     rows = list(

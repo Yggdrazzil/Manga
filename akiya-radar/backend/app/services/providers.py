@@ -70,44 +70,81 @@ class MockExchangeRateProvider:
         return (Decimal(amount_yen) * self._rate).quantize(Decimal("0.01"))
 
 
-class FrankfurterExchangeRateProvider:
-    """Live ECB JPY→EUR rate via api.frankfurter.dev (free, key-less).
+class LiveExchangeRateProvider:
+    """Live JPY→EUR rate, with redundancy.
 
-    The rate is cached in-process for 12 h; any failure falls back to the
-    static configured rate so the app never depends on the network.
+    A single provider is a single point of silent failure: when Frankfurter
+    moved to a new host, the old endpoint answered ``301`` and the app quietly
+    fell back to a stale hard-coded rate — every price shown in euros was ~10 %
+    too high with nothing in the UI to suggest it. So: redirects are followed,
+    several independent providers are tried in order, and the caller can tell
+    whether the number is live or a fallback.
     """
 
-    ENDPOINT = "https://api.frankfurter.dev/v1/latest"
-    TTL_SECONDS = 12 * 3600
+    ENDPOINTS: tuple[tuple[str, str, dict], ...] = (
+        ("frankfurter", "https://api.frankfurter.dev/v1/latest", {"base": "JPY", "symbols": "EUR"}),
+        ("erapi", "https://open.er-api.com/v6/latest/JPY", {}),
+    )
+    TTL_SECONDS = 6 * 3600
 
     _cached_rate: Decimal | None = None
     _cached_at: float = 0.0
+    _cached_source: str = "static"
 
-    def _live_rate(self) -> Decimal | None:
+    @staticmethod
+    def _read_rate(payload: dict) -> Decimal | None:
+        rates = payload.get("rates")
+        if not isinstance(rates, dict) or "EUR" not in rates:
+            return None
+        try:
+            rate = Decimal(str(rates["EUR"]))
+        except (TypeError, ValueError, ArithmeticError):
+            return None
+        # Sanity band: JPY→EUR has stayed well inside this range for decades, so
+        # anything outside it means the payload is not what we think it is.
+        return rate if Decimal("0.001") < rate < Decimal("0.05") else None
+
+    def _live_rate(self) -> tuple[Decimal, str] | None:
         import time
 
         import httpx
 
-        cls = FrankfurterExchangeRateProvider
+        cls = LiveExchangeRateProvider
         if cls._cached_rate is not None and time.time() - cls._cached_at < self.TTL_SECONDS:
-            return cls._cached_rate
-        try:
-            resp = httpx.get(
-                self.ENDPOINT,
-                params={"base": "JPY", "symbols": "EUR"},
-                headers={"User-Agent": get_settings().user_agent},
-                timeout=8.0,
-            )
-            resp.raise_for_status()
-            rate = Decimal(str(resp.json()["rates"]["EUR"]))
-        except Exception:  # noqa: BLE001 — fall back to the static rate
-            return None
-        cls._cached_rate, cls._cached_at = rate, time.time()
-        return rate
+            return cls._cached_rate, cls._cached_source
+
+        for name, url, params in self.ENDPOINTS:
+            try:
+                resp = httpx.get(
+                    url,
+                    params=params,
+                    headers={"User-Agent": get_settings().user_agent},
+                    timeout=8.0,
+                    follow_redirects=True,
+                )
+                resp.raise_for_status()
+                rate = self._read_rate(resp.json())
+            except Exception:  # noqa: BLE001 — try the next provider
+                continue
+            if rate is not None:
+                cls._cached_rate, cls._cached_at, cls._cached_source = rate, time.time(), name
+                return rate, name
+        return None
+
+    def current_rate(self) -> tuple[Decimal, str]:
+        """Return ``(rate, source)`` — ``source`` is ``static`` when offline."""
+        live = self._live_rate()
+        if live is not None:
+            return live
+        return Decimal(str(get_settings().jpy_to_eur_rate)), "static"
 
     def jpy_to_eur(self, amount_yen: Decimal) -> Decimal:
-        rate = self._live_rate() or Decimal(str(get_settings().jpy_to_eur_rate))
+        rate, _ = self.current_rate()
         return (Decimal(amount_yen) * rate).quantize(Decimal("0.01"))
+
+
+# Kept as an alias so existing configuration values keep working.
+FrankfurterExchangeRateProvider = LiveExchangeRateProvider
 
 
 def get_translation_provider() -> TranslationProvider:
@@ -122,6 +159,6 @@ def get_summary_provider() -> SummaryProvider:
 
 
 def get_exchange_rate_provider() -> ExchangeRateProvider:
-    if get_settings().exchange_rate_provider == "frankfurter":
-        return FrankfurterExchangeRateProvider()
-    return MockExchangeRateProvider()
+    if get_settings().exchange_rate_provider == "static":
+        return MockExchangeRateProvider()
+    return LiveExchangeRateProvider()

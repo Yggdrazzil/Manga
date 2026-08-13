@@ -157,18 +157,64 @@ def _natural_risk_score(
     if not have_data:
         negatives.append("Risque naturel encore non vérifié.")
         score = min(score, 14)
-    else:
-        quake = hazard.get("earthquake_risk")
-        if quake == "high":
-            score -= 5
-            negatives.append("Risque sismique élevé (J-SHIS : prob. ≥26% sur 30 ans).")
-        elif quake == "medium":
+        return max(0, min(20, score)), have_data
+
+    quake = hazard.get("earthquake_risk")
+    if quake == "high":
+        score -= 5
+        negatives.append("Risque sismique élevé (J-SHIS : prob. ≥26% sur 30 ans).")
+    elif quake == "medium":
+        score -= 2
+        negatives.append("Risque sismique modéré (J-SHIS).")
+    elif quake == "low":
+        positives.append("Risque sismique faible (vérifié J-SHIS).")
+
+    # Measured hazard-map layers outrank keyword flags: they say whether *this
+    # point* is inside a mapped zone, not whether the advert mentioned it.
+    measured = (
+        ("flood_risk", "Inondation", 6),
+        ("tsunami_risk", "Submersion tsunami", 7),
+        ("storm_surge_risk", "Submersion marine", 5),
+        ("landslide_risk", "Glissement de terrain", 6),
+    )
+    measured_clear = True
+    for key, label, weight in measured:
+        level = hazard.get(key)
+        if level in (None, "unknown"):
+            measured_clear = False
+            continue
+        if level == "very_high":
+            score -= weight
+            hit = True
+            measured_clear = False
+            negatives.append(f"{label} : zone à aléa très élevé (carte officielle).")
+        elif level == "high":
+            score -= weight - 2
+            hit = True
+            measured_clear = False
+            negatives.append(f"{label} : zone à aléa élevé (carte officielle).")
+        elif level == "medium":
             score -= 2
-            negatives.append("Risque sismique modéré (J-SHIS).")
-        elif quake == "low":
-            positives.append("Risque sismique faible (vérifié J-SHIS).")
-        if not hit and quake in ("low", "medium", None):
-            positives.append("Aucun risque naturel critique détecté.")
+            measured_clear = False
+            negatives.append(f"{label} : zone à aléa modéré (carte officielle).")
+        elif level == "low":
+            measured_clear = False
+            negatives.append(f"{label} : aléa faible mais zone cartographiée.")
+
+    elevation = hazard.get("elevation_m")
+    if elevation is not None:
+        if elevation < 5 and hazard.get("tsunami_risk") not in (None, "none"):
+            score -= 2
+            negatives.append(f"Altitude très basse ({elevation:g} m) en zone de submersion.")
+        elif elevation >= 30:
+            positives.append(f"Terrain en hauteur ({elevation:g} m).")
+
+    if measured_clear and not hit:
+        positives.append(
+            "Hors de toute zone d'aléa cartographiée (inondation, tsunami, glissement)."
+        )
+    elif not hit and quake in ("low", "medium", None):
+        positives.append("Aucun risque naturel critique détecté.")
     return max(0, min(20, score)), have_data
 
 

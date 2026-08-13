@@ -16,7 +16,15 @@ from app.config import get_settings
 
 logger = logging.getLogger("akiya.osm")
 
-OVERPASS_ENDPOINT = "https://overpass-api.de/api/interpreter"
+# Overpass instances go down, rate-limit, or become unreachable from a given
+# network independently of one another. With a single endpoint every station
+# lookup silently returned "no station found"; the mirrors are tried in order
+# and the first usable answer wins.
+OVERPASS_ENDPOINTS = (
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+    "https://overpass.osm.ch/api/interpreter",
+)
 SEARCH_RADIUS_M = 15_000
 
 
@@ -48,17 +56,23 @@ def find_nearest_station(lat, lon) -> NearestStation | None:
         f"node(around:{SEARCH_RADIUS_M},{float(lat)},{float(lon)})[railway=station];"
         f"out body 20;"
     )
-    try:
-        resp = httpx.post(
-            OVERPASS_ENDPOINT,
-            data={"data": query},
-            headers={"User-Agent": settings.user_agent},
-            timeout=20.0,
-        )
-        resp.raise_for_status()
-        elements = resp.json().get("elements", [])
-    except Exception as exc:  # noqa: BLE001 — enrichment must never break callers
-        logger.info("Overpass lookup failed for (%s, %s): %s", lat, lon, exc)
+    elements: list[dict] = []
+    for endpoint in OVERPASS_ENDPOINTS:
+        try:
+            resp = httpx.post(
+                endpoint,
+                data={"data": query},
+                headers={"User-Agent": settings.user_agent},
+                timeout=20.0,
+            )
+            resp.raise_for_status()
+            elements = resp.json().get("elements", [])
+        except Exception as exc:  # noqa: BLE001 — enrichment must never break callers
+            logger.info("Overpass %s failed for (%s, %s): %s", endpoint, lat, lon, exc)
+            continue
+        break
+    else:
+        logger.info("all Overpass mirrors unreachable for (%s, %s)", lat, lon)
         return None
 
     best: NearestStation | None = None

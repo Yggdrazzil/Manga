@@ -21,6 +21,9 @@ dependencies = [
     "python-multipart>=0.0.12",
     "httpx>=0.28",
     "beautifulsoup4>=4.12",
+    # Reads a single pixel out of the national hazard-map raster tiles, which
+    # is the only way to get a point-level flood/tsunami/landslide answer.
+    "pillow>=11",
 ]
 
 [project.optional-dependencies]

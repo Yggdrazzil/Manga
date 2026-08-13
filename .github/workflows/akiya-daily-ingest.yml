@@ -46,5 +46,9 @@ jobs:
           # the job uses the base_url of crawl-enabled sources from the backend.
           AKIYA_SOURCE_INDEX_URLS: ${{ secrets.AKIYA_SOURCE_INDEX_URLS }}
           AKIYA_WATCH_URLS: ${{ secrets.AKIYA_WATCH_URLS }}
+          # Politeness: seconds between two requests to the same host, and the
+          # maximum number of listings taken from one source per run.
+          AKIYA_REQUEST_DELAY: ${{ vars.AKIYA_REQUEST_DELAY || '1.5' }}
+          AKIYA_PER_SOURCE_LIMIT: ${{ vars.AKIYA_PER_SOURCE_LIMIT || '150' }}
           LOG_LEVEL: INFO
         run: python -m worker.ingest

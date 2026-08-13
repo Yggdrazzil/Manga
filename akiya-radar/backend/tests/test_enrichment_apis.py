@@ -215,7 +215,7 @@ def test_frankfurter_live_rate_with_fallback(monkeypatch):
 
     monkeypatch.setattr(_httpx, "get", boom)
     fallback = cls().jpy_to_eur(D(1_000_000))
-    assert fallback == D("6000.00")  # 0.0060 static rate
+    assert fallback == D("5500.00")  # 0.0055 static fallback rate
 
 
 def test_geocode_rejects_water_points(monkeypatch):

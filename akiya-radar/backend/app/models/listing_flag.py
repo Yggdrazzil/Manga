@@ -13,7 +13,10 @@ class ListingFlag(UUIDMixin, Base):
     __tablename__ = "listing_flags"
 
     listing_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("listings.id", ondelete="CASCADE"), nullable=False
+        UUID(as_uuid=True),
+        ForeignKey("listings.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     flag_code: Mapped[str] = mapped_column(Text, nullable=False)
     label_fr: Mapped[str] = mapped_column(Text, nullable=False)

@@ -7,6 +7,8 @@ payante, sans Supabase, sans LLM payant obligatoire.
 > Outil privé d'aide à la recherche immobilière. Il ne republie pas d'annonces
 > et ne prétend pas à l'exactitude des données sources.
 
+**Mise en production pas-à-pas (sans savoir coder) : [MISE_EN_SERVICE.md](MISE_EN_SERVICE.md).**
+
 ## Stack
 
 | Couche    | Technologies |
@@ -108,27 +110,46 @@ python -m worker     # mode idle MVP (pas de crawl réel)
 | [GSI 国土地理院](https://msearch.gsi.go.jp/address-search/AddressSearch) | Gratuit, sans clé | Géocodage des adresses japonaises (automatique à l'import, bouton sur la fiche). La précision est toujours affichée honnêtement (approximatif / ville). |
 | [J-SHIS 防災科研](https://www.j-shis.bosai.go.jp/api-pshm-meshinfo) | Gratuit, sans clé | **Risque sismique officiel vérifié** par coordonnées (probabilité de secousse ≥ shindo 5強 sous 30 ans). Alimente le score « risques naturels ». |
 | [MLIT 不動産情報ライブラリ](https://www.reinfolib.mlit.go.jp/help/apiManual/) | Clé gratuite ([demande](https://www.reinfolib.mlit.go.jp/api/request/)) | Prix de transaction réels (XIT001) → tableau de comparables + prix médian au m² sur la fiche. Sans clé, l'app explique comment l'obtenir. |
-| [OpenStreetMap Overpass](https://overpass-api.de/) | Gratuit, sans clé | Gare ferroviaire la plus proche (nom, distance, opérateur) — à la demande sur la fiche, jamais en masse. |
-| [Frankfurter (BCE)](https://api.frankfurter.dev/) | Gratuit, sans clé | Taux JPY→EUR réel (cache 12 h, repli statique hors ligne). |
+| [Hazard Map Portal 重ねるハザードマップ](https://disaportal.gsi.go.jp/) | Gratuit, sans clé | **Inondation, tsunami, submersion marine et glissement de terrain** au point exact, par échantillonnage des tuiles raster officielles. Distingue « hors zone cartographiée » de « non vérifié ». |
+| [GSI élévation](https://cyberjapandata2.gsi.go.jp/general/dem/scripts/getelevation.php) | Gratuit, sans clé | Altitude du terrain (DEM 5 m) — signal décisif sur le risque de submersion. |
+| [OpenStreetMap Overpass](https://overpass-api.de/) | Gratuit, sans clé | Gare ferroviaire la plus proche (nom, distance, opérateur) — à la demande, jamais en masse. Bascule automatiquement entre plusieurs miroirs. |
+| Taux de change ([Frankfurter/BCE](https://api.frankfurter.dev/), [exchangerate-api](https://open.er-api.com/)) | Gratuit, sans clé | Taux JPY→EUR réel (cache 6 h, plusieurs fournisseurs en cascade, repli statique hors ligne). |
 
 **Garde-fou géographique** : chaque géocodage est validé par le géocodeur
 *inverse* GSI — un point qui ne résout pas vers une adresse japonaise (mer,
 hors Japon) est rejeté. Plus de marqueurs dans l'eau.
 
-## Où trouver des annonces (sources à nourrir)
+## Catalogue de sources (2 159 banques d'akiya réelles)
 
-Pré-enregistrées dans l'app (page Sources) :
+Il n'existe **aucune API publique** listant les akiya du Japon. L'application
+embarque donc un catalogue construit depuis deux annuaires officiels
+(`backend/app/data/source_catalog.json`, régénérable via
+`python scripts/build_source_catalog.py`) :
 
-- **[LIFULL HOME'S 空き家バンク](https://www.homes.co.jp/akiyabank/)** et
-  **[アットホーム 空き家バンク](https://www.akiya-athome.jp/)** — les deux
-  plateformes nationales désignées par le MLIT (annonces municipales
-  agrégées). Import via URL ; vérifier CGU/robots.txt avant tout crawl.
-- **[Portail MLIT 空き家・空き地バンク](https://www.mlit.go.jp/totikensangyo/const/sosei_const_tk3_000131.html)** —
-  liste officielle des banques municipales participantes : la meilleure façon
-  de découvrir les banques d'akiya de vos régions cibles, souvent crawlables
-  simplement (worker/adapters).
-- Les **banques municipales** directes (ex. Tsuruga, Okinoshima) restent la
-  source la plus riche et la plus respectueuse à automatiser.
+| Origine | Volume | Rôle |
+|---------|--------|------|
+| [Annuaire MLIT 空き家バンク リンク集](https://www.mlit.go.jp/totikensangyo/const/akiyabank_link.html) | ~1 300 | Sites municipaux officiels, une commune = une page, mise en forme libre |
+| [Réseau アットホーム 空き家バンク](https://www.akiya-athome.jp/) | 842 | Un sous-domaine par commune, **gabarit identique** → extraction structurée fiable |
+| [LIFULL HOME'S 空き家バンク](https://www.homes.co.jp/akiyabank/) | national | Consultation manuelle : le site répond 403 aux robots |
+
+Couverture : **47 préfectures**. La page **Catalogue** permet de filtrer par
+préfecture, de ne garder que les sources structurées, et de les enregistrer en
+un clic. Le crawl reste **opt-in par source**.
+
+### Données hétérogènes → une seule forme
+
+Chaque source nomme et formate les mêmes faits différemment (`価格` /
+`販売価格` / `譲渡価格`, `2,250万円` / `応相談`). `services/normalize.py` est le
+point unique où cela devient exploitable :
+
+- **Vocabulaire fermé** — `property_type` et `transaction_type` ne contiennent
+  jamais de japonais brut.
+- **Loyer séparé du prix** — un loyer mensuel n'atterrit jamais dans
+  `price_yen`, où il écraserait tout classement par prix.
+- **Provenance** — chaque champ normalisé conserve le libellé et le texte
+  japonais d'origine, consultables sur la fiche.
+- **Complétude 0-100** — l'interface distingue « pas cher » de « on ne sait
+  presque rien », au lieu d'afficher des blancs convaincants.
 
 Distinction importante : un **red flag** signifie « l'annonce *mentionne* ce
 terme » (analyse du texte source) ; le bloc « risques vérifiés » de la fiche

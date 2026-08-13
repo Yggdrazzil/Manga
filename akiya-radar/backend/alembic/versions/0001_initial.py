@@ -11,12 +11,10 @@ GeoAlchemy2 geography column and its spatial index).
 
 from collections.abc import Sequence
 
-from alembic import op
-
-from app.database import Base
-
 # Ensure all models are registered on the metadata.
 import app.models  # noqa: F401
+from alembic import op
+from app.database import Base
 
 revision: str = "0001_initial"
 down_revision: str | None = None

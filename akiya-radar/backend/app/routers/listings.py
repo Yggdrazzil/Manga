@@ -32,13 +32,13 @@ router = APIRouter(prefix="/listings", tags=["listings"])
 _LOADERS = (
     selectinload(Listing.flags),
     selectinload(Listing.scores),
+    selectinload(Listing.hazard_scores),
 )
 _DETAIL_LOADERS = (
     *_LOADERS,
     selectinload(Listing.notes),
     selectinload(Listing.tasks),
     selectinload(Listing.price_history),
-    selectinload(Listing.hazard_scores),
 )
 
 

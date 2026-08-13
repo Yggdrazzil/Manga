@@ -13,7 +13,10 @@ class HazardScore(UUIDMixin, Base):
     __tablename__ = "hazard_scores"
 
     listing_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("listings.id", ondelete="CASCADE"), nullable=False
+        UUID(as_uuid=True),
+        ForeignKey("listings.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     flood_risk: Mapped[str | None] = mapped_column(Text)
     tsunami_risk: Mapped[str | None] = mapped_column(Text)

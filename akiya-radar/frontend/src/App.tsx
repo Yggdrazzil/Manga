@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 
 import { Layout } from "@/components/Layout";
+import { Catalogue } from "@/pages/Catalogue";
 import { Dashboard } from "@/pages/Dashboard";
 import { ImportUrl } from "@/pages/ImportUrl";
 import { Listings } from "@/pages/Listings";
@@ -21,6 +22,7 @@ export default function App() {
         <Route path="/map" element={<MapView />} />
         <Route path="/import" element={<ImportUrl />} />
         <Route path="/sources" element={<Sources />} />
+        <Route path="/catalogue" element={<Catalogue />} />
         <Route path="/saved-searches" element={<SavedSearches />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

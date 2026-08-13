@@ -37,6 +37,7 @@ class HazardOut(BaseModel):
     flood_risk: str | None = None
     tsunami_risk: str | None = None
     landslide_risk: str | None = None
+    storm_surge_risk: str | None = None
     earthquake_risk: str | None = None
     source_name: str | None = None
     raw_json: dict | None = None
@@ -117,11 +118,23 @@ class ListingBase(BaseModel):
     build_year: int | None = None
     property_type: str | None = None
     transaction_type: str | None = None
+    rent_yen_month: Decimal | None = None
     listing_status: str | None = None
     personal_status: str | None = None
     favorite: bool | None = None
     rating: int | None = Field(default=None, ge=0, le=5)
     photo_urls: list[str] | None = None
+    zoning: str | None = None
+    structure: str | None = None
+    land_rights: str | None = None
+    parking: str | None = None
+    current_state: str | None = None
+    features: list[str] | None = None
+    utilities: list[str] | None = None
+    station_name: str | None = None
+    station_line: str | None = None
+    station_walk_minutes: int | None = None
+    station_distance_km: Decimal | None = None
 
 
 class ListingCreate(ListingBase):
@@ -152,24 +165,43 @@ class ListingSummary(BaseModel):
     building_area_m2: Decimal | None = None
     build_year: int | None = None
     property_type: str | None = None
+    transaction_type: str | None = None
+    rent_yen_month: Decimal | None = None
     listing_status: str | None = None
     personal_status: str
     favorite: bool
     rating: int | None = None
     photo_urls: list[str] | None = None
+    floor_plan: str | None = None
+    station_name: str | None = None
+    station_walk_minutes: int | None = None
+    station_distance_km: Decimal | None = None
+    data_completeness: int | None = None
     flags: list[FlagOut] = []
     scores: list[ScoreOut] = []
+    # Summaries carry hazards too: knowing a listing sits in a tsunami zone is
+    # exactly the kind of thing that should stop you before you open the card.
+    hazard_scores: list[HazardOut] = []
 
 
 class ListingDetail(ListingSummary):
     source_id: uuid.UUID | None = None
+    source_key: str | None = None
     external_id: str | None = None
     description_original: str | None = None
     description_fr: str | None = None
     price_text_original: str | None = None
     address_text: str | None = None
-    floor_plan: str | None = None
-    transaction_type: str | None = None
+    zoning: str | None = None
+    structure: str | None = None
+    land_rights: str | None = None
+    parking: str | None = None
+    current_state: str | None = None
+    features: list[str] | None = None
+    utilities: list[str] | None = None
+    station_line: str | None = None
+    elevation_m: Decimal | None = None
+    field_provenance: dict | None = None
     first_seen_at: datetime | None = None
     last_seen_at: datetime | None = None
     source_updated_at: datetime | None = None
@@ -178,7 +210,6 @@ class ListingDetail(ListingSummary):
     notes: list[NoteOut] = []
     tasks: list[TaskOut] = []
     price_history: list[PriceHistoryOut] = []
-    hazard_scores: list[HazardOut] = []
 
 
 class ImportUrlRequest(BaseModel):

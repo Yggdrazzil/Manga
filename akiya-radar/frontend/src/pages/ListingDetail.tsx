@@ -3,31 +3,30 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { api } from "@/api/client";
+import { CompletenessMeter } from "@/components/CompletenessMeter";
 import { DuplicateBanner } from "@/components/DuplicateBanner";
 import { ErrorState, Spinner } from "@/components/feedback";
 import { FlagBadge } from "@/components/FlagBadge";
+import { HazardStrip } from "@/components/HazardStrip";
 import { ListingMap } from "@/components/ListingMap";
 import { PhotoGallery } from "@/components/PhotoGallery";
 import { ScoreBadge } from "@/components/ScoreBadge";
+import { SourceFacts } from "@/components/SourceFacts";
 import { StatusPill } from "@/components/StatusPill";
 import { TranslatableText } from "@/components/TranslatableText";
 import { DUE_DILIGENCE, loadChecklist, saveChecklist } from "@/lib/checklist";
-import { accuracyLabel, fmtArea, fmtEur, fmtYen, severityRank } from "@/lib/format";
+import {
+  accuracyLabel,
+  fmtArea,
+  fmtElevation,
+  fmtEur,
+  fmtPricePerM2,
+  fmtYen,
+  pricePerM2,
+  scoreBg,
+  severityRank,
+} from "@/lib/format";
 import { latestScore, PERSONAL_STATUSES, PERSONAL_STATUS_LABELS } from "@/lib/types";
-
-const hazardLabel: Record<string, string> = {
-  low: "faible",
-  medium: "modéré",
-  high: "élevé",
-  unknown: "inconnu",
-};
-
-const hazardTone: Record<string, string> = {
-  low: "text-moss",
-  medium: "text-gold",
-  high: "text-vermilion",
-  unknown: "text-ink-mute",
-};
 
 const SCORE_PARTS: { key: string; label: string; max: number }[] = [
   { key: "price_score", label: "Prix / valeur", max: 20 },
@@ -126,11 +125,12 @@ export function ListingDetailPage() {
   const latestHazard =
     listing.hazard_scores && listing.hazard_scores.length > 0
       ? listing.hazard_scores[listing.hazard_scores.length - 1]
-      : null;
+      : undefined;
   const flags = [...listing.flags].sort(
     (a, b) => severityRank(a.severity) - severityRank(b.severity),
   );
   const accurate = listing.geocode_accuracy === "exact";
+  const unitPrice = pricePerM2(listing.price_yen, listing.land_area_m2);
   const checkedCount = Object.values(checked).filter(Boolean).length;
 
   const toggleCheck = (key: string) => {
@@ -275,6 +275,11 @@ export function ListingDetailPage() {
                 Prix source : {listing.price_text_original}
               </p>
             )}
+            {unitPrice !== null && (
+              <p className="mt-1 font-mono text-sm text-ink-soft">
+                {fmtPricePerM2(unitPrice)} de terrain
+              </p>
+            )}
             <dl className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
               {[
                 ["Terrain", fmtArea(listing.land_area_m2)],
@@ -288,7 +293,12 @@ export function ListingDetailPage() {
                 </div>
               ))}
             </dl>
+            <div className="mt-4 border-t border-line pt-4">
+              <CompletenessMeter value={listing.data_completeness} variant="bar" />
+            </div>
           </section>
+
+          <SourceFacts listing={listing} />
 
           {/* Red flags */}
           <section className="panel p-5">
@@ -428,8 +438,12 @@ export function ListingDetailPage() {
                           </span>
                         </div>
                         <div className="mt-1 h-2 overflow-hidden rounded-full bg-paper-2">
+                          {/* Colour tracks the ratio: a full sub-score painted
+                              alarm-red read as a problem rather than a strength. */}
                           <div
-                            className="h-full rounded-full bg-gradient-to-r from-vermilion to-gold transition-[width] duration-500 ease-out-expo"
+                            className={`h-full rounded-full transition-[width] duration-500 ease-out-expo ${scoreBg(
+                              Math.round((val / p.max) * 100),
+                            )}`}
                             style={{ width: `${(val / p.max) * 100}%` }}
                           />
                         </div>
@@ -480,44 +494,35 @@ export function ListingDetailPage() {
             )}
 
             <div className="mt-4 border-t border-line pt-3">
-              {latestHazard ? (
-                <div>
-                  <p className="text-sm font-bold">
-                    Risque sismique :{" "}
-                    <span className={hazardTone[latestHazard.earthquake_risk ?? "unknown"]}>
-                      {hazardLabel[latestHazard.earthquake_risk ?? "unknown"]}
-                    </span>
-                  </p>
-                  {latestHazard.raw_json?.T30_I50_PS != null && (
-                    <p className="mt-0.5 text-xs text-ink-soft">
-                      Probabilité de secousse ≥ shindo 5強 sous 30 ans :{" "}
-                      {Math.round(Number(latestHazard.raw_json.T30_I50_PS) * 100)}%
-                    </p>
-                  )}
-                  <p className="mt-0.5 text-[11px] uppercase tracking-wider text-ink-mute">
-                    Source : {latestHazard.source_name}
-                  </p>
-                </div>
-              ) : (
-                <p className="text-sm text-ink-soft">
-                  Risque sismique non vérifié — donnée officielle disponible gratuitement.
+              <h3 className="mb-2 font-display text-lg font-bold">Risques naturels</h3>
+              <HazardStrip hazard={latestHazard} variant="full" />
+              {latestHazard?.raw_json?.T30_I50_PS != null && (
+                <p className="mt-2 text-xs text-ink-soft">
+                  Probabilité de secousse ≥ shindo 5強 sous 30 ans :{" "}
+                  {Math.round(Number(latestHazard.raw_json.T30_I50_PS) * 100)}%
+                </p>
+              )}
+              {listing.elevation_m != null && (
+                <p className="mt-1 text-xs text-ink-soft">
+                  Altitude du terrain : {fmtElevation(listing.elevation_m)}{" "}
+                  <span className="text-ink-mute">(GSI)</span>
                 </p>
               )}
               <button
-                className="btn mt-2 text-sm"
+                className="btn mt-3 text-sm"
                 onClick={() => hazardCheck.mutate()}
                 disabled={hazardCheck.isPending || listing.lat == null}
                 title={
                   listing.lat == null
                     ? "Géocodez d'abord l'annonce"
-                    : "Interroger J-SHIS (防災科研)"
+                    : "Interroger J-SHIS et les cartes d'aléa officielles"
                 }
               >
                 {hazardCheck.isPending
                   ? "Vérification…"
                   : latestHazard
-                    ? "↻ Re-vérifier le risque sismique"
-                    : "⚡ Vérifier le risque sismique (J-SHIS)"}
+                    ? "↻ Re-vérifier les risques"
+                    : "⚡ Vérifier les risques (J-SHIS + cartes d'aléa)"}
               </button>
               {hazardCheck.isError && (
                 <p className="mt-1 text-xs text-vermilion" role="alert">

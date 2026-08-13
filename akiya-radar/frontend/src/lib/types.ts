@@ -47,6 +47,11 @@ export interface PriceHistoryEntry {
   source_url: string | null;
 }
 
+export type PropertyType = "kominka" | "machiya" | "house" | "apartment" | "land" | "other";
+export type TransactionType = "sale" | "rent" | "unknown";
+/** Measured hazard level. `none` = mapped and clear; `unknown` = not checked. */
+export type RiskLevel = "none" | "low" | "medium" | "high" | "very_high" | "unknown";
+
 export interface ListingSummary {
   id: string;
   source_url: string;
@@ -55,6 +60,7 @@ export interface ListingSummary {
   summary_fr: string | null;
   price_yen: number | null;
   price_eur: number | null;
+  rent_yen_month: number | null;
   prefecture: string | null;
   city: string | null;
   lat: number | null;
@@ -63,25 +69,67 @@ export interface ListingSummary {
   land_area_m2: number | null;
   building_area_m2: number | null;
   build_year: number | null;
-  property_type: string | null;
+  floor_plan: string | null;
+  property_type: PropertyType | null;
+  transaction_type: TransactionType | null;
   listing_status: string | null;
   personal_status: string;
   favorite: boolean;
   rating: number | null;
   photo_urls?: string[] | null;
+  station_name: string | null;
+  station_walk_minutes: number | null;
+  station_distance_km: number | null;
+  /** 0-100 share of the comparable core actually known for this listing. */
+  data_completeness: number | null;
   flags: Flag[];
   scores: Score[];
+  hazard_scores: HazardScore[];
 }
 
 export interface HazardScore {
   id: string;
-  flood_risk: string | null;
-  tsunami_risk: string | null;
-  landslide_risk: string | null;
+  flood_risk: RiskLevel | null;
+  tsunami_risk: RiskLevel | null;
+  landslide_risk: RiskLevel | null;
+  storm_surge_risk: RiskLevel | null;
   earthquake_risk: string | null;
   source_name: string | null;
   raw_json: Record<string, unknown> | null;
   created_at: string;
+}
+
+/** Original Japanese label and text behind one normalised field. */
+export interface Provenance {
+  label: string;
+  text: string;
+}
+
+export interface CatalogEntry {
+  key: string;
+  name: string;
+  source_type: string;
+  url: string;
+  prefecture: string | null;
+  municipality: string | null;
+  adapter: string;
+  crawlable: boolean;
+  scope: string;
+  notes_fr: string | null;
+  registered: boolean;
+}
+
+export interface CatalogResponse {
+  items: CatalogEntry[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface CatalogPrefecture {
+  prefecture: string;
+  total: number;
+  structured: number;
 }
 
 export interface Comp {
@@ -128,8 +176,17 @@ export interface ListingDetail extends ListingSummary {
   description_fr: string | null;
   price_text_original: string | null;
   address_text: string | null;
-  floor_plan: string | null;
-  transaction_type: string | null;
+  source_key: string | null;
+  zoning: string | null;
+  structure: string | null;
+  land_rights: string | null;
+  parking: string | null;
+  current_state: string | null;
+  features: string[] | null;
+  utilities: string[] | null;
+  station_line: string | null;
+  elevation_m: number | null;
+  field_provenance: Record<string, Provenance> | null;
   first_seen_at: string | null;
   last_seen_at: string | null;
   source_updated_at: string | null;
@@ -138,7 +195,6 @@ export interface ListingDetail extends ListingSummary {
   notes: Note[];
   tasks: Task[];
   price_history: PriceHistoryEntry[];
-  hazard_scores: HazardScore[];
 }
 
 export interface ListingListResponse {

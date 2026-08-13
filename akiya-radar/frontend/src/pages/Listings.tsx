@@ -3,8 +3,9 @@ import { useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { api } from "@/api/client";
-import { EmptyState, ErrorState, Spinner } from "@/components/feedback";
+import { EmptyState, ErrorState, ListingGridSkeleton } from "@/components/feedback";
 import { ListingCard } from "@/components/ListingCard";
+import { propertyTypeLabel } from "@/lib/format";
 import type { ListingFilters, ListingSort, ListingSummary } from "@/lib/types";
 
 const PAGE_SIZE = 12;
@@ -22,7 +23,9 @@ export function Listings() {
   const rawSort = params.get("sort") ?? "newest";
   const sort: ListingSort = (SORT_ALIASES[rawSort] ?? rawSort) as ListingSort;
   const [filters, setFilters] = useState<ListingFilters>({});
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [page, setPage] = useState(0);
+  const activeFilterCount = Object.keys(filters).length;
   const queryClient = useQueryClient();
   const debounceTimer = useRef<ReturnType<typeof setTimeout>>();
 
@@ -85,8 +88,33 @@ export function Listings() {
   return (
     <div className="grid gap-6 lg:grid-cols-[260px_1fr]">
       <aside className="panel h-fit p-4 lg:sticky lg:top-4">
-        <h2 className="font-display text-xl font-bold">Filtres</h2>
-        <form className="mt-3 space-y-3" onSubmit={(e) => e.preventDefault()}>
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="font-display text-xl font-bold">
+            Filtres
+            {activeFilterCount > 0 && (
+              <span className="ml-2 rounded-full bg-vermilion px-2 py-0.5 align-middle text-xs font-bold text-paper">
+                {activeFilterCount}
+              </span>
+            )}
+          </h2>
+          {/* On a phone the full filter form fills the first screen, pushing
+              every listing below the fold. It collapses there and stays open
+              on desktop, where the sidebar costs nothing. */}
+          <button
+            type="button"
+            className="btn text-sm lg:hidden"
+            onClick={() => setFiltersOpen((v) => !v)}
+            aria-expanded={filtersOpen}
+            aria-controls="listing-filters"
+          >
+            {filtersOpen ? "Masquer" : "Filtrer"}
+          </button>
+        </div>
+        <form
+          id="listing-filters"
+          className={`mt-3 space-y-3 lg:block ${filtersOpen ? "" : "hidden"}`}
+          onSubmit={(e) => e.preventDefault()}
+        >
           <div>
             <label className="label" htmlFor="q">Recherche</label>
             <input
@@ -131,6 +159,35 @@ export function Listings() {
                 )
               }
             />
+          </div>
+          <div>
+            <label className="label" htmlFor="ptype">Type de bien</label>
+            <select
+              id="ptype"
+              className="field"
+              value={filters.property_type ?? ""}
+              onChange={(e) => update({ property_type: e.target.value || undefined })}
+            >
+              <option value="">Tous</option>
+              {Object.entries(propertyTypeLabel).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="label" htmlFor="ttype">Transaction</label>
+            <select
+              id="ttype"
+              className="field"
+              value={filters.transaction_type ?? ""}
+              onChange={(e) => update({ transaction_type: e.target.value || undefined })}
+            >
+              <option value="">Vente et location</option>
+              <option value="sale">Vente</option>
+              <option value="rent">Location</option>
+            </select>
           </div>
           <div>
             <label className="label" htmlFor="score">Score min</label>
@@ -198,14 +255,14 @@ export function Listings() {
         </div>
 
         {isLoading ? (
-          <Spinner />
+          <ListingGridSkeleton count={PAGE_SIZE} />
         ) : error ? (
           <ErrorState message={(error as Error).message} onRetry={refetch} />
         ) : items.length === 0 ? (
           <EmptyState title="aucun bien" hint="Ajustez vos filtres ou importez une annonce." />
         ) : (
           <>
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="stagger grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {items.map((l) => (
                 <ListingCard key={l.id} listing={l} onToggleFavorite={favorite.mutate} />
               ))}

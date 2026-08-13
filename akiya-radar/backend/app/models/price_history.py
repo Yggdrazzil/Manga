@@ -14,7 +14,10 @@ class PriceHistory(UUIDMixin, Base):
     __tablename__ = "price_history"
 
     listing_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("listings.id", ondelete="CASCADE"), nullable=False
+        UUID(as_uuid=True),
+        ForeignKey("listings.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     price_yen: Mapped[Decimal | None] = mapped_column(Numeric)
     detected_at: Mapped[datetime] = mapped_column(

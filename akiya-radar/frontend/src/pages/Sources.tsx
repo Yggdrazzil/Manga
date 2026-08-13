@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 
 import { api } from "@/api/client";
 import { EmptyState, ErrorState, Spinner } from "@/components/feedback";
@@ -30,9 +31,26 @@ export function Sources() {
     },
   });
 
+  const toggleCrawl = useMutation({
+    mutationFn: (s: { id: string; crawl_enabled: boolean }) =>
+      api.updateSource(s.id, { crawl_enabled: !s.crawl_enabled }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["sources"] }),
+  });
+
   return (
     <div className="space-y-6">
-      <h1 className="font-display text-3xl font-extrabold">Sources</h1>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="font-display text-hero font-extrabold">Sources</h1>
+          <p className="text-ink-soft">
+            Les sites que l'application surveille. La collecte quotidienne ne visite
+            que ceux dont le crawl est activé.
+          </p>
+        </div>
+        <Link to="/catalogue" className="btn btn-primary">
+          Parcourir le catalogue →
+        </Link>
+      </div>
 
       <form
         className="panel grid gap-3 p-5 sm:grid-cols-[2fr_1.5fr_2fr_auto] sm:items-end"
@@ -83,7 +101,10 @@ export function Sources() {
       ) : error ? (
         <ErrorState message={(error as Error).message} onRetry={refetch} />
       ) : !data || data.length === 0 ? (
-        <EmptyState title="aucune source" hint="Ajoutez une source ci-dessus." />
+        <EmptyState
+          title="aucune source"
+          hint="Ajoutez-en depuis le catalogue des 2 159 banques d'akiya officielles."
+        />
       ) : (
         <div className="panel overflow-x-auto">
           <table className="w-full text-left text-sm">
@@ -102,9 +123,21 @@ export function Sources() {
                   <td className="px-4 py-2 font-bold">{s.name}</td>
                   <td className="px-4 py-2 font-mono text-xs">{s.source_type}</td>
                   <td className="px-4 py-2">
-                    <span className={`chip ${s.crawl_enabled ? "bg-moss/20 text-moss" : "text-ink-mute"}`}>
+                    <button
+                      className={`chip transition-colors ${
+                        s.crawl_enabled
+                          ? "border-moss/40 bg-moss/15 text-moss"
+                          : "border-line text-ink-mute"
+                      }`}
+                      onClick={() =>
+                        toggleCrawl.mutate({ id: s.id, crawl_enabled: s.crawl_enabled })
+                      }
+                      disabled={toggleCrawl.isPending}
+                      aria-pressed={s.crawl_enabled}
+                      title="Activer ou désactiver la collecte quotidienne pour cette source"
+                    >
                       {s.crawl_enabled ? "activé" : "désactivé"}
-                    </span>
+                    </button>
                   </td>
                   <td className="px-4 py-2 text-ink-soft">
                     {s.last_crawled_at

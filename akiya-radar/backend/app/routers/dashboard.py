@@ -69,7 +69,11 @@ def dashboard(db: Session = Depends(get_db)) -> DashboardResponse:
     ).scalar_one()
 
     score_subq = _latest_score_subq()
-    loaders = (selectinload(Listing.flags), selectinload(Listing.scores))
+    loaders = (
+        selectinload(Listing.flags),
+        selectinload(Listing.scores),
+        selectinload(Listing.hazard_scores),
+    )
 
     top = list(
         db.execute(
