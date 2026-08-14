@@ -19,7 +19,9 @@ export function FlagBadge({ flag, full = false }: { flag: Flag; full?: boolean }
       title={flag.explanation_fr ?? flag.label_fr}
     >
       <span aria-hidden>{icon[flag.severity] ?? "•"}</span>
-      {full ? flag.label_fr : flag.label_fr.split(" ").slice(0, 3).join(" ")}
+      {/* Cutting after N words produced dangling prepositions ("Objets laissés
+          sur"). CSS ellipsis truncates cleanly, and the title carries the rest. */}
+      <span className={full ? "" : "max-w-[15rem] truncate"}>{flag.label_fr}</span>
     </span>
   );
 }

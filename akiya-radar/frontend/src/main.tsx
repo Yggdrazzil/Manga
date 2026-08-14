@@ -12,9 +12,14 @@ const queryClient = new QueryClient({
   },
 });
 
-// Self-contained preview builds have no server, so hash routing keeps every
-// route reachable when the file is opened directly.
-const Router = import.meta.env.VITE_MOCK === "1" ? HashRouter : BrowserRouter;
+// Hash routing whenever no server can rewrite unknown paths to index.html:
+// the self-contained preview (opened straight from a file) and the serverless
+// build (GitHub Pages, which answers 404 on a deep link or a refresh).
+// The Docker deployment runs behind Vite/Caddy, which do rewrite, so it keeps
+// clean URLs.
+const IS_SERVERLESS =
+  import.meta.env.VITE_MOCK === "1" || import.meta.env.VITE_DATA_MODE === "static";
+const Router = IS_SERVERLESS ? HashRouter : BrowserRouter;
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

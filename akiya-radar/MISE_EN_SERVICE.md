@@ -88,6 +88,12 @@ en ligne à l'adresse indiquée dans l'onglet **Pages** — typiquement :
 https://VOTRE-NOM.github.io/manga/
 ```
 
+Les adresses internes du site contiennent un `#` (par exemple
+`.../manga/#/listings`) : c'est voulu. GitHub Pages ne sait pas rediriger les
+adresses inconnues, et sans ce `#` un rafraîchissement de page renverrait une
+erreur 404. Les liens restent partageables et les favoris de navigateur
+fonctionnent normalement.
+
 Ensuite, la collecte se relance **toute seule chaque matin**.
 
 ## A4 — Sauvegarder vos notes
