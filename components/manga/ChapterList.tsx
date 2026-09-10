@@ -12,7 +12,7 @@ import { Panel } from '@/components/ui/Panel';
 import { Typography } from '@/components/ui/Typography';
 import { ChapterDetailSheet } from './ChapterDetailSheet';
 import { compareChapters } from '@/lib/utils/chapter';
-import { BORDERS, COLORS, FONTS, RADIUS, SPACING, HARD_SHADOW } from '@/constants/theme';
+import { BORDERS, COLORS, RADIUS, SPACING } from '@/constants/theme';
 import type { Manga, MangaChapter } from '@/lib/types';
 
 interface ChapterListProps {
