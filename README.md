@@ -5,6 +5,10 @@ Construite avec **Expo SDK 54 / React Native 0.81**, TypeScript strict, design g
 
 Sources de données : **AniList** (GraphQL), **MangaDex** (REST), **Jikan / MyAnimeList**.
 
+> Ce dépôt ne contient que MangaTrack. Le cockpit de recherche immobilière
+> **Akiya Radar**, qui vivait ici, a son propre dépôt :
+> [Yggdrazzil/Akiya-Radar](https://github.com/Yggdrazzil/Akiya-Radar).
+
 ---
 
 ## Lancer en local (Expo Go)
@@ -20,7 +24,6 @@ Le moyen le plus rapide de voir l'app sur ton téléphone, en rendu natif réel.
 ```bash
 git clone https://github.com/Yggdrazzil/Manga.git
 cd Manga
-git checkout claude/code-best-practices-skills-nlEEM
 ```
 
 ### 3. Installer les dépendances
